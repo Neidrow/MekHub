@@ -1,6 +1,16 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+// Fonction pour récupérer la clé API de manière sécurisée sans faire planter l'app
+const getApiKey = () => {
+  try {
+    // @ts-ignore
+    return (typeof process !== 'undefined' && process.env.API_KEY) ? process.env.API_KEY : '';
+  } catch (e) {
+    return '';
+  }
+};
+
 /**
  * Moteur de diagnostic local (Indépendant de toute API externe)
  * Garantit que le SaaS fonctionne même sans clé ou hors-ligne.
@@ -26,37 +36,44 @@ const localExpertDiagnostic = (symptoms: string): string => {
 export const getDiagnosticSuggestions = async (symptoms: string) => {
   if (!symptoms) return "Veuillez entrer des symptômes.";
 
-  try {
-    // Initialisation au moment de l'appel pour s'assurer que process.env.API_KEY est bien lu
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `En tant qu'expert mécanicien, diagnostique ceci : "${symptoms}". Donne 3 causes, les étapes de vérification et la difficulté. Format Markdown court.`,
-    });
-    
-    if (response && response.text) {
-      return response.text;
+  const apiKey = getApiKey();
+
+  if (apiKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `En tant qu'expert mécanicien, diagnostique ceci : "${symptoms}". Donne 3 causes, les étapes de vérification et la difficulté. Format Markdown court.`,
+      });
+      
+      if (response && response.text) {
+        return response.text;
+      }
+    } catch (error) {
+      console.warn("Erreur IA Gemini, passage en mode local:", error);
     }
-    return localExpertDiagnostic(symptoms);
-  } catch (error) {
-    console.error("Erreur API Gemini :", error);
-    return localExpertDiagnostic(symptoms);
   }
+
+  return localExpertDiagnostic(symptoms);
 };
 
 export const generateCustomerMessage = async (serviceDetails: string, customerName: string) => {
   const fallbackMsg = `Bonjour ${customerName}, nous avons terminé l'intervention suivante : ${serviceDetails}. Votre véhicule est prêt. Cordialement, votre garage.`;
   
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Rédige un SMS professionnel et poli pour ${customerName} concernant : ${serviceDetails}. Max 160 caractères.`,
-    });
-    return response.text || fallbackMsg;
-  } catch (error) {
-    return fallbackMsg;
+  const apiKey = getApiKey();
+  
+  if (apiKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Rédige un SMS professionnel et poli pour ${customerName} concernant : ${serviceDetails}. Max 160 caractères.`,
+      });
+      return response.text || fallbackMsg;
+    } catch (error) {
+      return fallbackMsg;
+    }
   }
+  
+  return fallbackMsg;
 };
