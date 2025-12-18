@@ -1,71 +1,63 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Vérification sécurisée de la clé API
-const API_KEY = (typeof process !== 'undefined' && process.env.API_KEY) ? process.env.API_KEY : null;
-
-// Initialisation conditionnelle de Gemini
-const genAI = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
+// Utilisation directe selon les directives de sécurité
+// L'environnement se charge d'injecter la valeur dans process.env.API_KEY
+const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * Moteur de diagnostic local (Fallback sans Gemini)
- * Permet au SaaS de fonctionner immédiatement sans configuration complexe.
+ * Moteur de diagnostic local (Indépendant de toute API externe)
+ * Garantit que le SaaS fonctionne même sans clé ou hors-ligne.
  */
 const localExpertDiagnostic = (symptoms: string): string => {
   const s = symptoms.toLowerCase();
   let suggestions = "### 🛠️ Diagnostic Expert Local\n\n";
   
-  if (s.includes('frein') || s.includes('siffle')) {
-    suggestions += "- **Cause possible :** Plaquettes de frein usées ou glaçage des disques.\n- **Action :** Vérifier l'épaisseur des garnitures et l'état de surface des disques.\n- **Difficulté :** Moyenne (🔧🔧)";
-  } else if (s.includes('batterie') || s.includes('démarre pas')) {
-    suggestions += "- **Cause possible :** Batterie déchargée ou alternateur défaillant.\n- **Action :** Tester le voltage au repos (min 12.4V) et moteur tournant (env. 14V).\n- **Difficulté :** Facile (🔧)";
-  } else if (s.includes('fumée') || s.includes('huile')) {
-    suggestions += "- **Cause possible :** Consommation d'huile excessive ou fuite au turbo.\n- **Action :** Contrôler les niveaux et l'étanchéité du circuit d'admission.\n- **Difficulté :** Difficile (🔧🔧🔧)";
-  } else if (s.includes('claque') || s.includes('bruit')) {
-    suggestions += "- **Cause possible :** Jeu dans les silentblocs ou biellettes de barre stabilisatrice.\n- **Action :** Mise sur pont et contrôle des jeux de train avant.\n- **Difficulté :** Moyenne (🔧🔧)";
+  if (s.includes('frein') || s.includes('siffle') || s.includes('bruit')) {
+    suggestions += "- **Cause possible :** Usure des plaquettes ou disques voilés.\n- **Action :** Mesurer l'épaisseur des garnitures.\n- **Difficulté :** 🔧🔧";
+  } else if (s.includes('batterie') || s.includes('démarre') || s.includes('voyant')) {
+    suggestions += "- **Cause possible :** Tension batterie faible ou alternateur fatigué.\n- **Action :** Tester la batterie au multimètre (12.6V requis).\n- **Difficulté :** 🔧";
+  } else if (s.includes('fumée') || s.includes('noir') || s.includes('blanc')) {
+    suggestions += "- **Cause possible :** Problème d'injection ou joint de culasse.\n- **Action :** Vérifier les niveaux de liquide et passer la valise.\n- **Difficulté :** 🔧🔧🔧";
   } else {
-    suggestions += "- **Analyse :** Symptômes génériques détectés.\n- **Action :** Passage à la valise de diagnostic recommandé pour lire les codes défaut (DTC).\n- **Difficulté :** Variable.";
+    suggestions += "- **Analyse :** Symptômes nécessitant une inspection visuelle approfondie.\n- **Action :** Vérifier les niveaux de fluides et les trains roulants.\n- **Note :** Utilisez un scanner OBD-II pour plus de précision.";
   }
 
-  suggestions += "\n\n*Note : Ce diagnostic est généré par le moteur local expert de GaragePro.*";
+  suggestions += "\n\n*Note : Ce diagnostic provient du moteur interne GaragePro.*";
   return suggestions;
 };
 
 export const getDiagnosticSuggestions = async (symptoms: string) => {
   if (!symptoms) return "Veuillez entrer des symptômes.";
 
-  // Si Gemini est configuré, on l'utilise
-  if (genAI) {
-    try {
-      const response = await genAI.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `En tant qu'expert mécanicien, diagnostique ceci : "${symptoms}". Donne 3 causes, les étapes de vérification et la difficulté. Format Markdown.`,
-      });
-      return response.text || localExpertDiagnostic(symptoms);
-    } catch (error) {
-      console.warn("Gemini indisponible, bascule sur l'expert local.");
-      return localExpertDiagnostic(symptoms);
+  try {
+    // Tentative avec Gemini
+    const response = await genAI.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `En tant qu'expert mécanicien, diagnostique ceci : "${symptoms}". Donne 3 causes, les étapes de vérification et la difficulté. Format Markdown court.`,
+    });
+    
+    if (response && response.text) {
+      return response.text;
     }
+    return localExpertDiagnostic(symptoms);
+  } catch (error) {
+    console.error("Erreur API Gemini (Clé ou Quota) :", error);
+    // Bascule automatique sur l'expert local sans interrompre l'utilisateur
+    return localExpertDiagnostic(symptoms);
   }
-
-  // Sinon, fallback immédiat sur l'expert local (indépendant de Google)
-  return localExpertDiagnostic(symptoms);
 };
 
 export const generateCustomerMessage = async (serviceDetails: string, customerName: string) => {
-  const fallbackMsg = `Bonjour ${customerName}, nous avons avancé sur votre véhicule (${serviceDetails}). Nous vous tenons informé de la suite des opérations. Cordialement, votre garage.`;
+  const fallbackMsg = `Bonjour ${customerName}, nous avons terminé l'intervention suivante : ${serviceDetails}. Votre véhicule est prêt. Cordialement, votre garage.`;
   
-  if (genAI) {
-    try {
-      const response = await genAI.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Rédige un SMS professionnel court pour ${customerName} concernant : ${serviceDetails}.`,
-      });
-      return response.text || fallbackMsg;
-    } catch (error) {
-      return fallbackMsg;
-    }
+  try {
+    const response = await genAI.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Rédige un SMS professionnel et poli pour ${customerName} concernant : ${serviceDetails}. Max 160 caractères.`,
+    });
+    return response.text || fallbackMsg;
+  } catch (error) {
+    return fallbackMsg;
   }
-  
-  return fallbackMsg;
 };
