@@ -1,10 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Utilisation directe selon les directives de sécurité
-// L'environnement se charge d'injecter la valeur dans process.env.API_KEY
-const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 /**
  * Moteur de diagnostic local (Indépendant de toute API externe)
  * Garantit que le SaaS fonctionne même sans clé ou hors-ligne.
@@ -31,8 +27,10 @@ export const getDiagnosticSuggestions = async (symptoms: string) => {
   if (!symptoms) return "Veuillez entrer des symptômes.";
 
   try {
-    // Tentative avec Gemini
-    const response = await genAI.models.generateContent({
+    // Initialisation au moment de l'appel pour s'assurer que process.env.API_KEY est bien lu
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `En tant qu'expert mécanicien, diagnostique ceci : "${symptoms}". Donne 3 causes, les étapes de vérification et la difficulté. Format Markdown court.`,
     });
@@ -42,8 +40,7 @@ export const getDiagnosticSuggestions = async (symptoms: string) => {
     }
     return localExpertDiagnostic(symptoms);
   } catch (error) {
-    console.error("Erreur API Gemini (Clé ou Quota) :", error);
-    // Bascule automatique sur l'expert local sans interrompre l'utilisateur
+    console.error("Erreur API Gemini :", error);
     return localExpertDiagnostic(symptoms);
   }
 };
@@ -52,7 +49,9 @@ export const generateCustomerMessage = async (serviceDetails: string, customerNa
   const fallbackMsg = `Bonjour ${customerName}, nous avons terminé l'intervention suivante : ${serviceDetails}. Votre véhicule est prêt. Cordialement, votre garage.`;
   
   try {
-    const response = await genAI.models.generateContent({
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Rédige un SMS professionnel et poli pour ${customerName} concernant : ${serviceDetails}. Max 160 caractères.`,
     });
