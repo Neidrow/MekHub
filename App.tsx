@@ -1,20 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
-import { ViewState, Client, Vehicule, RendezVous, Facture, Devis, StockItem, Mecanicien, GarageSettings } from './types';
-import { ICONS } from './constants';
-import { api, supabase } from './services/api';
-import Auth from './components/Auth';
-import Dashboard from './components/Dashboard';
-import Appointments from './components/Appointments';
-import Customers from './components/Customers';
-import Vehicles from './components/Vehicles';
-import Quotes from './components/Quotes';
-import Invoices from './components/Invoices';
-import Inventory from './components/Inventory';
-import AIAssistant from './components/AIAssistant';
-import Settings from './components/Settings';
-import Mechanics from './components/Mechanics';
-import SuperAdmin from './components/SuperAdmin';
+import { ViewState, Client, Vehicule, RendezVous, Facture, Devis, StockItem, Mecanicien, GarageSettings } from './types.ts';
+import { ICONS } from './constants.tsx';
+import { api, supabase } from './services/api.ts';
+import Auth from './components/Auth.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import Appointments from './components/Appointments.tsx';
+import Customers from './components/Customers.tsx';
+import Vehicles from './components/Vehicles.tsx';
+import Quotes from './components/Quotes.tsx';
+import Invoices from './components/Invoices.tsx';
+import Inventory from './components/Inventory.tsx';
+import AIAssistant from './components/AIAssistant.tsx';
+import Settings from './components/Settings.tsx';
+import Mechanics from './components/Mechanics.tsx';
+import SuperAdmin from './components/SuperAdmin.tsx';
 
 interface NavItemProps {
   view: ViewState;
@@ -84,7 +84,6 @@ const App: React.FC = () => {
       const metadata = sess.user?.user_metadata || {};
       const needsChange = metadata.needs_password_change;
       
-      // Assurer que la vue est correcte dès la connexion
       if (metadata.role === 'super_admin') {
         setCurrentView('super-admin');
       } else {
