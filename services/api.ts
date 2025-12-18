@@ -6,10 +6,20 @@ import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, De
 const supabaseUrl = 'https://qvyqptiekeunidxdomne.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2eXFwdGlla2V1bmlkeGRvbW5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMzUwODAsImV4cCI6MjA4MTYxMTA4MH0.gIpXpTSt3wIWhUmipuy53a1j_JeLh5rRI1gpkXVu-EA';
 
+// Client principal pour l'application
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Initialisation EmailJS - Remplace par TA clé publique
-emailjs.init("YOUR_PUBLIC_KEY"); 
+// Client secondaire ISOLÉ pour les invitations (évite de déconnecter l'admin)
+const inviteClient = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  }
+});
+
+// Initialisation EmailJS
+emailjs.init("SERB24v_WSISCjApy"); 
 
 class ApiService {
   async signup(email: string, pass: string, garage: string) {
@@ -31,21 +41,21 @@ class ApiService {
   async inviteUser(email: string, role: UserRole) {
     const tempPassword = Math.random().toString(36).slice(-10);
     
-    const { data, error } = await supabase.auth.signUp({
+    // Utilisation de inviteClient pour ne pas polluer la session actuelle
+    const { data, error } = await inviteClient.auth.signUp({
       email,
       password: tempPassword,
       options: {
         data: { 
           role: role,
-          needs_password_change: true,
-          temp_password_hint: tempPassword
+          needs_password_change: true
         }
       }
     });
 
     if (error) throw error;
     
-    // Envoi réel du mail via EmailJS
+    // On envoie le mail après la création réussie
     await this.sendWelcomeEmail(email, tempPassword);
     
     return { user: data.user, tempPassword };
@@ -60,16 +70,10 @@ class ApiService {
     };
 
     try {
-      // Remplace par TES IDs de service et template
-      await emailjs.send(
-        'YOUR_SERVICE_ID', 
-        'YOUR_TEMPLATE_ID', 
-        templateParams
-      );
-      console.log('Email de bienvenue envoyé avec succès !');
+      await emailjs.send('service_3mh4mah', 'template_8ksf2hg', templateParams);
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de l\'email:', error);
-      throw new Error("L'utilisateur a été créé mais l'email n'a pas pu être envoyé.");
+      console.error('Email error:', error);
+      throw new Error("L'utilisateur a été créé mais l'email d'invitation n'a pas pu être envoyé.");
     }
   }
 
@@ -101,10 +105,7 @@ class ApiService {
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (error) {
-      console.error(`Erreur chargement ${table}:`, error.message);
-      return [];
-    }
+    if (error) return [];
     return (data || []) as T[];
   }
 
@@ -140,10 +141,7 @@ class ApiService {
       .select('*')
       .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') {
-      console.error("Erreur settings:", error.message);
-      return null;
-    }
+    if (error && error.code !== 'PGRST116') return null;
     return data as GarageSettings;
   }
 }
