@@ -20,6 +20,7 @@ export const getDiagnosticSuggestions = async (symptoms: string) => {
     });
     return response.text || localExpertDiagnostic(symptoms);
   } catch (error) {
+    console.error("Erreur IA Diagnostic:", error);
     return localExpertDiagnostic(symptoms);
   }
 };
@@ -33,6 +34,7 @@ export const generateCustomerMessage = async (serviceDetails: string, customerNa
     });
     return response.text || `Bonjour ${customerName}, travaux finis : ${serviceDetails}.`;
   } catch (error) {
+    console.error("Erreur IA Message:", error);
     return `Bonjour ${customerName}, travaux finis : ${serviceDetails}.`;
   }
 };

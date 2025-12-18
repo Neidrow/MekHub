@@ -33,7 +33,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           <div className="text-left space-y-2">
             <p className="font-black text-rose-500">Email non confirmé !</p>
             <p className="text-[10px] leading-relaxed opacity-80">
-              Veuillez désactiver "Confirm Email" dans votre Dashboard Supabase (Auth > Providers > Email).
+              Veuillez désactiver "Confirm Email" dans votre Dashboard Supabase (Auth {" > "} Providers {" > "} Email).
             </p>
           </div>
         );
