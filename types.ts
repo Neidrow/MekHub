@@ -19,6 +19,7 @@ export interface GarageSettings {
   siret: string;
   tva: number;
   logo_url?: string;
+  google_calendar_enabled?: boolean;
 }
 
 export interface Client {
@@ -54,7 +55,6 @@ export interface Mecanicien {
   user_id: string;
   nom: string;
   prenom: string;
-  specialite: string;
   statut: MechanicStatus;
   created_at?: string;
 }
@@ -72,6 +72,36 @@ export interface RendezVous {
   description: string;
   statut: 'en_attente' | 'en_cours' | 'termine' | 'annule';
   notes: string;
+  google_event_id?: string; // Pour la synchro Google Calendar
+  created_at?: string;
+}
+
+export interface Devis {
+  id: string;
+  user_id: string;
+  client_id: string;
+  vehicule_id: string;
+  numero_devis: string;
+  date_devis: string;
+  montant_ht: number;
+  montant_ttc: number;
+  statut: 'en_attente' | 'accepte' | 'refuse';
+  notes?: string;
+  created_at?: string;
+}
+
+export interface Facture {
+  id: string;
+  user_id: string;
+  client_id: string;
+  vehicule_id: string;
+  devis_id?: string;
+  numero_facture: string;
+  date_facture: string;
+  montant_ht: number;
+  montant_ttc: number;
+  statut: 'payee' | 'non_payee' | 'annule';
+  notes?: string;
   created_at?: string;
 }
 
@@ -86,61 +116,6 @@ export interface StockItem {
   prix_achat: number;
   prix_vente: number;
   fournisseur: string;
-  notes: string;
-  created_at?: string;
-}
-
-export interface StockMovement {
-  id: string;
-  user_id: string;
-  article_id: string;
-  type_mouvement: 'entree' | 'sortie';
-  quantite: number;
-  date_mouvement: string;
-  statut: string;
-  motif: string;
-  rdv_id?: string;
-  facture_id?: string;
-  created_at: string;
-}
-
-export interface DevisItem {
-  description: string;
-  quantite: number;
-  prix_unitaire: number;
-  total: number;
-}
-
-export interface Devis {
-  id: string;
-  user_id: string;
-  numero_devis: string;
-  client_id: string;
-  vehicule_id: string;
-  date_devis: string;
-  items: DevisItem[];
-  montant_ht: number;
-  tva: number;
-  montant_ttc: number;
-  statut: 'brouillon' | 'envoye' | 'accepte' | 'refuse';
-  notes: string;
-  created_at?: string;
-}
-
-export interface Facture {
-  id: string;
-  user_id: string;
-  numero_facture: string;
-  client_id: string;
-  vehicule_id: string;
-  date_facture: string;
-  items: any[];
-  montant_ht: number;
-  tva: number;
-  montant_ttc: number;
-  acompte: number;
-  montant_paye: number;
-  statut: 'non_payee' | 'partiellement_payee' | 'payee' | 'en_retard';
   notes: string;
   created_at?: string;
 }
