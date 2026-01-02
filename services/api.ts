@@ -104,7 +104,6 @@ class ApiService {
     const token = this.getStoredGoogleToken();
     if (!token) throw new Error("Veuillez d'abord connecter votre compte Google.");
 
-    // Récupérer les RDV à venir ou en cours qui n'ont pas encore d'ID Google
     const today = new Date().toISOString().split('T')[0];
     const { data: rdvs, error } = await supabase
       .from('rendez_vous')
@@ -116,33 +115,42 @@ class ApiService {
     if (error) throw error;
     if (!rdvs || rdvs.length === 0) return 0;
 
-    let count = 0;
+    let successCount = 0;
     for (const rdv of rdvs) {
-      await this.syncWithGoogleCalendar(rdv, 'create');
-      count++;
+      const success = await this.syncWithGoogleCalendar(rdv, 'create');
+      if (success) successCount++;
     }
-    return count;
+    return successCount;
   }
 
-  async syncWithGoogleCalendar(rdv: RendezVous, action: 'create' | 'update' | 'delete') {
+  async syncWithGoogleCalendar(rdv: RendezVous, action: 'create' | 'update' | 'delete'): Promise<boolean> {
     const token = this.getStoredGoogleToken();
-    if (!token) {
-        console.warn("Synchronisation ignorée : Aucun token Google trouvé.");
-        return;
-    }
+    if (!token) return false;
 
     try {
-      const startTime = new Date(`${rdv.date}T${rdv.heure}:00`).toISOString();
+      // Nettoyage de l'heure (s'assurer du format HH:mm)
+      const cleanHeure = rdv.heure.length === 4 ? `0${rdv.heure}` : rdv.heure;
+      const startDateTime = new Date(`${rdv.date}T${cleanHeure}:00`);
+      
+      if (isNaN(startDateTime.getTime())) {
+          console.error("Date invalide pour le RDV:", rdv);
+          return false;
+      }
+
       let durationInMs = 60 * 60 * 1000;
       if (rdv.duree.includes('m')) durationInMs = parseInt(rdv.duree) * 60 * 1000;
       else if (rdv.duree.includes('h')) durationInMs = parseInt(rdv.duree) * 60 * 60 * 1000;
-      const endTime = new Date(new Date(startTime).getTime() + durationInMs).toISOString();
+      
+      const endDateTime = new Date(startDateTime.getTime() + durationInMs);
+
+      // Google demande le format RFC3339 (toISOString convient mais sans les millisecondes)
+      const formatRFC = (d: Date) => d.toISOString().split('.')[0] + 'Z';
 
       const event = {
         summary: `🔧 [${rdv.statut.toUpperCase()}] RDV Garage: ${rdv.type_intervention}`,
         description: `Notes: ${rdv.description || ''}\nStatut actuel: ${rdv.statut}`,
-        start: { dateTime: startTime, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-        end: { dateTime: endTime, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        start: { dateTime: formatRFC(startDateTime), timeZone: 'UTC' },
+        end: { dateTime: formatRFC(endDateTime), timeZone: 'UTC' },
       };
 
       let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
@@ -158,23 +166,37 @@ class ApiService {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
+        },
         body: action !== 'delete' ? JSON.stringify(event) : null
       });
 
-      if (res.status === 401) {
-          console.error("Token Google expiré. L'utilisateur doit se reconnecter.");
-          sessionStorage.removeItem('google_access_token');
-          this.googleToken = null;
-          return;
+      if (!res.ok) {
+          const errBody = await res.text();
+          console.error(`Erreur Google Calendar (${res.status}):`, errBody);
+          return false;
       }
 
-      if (res.ok && action === 'create') {
+      if (action === 'create') {
         const data = await res.json();
-        await supabase.from('rendez_vous').update({ google_event_id: data.id }).eq('id', rdv.id);
+        // Crucial: Vérifier que l'update Supabase fonctionne
+        const { error: upError } = await supabase
+            .from('rendez_vous')
+            .update({ google_event_id: data.id })
+            .eq('id', rdv.id);
+            
+        if (upError) {
+            console.error("Erreur mise à jour ID Google dans Supabase:", upError);
+            return false;
+        }
       }
+      
+      return true;
     } catch (e) {
-      console.error("Erreur critique Sync Google:", e);
+      console.error("Erreur critique synchronisation:", e);
+      return false;
     }
   }
 
