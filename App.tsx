@@ -180,7 +180,6 @@ const App: React.FC = () => {
       setFactures(f);
       setSettings(sett);
 
-      // Si le paramètre google_calendar_enabled n'a jamais été défini (onboarding)
       if (sett && sett.google_calendar_enabled === undefined) {
         setShowGooglePrompt(true);
       }
@@ -211,12 +210,9 @@ const App: React.FC = () => {
 
   const handleGoogleConnect = async () => {
     try {
-      // Déclenche l'autorisation OAuth réelle
       await api.requestGoogleAccess();
-      // Sauvegarde le choix dans les paramètres Supabase
       await api.saveSettings({ google_calendar_enabled: true });
       setShowGooglePrompt(false);
-      // Recharger les données pour s'assurer que tout est à jour
       await loadAllData();
     } catch (err: any) {
       console.error("Échec connexion Google:", err);
@@ -226,7 +222,6 @@ const App: React.FC = () => {
 
   const handleGoogleSkip = async () => {
     try {
-      // On enregistre que l'utilisateur a refusé pour ne plus lui demander automatiquement
       await api.saveSettings({ google_calendar_enabled: false });
       setShowGooglePrompt(false);
     } catch (err) {
@@ -382,7 +377,13 @@ const App: React.FC = () => {
           {currentView === 'quotes' && <Quotes devis={devis} />}
           {currentView === 'invoices' && <Invoices invoices={factures} />}
           {currentView === 'ai-assistant' && <AIAssistant />}
-          {currentView === 'settings' && <Settings initialSettings={settings} onSave={async (s) => { await api.saveSettings(s); loadAllData(); }} />}
+          {currentView === 'settings' && (
+            <Settings 
+              initialSettings={settings} 
+              onSave={async (s) => { await api.saveSettings(s); loadAllData(); }}
+              onRefresh={loadAllData}
+            />
+          )}
         </div>
       </main>
     </div>

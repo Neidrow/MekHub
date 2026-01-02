@@ -51,7 +51,6 @@ class ApiService {
     await supabase.auth.signOut(); 
   }
 
-  // Fonctions de base Supabase
   async fetchData<T>(table: string): Promise<T[]> {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
     if (error) return [];
@@ -98,8 +97,6 @@ class ApiService {
     if (error) throw error;
   }
 
-  // --- SYNC GOOGLE CALENDAR ---
-
   async syncAllUpcomingToGoogle() {
     const token = this.getStoredGoogleToken();
     if (!token) throw new Error("Veuillez d'abord connecter votre compte Google.");
@@ -128,29 +125,36 @@ class ApiService {
     if (!token) return false;
 
     try {
-      // Nettoyage de l'heure (s'assurer du format HH:mm)
-      const cleanHeure = rdv.heure.length === 4 ? `0${rdv.heure}` : rdv.heure;
-      const startDateTime = new Date(`${rdv.date}T${cleanHeure}:00`);
+      // Parsing sécurisé de la date et de l'heure
+      const dateParts = rdv.date.split('-'); // [YYYY, MM, DD]
+      const timeParts = rdv.heure.split(':'); // [HH, mm, ss]
+      
+      const year = parseInt(dateParts[0]);
+      const month = parseInt(dateParts[1]) - 1; // JS months are 0-11
+      const day = parseInt(dateParts[2]);
+      const hours = parseInt(timeParts[0]);
+      const minutes = parseInt(timeParts[1]) || 0;
+      
+      const startDateTime = new Date(year, month, day, hours, minutes, 0);
       
       if (isNaN(startDateTime.getTime())) {
-          console.error("Date invalide pour le RDV:", rdv);
+          console.error("Date ou Heure invalide pour le RDV:", rdv);
           return false;
       }
 
       let durationInMs = 60 * 60 * 1000;
-      if (rdv.duree.includes('m')) durationInMs = parseInt(rdv.duree) * 60 * 1000;
-      else if (rdv.duree.includes('h')) durationInMs = parseInt(rdv.duree) * 60 * 60 * 1000;
+      const durationValue = parseInt(rdv.duree);
+      if (rdv.duree.includes('m')) durationInMs = durationValue * 60 * 1000;
+      else if (rdv.duree.includes('h')) durationInMs = durationValue * 60 * 60 * 1000;
       
       const endDateTime = new Date(startDateTime.getTime() + durationInMs);
 
-      // Google demande le format RFC3339 (toISOString convient mais sans les millisecondes)
-      const formatRFC = (d: Date) => d.toISOString().split('.')[0] + 'Z';
-
+      // Google attend du ISO8601 (toISOString est parfait si la date est valide)
       const event = {
         summary: `🔧 [${rdv.statut.toUpperCase()}] RDV Garage: ${rdv.type_intervention}`,
-        description: `Notes: ${rdv.description || ''}\nStatut actuel: ${rdv.statut}`,
-        start: { dateTime: formatRFC(startDateTime), timeZone: 'UTC' },
-        end: { dateTime: formatRFC(endDateTime), timeZone: 'UTC' },
+        description: `Notes: ${rdv.description || ''}\nStatut: ${rdv.statut}`,
+        start: { dateTime: startDateTime.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        end: { dateTime: endDateTime.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       };
 
       let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
@@ -174,33 +178,31 @@ class ApiService {
       });
 
       if (!res.ok) {
-          const errBody = await res.text();
-          console.error(`Erreur Google Calendar (${res.status}):`, errBody);
+          const errText = await res.text();
+          console.error(`Erreur Google Calendar API (${res.status}):`, errText);
           return false;
       }
 
       if (action === 'create') {
         const data = await res.json();
-        // Crucial: Vérifier que l'update Supabase fonctionne
         const { error: upError } = await supabase
             .from('rendez_vous')
             .update({ google_event_id: data.id })
             .eq('id', rdv.id);
             
         if (upError) {
-            console.error("Erreur mise à jour ID Google dans Supabase:", upError);
+            console.error("Impossible de sauvegarder l'ID Google dans Supabase:", upError);
             return false;
         }
       }
       
       return true;
     } catch (e) {
-      console.error("Erreur critique synchronisation:", e);
+      console.error("Erreur fatale synchronisation Google:", e);
       return false;
     }
   }
 
-  // --- SETTINGS ---
   async getSettings(): Promise<GarageSettings | null> {
     const { data } = await supabase.from('parametres').select('*').maybeSingle();
     return data as GarageSettings;
@@ -217,7 +219,6 @@ class ApiService {
     return data[0];
   }
 
-  // Méthodes annexes
   async login(email: string, pass: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;

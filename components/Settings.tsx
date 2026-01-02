@@ -6,9 +6,10 @@ import { api } from '../services/api';
 interface SettingsProps {
   initialSettings: GarageSettings | null;
   onSave: (settings: Partial<GarageSettings>) => Promise<void>;
+  onRefresh: () => Promise<void>;
 }
 
-const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
+const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh }) => {
   const [formData, setFormData] = useState<Partial<GarageSettings>>({
     nom: '', siret: '', adresse: '', telephone: '', email: '', tva: 20.00, logo_url: '', google_calendar_enabled: false
   });
@@ -39,6 +40,7 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
     setSyncLoading(true);
     try {
       const count = await api.syncAllUpcomingToGoogle();
+      await onRefresh(); // Rafraîchir les badges "Google OK"
       alert(`${count} rendez-vous ont été synchronisés avec Google Calendar.`);
     } catch (err: any) {
       alert(`La synchronisation a échoué : ${err.message}`);
@@ -56,11 +58,13 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
         setFormData(updated);
         await onSave(updated);
         await api.syncAllUpcomingToGoogle();
+        await onRefresh();
         alert("Agenda connecté et synchronisé !");
       } else {
         const updated = { ...formData, google_calendar_enabled: false };
         setFormData(updated);
         await onSave(updated);
+        await onRefresh();
       }
     } catch (err: any) {
       alert(`Action Google Calendar impossible : ${err.message}`);
