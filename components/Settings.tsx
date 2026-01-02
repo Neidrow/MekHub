@@ -35,29 +35,35 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
     }
   };
 
+  const handleManualSync = async () => {
+    setSyncLoading(true);
+    try {
+      const count = await api.syncAllUpcomingToGoogle();
+      alert(`${count} rendez-vous ont été synchronisés avec Google Calendar.`);
+    } catch (err: any) {
+      alert(`La synchronisation a échoué : ${err.message}`);
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
   const handleGoogleToggle = async () => {
     setSyncLoading(true);
     try {
       if (!formData.google_calendar_enabled) {
-        // 1. Demander l'accès OAuth à Google
         await api.requestGoogleAccess();
-        
-        // 2. Mettre à jour les paramètres
         const updated = { ...formData, google_calendar_enabled: true };
         setFormData(updated);
         await onSave(updated);
-
-        // 3. SYNCHRONISATION INITIALE des RDV à venir
         await api.syncAllUpcomingToGoogle();
-        
-        alert("Agenda connecté et synchronisé ! Vos rendez-vous à venir sont maintenant sur Google Calendar.");
+        alert("Agenda connecté et synchronisé !");
       } else {
         const updated = { ...formData, google_calendar_enabled: false };
         setFormData(updated);
         await onSave(updated);
       }
     } catch (err: any) {
-      alert(`La connexion à Google a échoué : ${err.message}`);
+      alert(`Action Google Calendar impossible : ${err.message}`);
     } finally {
       setSyncLoading(false);
     }
@@ -81,34 +87,49 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
           Intégrations & Services
         </h4>
         
-        <div className="flex flex-col sm:flex-row items-center justify-between p-6 bg-slate-50 rounded-[2rem] border border-slate-100 gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-              <svg className="w-6 h-6" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c3.11 0 5.72-1.03 7.63-2.79l-3.57-2.77c-1 .67-2.28 1.07-4.06 1.07-3.12 0-5.76-2.11-6.71-4.94H1.71v2.86C3.61 20.31 7.55 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.29 13.57c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.13H1.71C.62 8.28 0 10.72 0 13.29s.62 5.01 1.71 7.16l3.58-2.86c-.95-2.83-.95-5.96 0-8.02z"/>
-                <path fill="#EA4335" d="M12 4.75c1.69 0 3.21.58 4.41 1.72l3.31-3.31C17.71 1.05 15.11 0 12 0 7.55 0 3.61 2.69 1.71 6.13l3.58 2.86c.95-2.83 3.59-4.94 6.71-4.94z"/>
-              </svg>
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between p-6 bg-slate-50 rounded-[2rem] border border-slate-100 gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                <svg className="w-6 h-6" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c3.11 0 5.72-1.03 7.63-2.79l-3.57-2.77c-1 .67-2.28 1.07-4.06 1.07-3.12 0-5.76-2.11-6.71-4.94H1.71v2.86C3.61 20.31 7.55 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.29 13.57c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.13H1.71C.62 8.28 0 10.72 0 13.29s.62 5.01 1.71 7.16l3.58-2.86c-.95-2.83-.95-5.96 0-8.02z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.69 0 3.21.58 4.41 1.72l3.31-3.31C17.71 1.05 15.11 0 12 0 7.55 0 3.61 2.69 1.71 6.13l3.58 2.86c.95-2.83 3.59-4.94 6.71-4.94z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="font-black text-slate-800">Google Calendar</p>
+                <p className="text-xs font-bold text-slate-500">Synchronisation automatique des rendez-vous</p>
+              </div>
             </div>
-            <div>
-              <p className="font-black text-slate-800">Google Calendar</p>
-              <p className="text-xs font-bold text-slate-500">Synchronisation automatique des rendez-vous</p>
-            </div>
+            <button 
+              onClick={handleGoogleToggle}
+              disabled={syncLoading}
+              className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 ${formData.google_calendar_enabled ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}
+            >
+              {syncLoading ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+              ) : formData.google_calendar_enabled ? (
+                "Déconnecter"
+              ) : (
+                "Connecter mon agenda"
+              )}
+            </button>
           </div>
-          <button 
-            onClick={handleGoogleToggle}
-            disabled={syncLoading}
-            className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 ${formData.google_calendar_enabled ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}
-          >
-            {syncLoading ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-            ) : formData.google_calendar_enabled ? (
-              "Déconnecter"
-            ) : (
-              "Connecter mon agenda"
-            )}
-          </button>
+
+          {formData.google_calendar_enabled && (
+            <div className="flex justify-end pr-4">
+              <button 
+                onClick={handleManualSync}
+                disabled={syncLoading}
+                className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <svg className={`w-3 h-3 ${syncLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                Synchroniser manuellement mes rendez-vous
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

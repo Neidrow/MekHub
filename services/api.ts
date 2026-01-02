@@ -102,27 +102,34 @@ class ApiService {
 
   async syncAllUpcomingToGoogle() {
     const token = this.getStoredGoogleToken();
-    if (!token) return;
+    if (!token) throw new Error("Veuillez d'abord connecter votre compte Google.");
 
-    // Récupérer les RDV à venir (aujourd'hui ou futur) qui n'ont pas encore d'ID Google
+    // Récupérer les RDV à venir ou en cours qui n'ont pas encore d'ID Google
     const today = new Date().toISOString().split('T')[0];
     const { data: rdvs, error } = await supabase
       .from('rendez_vous')
       .select('*')
       .gte('date', today)
-      .is('google_event_id', null);
+      .is('google_event_id', null)
+      .neq('statut', 'annule');
 
-    if (error || !rdvs) return;
+    if (error) throw error;
+    if (!rdvs || rdvs.length === 0) return 0;
 
-    console.log(`Synchronisation de ${rdvs.length} rendez-vous vers Google Calendar...`);
+    let count = 0;
     for (const rdv of rdvs) {
       await this.syncWithGoogleCalendar(rdv, 'create');
+      count++;
     }
+    return count;
   }
 
   async syncWithGoogleCalendar(rdv: RendezVous, action: 'create' | 'update' | 'delete') {
     const token = this.getStoredGoogleToken();
-    if (!token) return;
+    if (!token) {
+        console.warn("Synchronisation ignorée : Aucun token Google trouvé.");
+        return;
+    }
 
     try {
       const startTime = new Date(`${rdv.date}T${rdv.heure}:00`).toISOString();
@@ -132,8 +139,8 @@ class ApiService {
       const endTime = new Date(new Date(startTime).getTime() + durationInMs).toISOString();
 
       const event = {
-        summary: `🔧 RDV Garage: ${rdv.type_intervention}`,
-        description: `Notes: ${rdv.description || ''}\nStatut: ${rdv.statut}`,
+        summary: `🔧 [${rdv.statut.toUpperCase()}] RDV Garage: ${rdv.type_intervention}`,
+        description: `Notes: ${rdv.description || ''}\nStatut actuel: ${rdv.statut}`,
         start: { dateTime: startTime, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
         end: { dateTime: endTime, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       };
@@ -155,12 +162,19 @@ class ApiService {
         body: action !== 'delete' ? JSON.stringify(event) : null
       });
 
+      if (res.status === 401) {
+          console.error("Token Google expiré. L'utilisateur doit se reconnecter.");
+          sessionStorage.removeItem('google_access_token');
+          this.googleToken = null;
+          return;
+      }
+
       if (res.ok && action === 'create') {
         const data = await res.json();
         await supabase.from('rendez_vous').update({ google_event_id: data.id }).eq('id', rdv.id);
       }
     } catch (e) {
-      console.error("Erreur Sync Google:", e);
+      console.error("Erreur critique Sync Google:", e);
     }
   }
 

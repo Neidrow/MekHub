@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RendezVous, Client, Vehicule, Mecanicien, ViewState } from '../types';
 
 interface AppointmentsProps {
@@ -43,26 +43,7 @@ const Appointments: React.FC<AppointmentsProps> = ({
     statut: 'en_attente' as RendezVous['statut']
   });
 
-  useEffect(() => {
-    const checkAutoStatus = async () => {
-      const now = new Date();
-      const today = now.toISOString().split('T')[0];
-      const currentTime = now.getHours() * 60 + now.getMinutes();
-
-      for (const app of appointments) {
-        if (app.statut === 'en_attente' && app.date === today) {
-          const [hours, minutes] = app.heure.split(':').map(Number);
-          const appTime = hours * 60 + minutes;
-          if (currentTime >= appTime) {
-            await onUpdateStatus(app.id, 'en_cours');
-          }
-        }
-      }
-    };
-    checkAutoStatus();
-    const interval = setInterval(checkAutoStatus, 60000);
-    return () => clearInterval(interval);
-  }, [appointments, onUpdateStatus]);
+  // L'automatisation du statut a été retirée pour éviter les conflits avec la saisie manuelle et la synchro Google.
 
   useEffect(() => {
     if (editingRDV) {
@@ -125,7 +106,7 @@ const Appointments: React.FC<AppointmentsProps> = ({
   const getStatusStyle = (status: RendezVous['statut']) => {
     switch(status) {
       case 'en_attente': return 'bg-blue-50 text-blue-600 border-blue-100';
-      case 'en_cours': return 'bg-amber-50 text-amber-600 border-amber-100 animate-pulse';
+      case 'en_cours': return 'bg-amber-50 text-amber-600 border-amber-100 shadow-sm';
       case 'termine': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
       case 'annule': return 'bg-rose-50 text-rose-600 border-rose-100';
       default: return 'bg-slate-50 text-slate-600 border-slate-100';
@@ -260,22 +241,25 @@ const Appointments: React.FC<AppointmentsProps> = ({
         ) : (
           appointments.map((app) => {
             const customer = customers.find(c => c.id === app.client_id);
-            const vehicle = vehicles.find(v => v.id === app.vehicule_id);
             const mechanic = mecaniciens.find(m => m.id === app.mecanicien_id);
+            const isSynced = !!app.google_event_id;
             
             return (
               <div key={app.id} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group flex flex-col h-full relative">
-                {/* Badge Synchro Google (Indicateur visuel futur) */}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 shadow-sm">
-                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                   <span className="text-[8px] font-black uppercase tracking-widest">Connecté</span>
+                
+                {/* Indicateur Synchro Google */}
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm">
+                   <div className={`w-1.5 h-1.5 rounded-full ${isSynced ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                   <span className={`text-[8px] font-black uppercase tracking-widest ${isSynced ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {isSynced ? 'Google OK' : 'Non Synchro'}
+                   </span>
                 </div>
 
                 <div className="flex items-start justify-between mb-6">
                   <div className={`p-3 rounded-2xl border transition-colors ${getStatusStyle(app.statut)}`}>
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </div>
-                  <div className="flex flex-col items-end gap-2 pr-12">
+                  <div className="flex flex-col items-end gap-2 pr-20">
                     <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-xl border ${getStatusStyle(app.statut)}`}>
                       {statusLabels[app.statut]}
                     </span>
