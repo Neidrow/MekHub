@@ -10,23 +10,14 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
   const [formData, setFormData] = useState<Partial<GarageSettings>>({
-    nom: '',
-    siret: '',
-    adresse: '',
-    telephone: '',
-    email: '',
-    tva: 20.00,
-    logo_url: '',
-    google_calendar_enabled: false
+    nom: '', siret: '', adresse: '', telephone: '', email: '', tva: 20.00, logo_url: '', google_calendar_enabled: false
   });
   const [loading, setLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (initialSettings) {
-      setFormData(initialSettings);
-    }
+    if (initialSettings) setFormData(initialSettings);
   }, [initialSettings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,8 +28,8 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
       await onSave(formData);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(`Erreur d'enregistrement: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -48,20 +39,25 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
     setSyncLoading(true);
     try {
       if (!formData.google_calendar_enabled) {
-        // Demander l'accès si on active
+        // 1. Demander l'accès OAuth à Google
         await api.requestGoogleAccess();
+        
+        // 2. Mettre à jour les paramètres
         const updated = { ...formData, google_calendar_enabled: true };
         setFormData(updated);
         await onSave(updated);
+
+        // 3. SYNCHRONISATION INITIALE des RDV à venir
+        await api.syncAllUpcomingToGoogle();
+        
+        alert("Agenda connecté et synchronisé ! Vos rendez-vous à venir sont maintenant sur Google Calendar.");
       } else {
-        // Désactiver simplement
         const updated = { ...formData, google_calendar_enabled: false };
         setFormData(updated);
         await onSave(updated);
       }
-    } catch (err) {
-      console.error("Erreur lors de la connexion Google:", err);
-      alert("La connexion à Google a échoué. Vérifiez votre configuration.");
+    } catch (err: any) {
+      alert(`La connexion à Google a échoué : ${err.message}`);
     } finally {
       setSyncLoading(false);
     }
@@ -79,7 +75,6 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
         )}
       </div>
       
-      {/* Section Intégrations */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 lg:p-12 space-y-6">
         <h4 className="text-lg font-black text-slate-800 flex items-center gap-2">
           <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
@@ -122,98 +117,31 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom commercial</label>
-              <input 
-                type="text" 
-                value={formData.nom} 
-                onChange={e => setFormData({...formData, nom: e.target.value})}
-                placeholder="Ex: Garage du Centre"
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" 
-              />
+              <input type="text" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} placeholder="Ex: Garage du Centre" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Numéro SIRET</label>
-              <input 
-                type="text" 
-                value={formData.siret} 
-                onChange={e => setFormData({...formData, siret: e.target.value})}
-                placeholder="801 456 789 00012" 
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" 
-              />
+              <input type="text" value={formData.siret} onChange={e => setFormData({...formData, siret: e.target.value})} placeholder="801 456 789 00012" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" />
             </div>
           </div>
-
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Adresse de l'établissement</label>
-            <input 
-              type="text" 
-              value={formData.adresse} 
-              onChange={e => setFormData({...formData, adresse: e.target.value})}
-              placeholder="Numéro, Rue, Code Postal, Ville" 
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" 
-            />
+            <input type="text" value={formData.adresse} onChange={e => setFormData({...formData, adresse: e.target.value})} placeholder="Numéro, Rue, Code Postal, Ville" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" />
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Téléphone professionel</label>
-              <input 
-                type="text" 
-                value={formData.telephone} 
-                onChange={e => setFormData({...formData, telephone: e.target.value})}
-                placeholder="01 23 45 67 89" 
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" 
-              />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Téléphone</label>
+              <input type="text" value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email de contact</label>
-              <input 
-                type="email" 
-                value={formData.email} 
-                onChange={e => setFormData({...formData, email: e.target.value})}
-                placeholder="contact@votre-garage.fr" 
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" 
-              />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+              <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" />
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-             <div className="md:col-span-1 p-6 bg-blue-50/50 border border-blue-100 rounded-3xl">
-                <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-2">TVA (%)</label>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  value={formData.tva} 
-                  onChange={e => setFormData({...formData, tva: parseFloat(e.target.value)})}
-                  className="w-full bg-transparent border-none outline-none font-black text-2xl text-blue-700" 
-                />
-             </div>
-             <div className="md:col-span-2 space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">URL du Logo</label>
-                <input 
-                  type="text" 
-                  value={formData.logo_url} 
-                  onChange={e => setFormData({...formData, logo_url: e.target.value})}
-                  placeholder="https://votre-site.com/logo.png" 
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-slate-700" 
-                />
-             </div>
-          </div>
-
           <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-            {success && (
-              <div className="flex items-center gap-2 text-emerald-600 font-bold animate-in fade-in slide-in-from-left-4">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                Mise à jour effectuée !
-              </div>
-            )}
-            <button 
-              disabled={loading}
-              type="submit" 
-              className="ml-auto px-10 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center gap-3 disabled:opacity-50 active:scale-95"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : "Enregistrer les modifications"}
+            {success && <div className="text-emerald-600 font-bold animate-in fade-in">Mise à jour effectuée !</div>}
+            <button disabled={loading} type="submit" className="ml-auto px-10 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center gap-3 disabled:opacity-50 active:scale-95">
+              {loading ? "..." : "Enregistrer les modifications"}
             </button>
           </div>
         </div>
