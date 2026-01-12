@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GarageSettings } from '../types';
 import { api } from '../services/api';
 
@@ -16,6 +16,7 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
   const [loading, setLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialSettings) setFormData(initialSettings);
@@ -73,6 +74,28 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
     }
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Limite de taille simple (ex: 2MB) pour ne pas surcharger la base de données
+      if (file.size > 2 * 1024 * 1024) {
+        alert("L'image est trop volumineuse. Veuillez choisir une image de moins de 2MB.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setFormData({ ...formData, logo_url: base64String });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
@@ -80,9 +103,6 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
           <h3 className="text-3xl font-black text-[#1e293b] tracking-tight">Paramètres de l'Atelier</h3>
           <p className="text-slate-500 mt-2 font-medium">Configurez l'identité visuelle et les intégrations de votre garage.</p>
         </div>
-        {formData.logo_url && (
-          <img src={formData.logo_url} alt="Logo" className="w-16 h-16 rounded-2xl border border-slate-100 object-cover shadow-sm" />
-        )}
       </div>
       
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 lg:p-12 space-y-6">
@@ -139,6 +159,60 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 lg:p-12 space-y-8">
+          
+          {/* Section Identité Visuelle avec Upload */}
+          <div className="flex flex-col md:flex-row items-center gap-8 pb-8 border-b border-slate-50">
+            <div className="shrink-0 relative group">
+              <div 
+                onClick={triggerFileInput} 
+                className="w-24 h-24 rounded-[2rem] overflow-hidden shadow-lg border-2 border-slate-100 cursor-pointer group-hover:border-blue-500 transition-all relative"
+              >
+                {formData.logo_url ? (
+                  <img src={formData.logo_url} alt="Aperçu" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
+                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </div>
+              </div>
+              {/* Input caché pour le fichier */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImageUpload} 
+                accept="image/png, image/jpeg, image/jpg" 
+                className="hidden" 
+              />
+            </div>
+            
+            <div className="flex-1 w-full space-y-2 text-center md:text-left">
+               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Logo de l'atelier</label>
+               <div className="flex flex-col md:flex-row gap-3">
+                 <button 
+                    type="button" 
+                    onClick={triggerFileInput}
+                    className="px-6 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-all text-sm flex items-center justify-center gap-2"
+                 >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    Importer une photo
+                 </button>
+                 {formData.logo_url && (
+                    <button 
+                      type="button" 
+                      onClick={() => setFormData({...formData, logo_url: ''})}
+                      className="px-6 py-3 bg-white border border-rose-100 text-rose-500 font-bold rounded-xl hover:bg-rose-50 transition-all text-sm"
+                    >
+                      Supprimer
+                    </button>
+                 )}
+               </div>
+               <p className="text-[10px] text-slate-400 font-medium pl-1">Format supporté : PNG, JPG. Max 2 Mo. L'image est sauvegardée automatiquement.</p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom commercial</label>

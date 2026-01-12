@@ -95,11 +95,14 @@ export interface Facture {
   user_id: string;
   client_id: string;
   vehicule_id: string;
-  devis_id?: string;
   numero_facture: string;
   date_facture: string;
+  items?: any; // jsonb dans la DB
   montant_ht: number;
+  tva: number;
   montant_ttc: number;
+  acompte: number;
+  montant_paye: number;
   statut: 'payee' | 'non_payee' | 'annule';
   notes?: string;
   created_at?: string;

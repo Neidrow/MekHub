@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RendezVous, Client, Vehicule, Mecanicien, ViewState } from '../types';
 
 interface AppointmentsProps {
@@ -30,12 +30,25 @@ const Appointments: React.FC<AppointmentsProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
+  // --- States pour les Filtres et la Navigation ---
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  
+  // viewDate sert à savoir quel mois on est en train de regarder dans la timeline
+  const [viewDate, setViewDate] = useState(new Date());
+
+  const [filterClient, setFilterClient] = useState('');
+  const [filterMechanic, setFilterMechanic] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState({
     client_id: '',
     vehicule_id: '',
     mecanicien_id: '',
     type_intervention: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayStr,
     heure: '09:00',
     duree: '1h',
     description: '',
@@ -43,7 +56,81 @@ const Appointments: React.FC<AppointmentsProps> = ({
     statut: 'en_attente' as RendezVous['statut']
   });
 
-  // L'automatisation du statut a été retirée pour éviter les conflits avec la saisie manuelle et la synchro Google.
+  // Navigation Mois
+  const handlePrevMonth = () => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(newDate.getMonth() - 1);
+    setViewDate(newDate);
+  };
+
+  const handleNextMonth = () => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(newDate.getMonth() + 1);
+    setViewDate(newDate);
+  };
+
+  const handleToday = () => {
+    const now = new Date();
+    setViewDate(now);
+    setSelectedDate(todayStr);
+    // Scroll auto vers aujourd'hui si besoin
+  };
+
+  // Génération des jours du mois affiché (viewDate)
+  const timelineDays = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    
+    // Nombre de jours dans le mois
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const d = new Date(year, month, i + 1);
+      // Correction du décalage horaire pour la string date
+      const dateStr = [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, '0'),
+        String(d.getDate()).padStart(2, '0')
+      ].join('-');
+
+      return {
+        dateStr: dateStr,
+        dayName: d.toLocaleDateString('fr-FR', { weekday: 'short' }),
+        dayNum: d.getDate(),
+        month: d.toLocaleDateString('fr-FR', { month: 'short' })
+      };
+    });
+  }, [viewDate]);
+
+  // Filtrage des rendez-vous
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(app => {
+      // 1. Filtre par date sélectionnée
+      const matchesDate = app.date === selectedDate;
+
+      // 2. Filtre par Client
+      const matchesClient = filterClient ? app.client_id === filterClient : true;
+
+      // 3. Filtre par Mécanicien
+      const matchesMechanic = filterMechanic ? app.mecanicien_id === filterMechanic : true;
+
+      // 4. Recherche textuelle (Type intervention, Nom client, Immatriculation)
+      let matchesSearch = true;
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const client = customers.find(c => c.id === app.client_id);
+        const vehicle = vehicles.find(v => v.id === app.vehicule_id);
+        
+        matchesSearch = 
+          app.type_intervention.toLowerCase().includes(query) ||
+          (client?.nom?.toLowerCase() || '').includes(query) ||
+          (client?.prenom?.toLowerCase() || '').includes(query) ||
+          (vehicle?.immatriculation?.toLowerCase() || '').includes(query);
+      }
+
+      return matchesDate && matchesClient && matchesMechanic && matchesSearch;
+    }).sort((a, b) => a.heure.localeCompare(b.heure)); // Tri par heure
+  }, [appointments, selectedDate, filterClient, filterMechanic, searchQuery, customers, vehicles]);
 
   useEffect(() => {
     if (editingRDV) {
@@ -62,12 +149,13 @@ const Appointments: React.FC<AppointmentsProps> = ({
     } else {
       setFormData({
         client_id: '', vehicule_id: '', mecanicien_id: '', type_intervention: '',
-        date: new Date().toISOString().split('T')[0], heure: '09:00', duree: '1h', 
+        date: selectedDate, // Pré-remplir avec la date sélectionnée dans la vue
+        heure: '09:00', duree: '1h', 
         description: '', notes: '', statut: 'en_attente'
       });
     }
     setError('');
-  }, [editingRDV, isModalOpen]);
+  }, [editingRDV, isModalOpen, selectedDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,8 +208,219 @@ const Appointments: React.FC<AppointmentsProps> = ({
     'annule': 'Annulé'
   };
 
+  const formattedMonth = viewDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 min-h-[80vh] flex flex-col">
+      
+      {/* --- Header & Filtres --- */}
+      <div className="bg-white rounded-[2.5rem] p-6 lg:p-8 border border-slate-100 shadow-sm space-y-6">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div>
+            <h3 className="text-3xl font-black text-slate-800 tracking-tight">Agenda Atelier</h3>
+            <p className="text-slate-500 font-medium">Gérez le planning et filtrez les interventions.</p>
+          </div>
+          <button onClick={() => { setEditingRDV(null); setIsModalOpen(true); }} className="w-full lg:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-700 active:scale-95 flex items-center justify-center gap-2 transition-all">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+            Nouveau rendez-vous
+          </button>
+        </div>
+
+        {/* Barre de Filtres */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative">
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input 
+              type="text" 
+              placeholder="Rechercher (Client, Véhicule, Type...)" 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all"
+            />
+          </div>
+          <div className="w-full lg:w-64 relative">
+             <select 
+                value={filterClient} 
+                onChange={e => setFilterClient(e.target.value)}
+                className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-100 appearance-none transition-all cursor-pointer"
+             >
+                <option value="">Tous les clients</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}
+             </select>
+             <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+          </div>
+          <div className="w-full lg:w-64 relative">
+             <select 
+                value={filterMechanic} 
+                onChange={e => setFilterMechanic(e.target.value)}
+                className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-100 appearance-none transition-all cursor-pointer"
+             >
+                <option value="">Tous les mécaniciens</option>
+                {mecaniciens.map(m => <option key={m.id} value={m.id}>{m.prenom} {m.nom}</option>)}
+             </select>
+             <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+          </div>
+        </div>
+      </div>
+
+      {/* --- Navigation Temporelle (Timeline) avec navigation par mois --- */}
+      <div className="space-y-4">
+        {/* Contrôles de Mois */}
+        <div className="flex items-center justify-between px-2">
+           <div className="flex items-center gap-4">
+             <button onClick={handlePrevMonth} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all">
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+             </button>
+             <h2 className="text-xl font-black text-slate-800 capitalize min-w-[150px] text-center">{formattedMonth}</h2>
+             <button onClick={handleNextMonth} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all">
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
+             </button>
+           </div>
+           
+           <button onClick={handleToday} className="px-4 py-2 bg-slate-100 text-slate-600 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">
+             Aujourd'hui
+           </button>
+        </div>
+
+        {/* Timeline Scrollable */}
+        <div className="overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0" ref={scrollRef}>
+          <div className="flex gap-3 min-w-max">
+            {timelineDays.map((day) => {
+               const isSelected = day.dateStr === selectedDate;
+               const isToday = day.dateStr === todayStr;
+               
+               // Compter les RDV pour ce jour (sans les filtres clients/meca pour montrer la charge globale)
+               const count = appointments.filter(a => a.date === day.dateStr).length;
+
+               return (
+                 <button
+                   key={day.dateStr}
+                   onClick={() => setSelectedDate(day.dateStr)}
+                   className={`flex flex-col items-center justify-center p-4 rounded-3xl min-w-[5.5rem] transition-all duration-300 border-2 ${
+                     isSelected 
+                       ? 'bg-slate-900 text-white border-slate-900 shadow-xl scale-105 z-10' 
+                       : 'bg-white text-slate-400 border-transparent hover:bg-slate-50 hover:border-slate-100'
+                   }`}
+                 >
+                   <span className="text-[10px] font-black uppercase tracking-widest mb-1">{isToday ? 'AUJ' : day.dayName}</span>
+                   <span className={`text-2xl font-black mb-1 ${isSelected ? 'text-white' : 'text-slate-800'}`}>{day.dayNum}</span>
+                   
+                   {/* Badge compteur */}
+                   {count > 0 ? (
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${isSelected ? 'bg-white text-slate-900' : 'bg-blue-100 text-blue-600'}`}>
+                         {count} RDV
+                      </span>
+                   ) : (
+                      <span className="h-4 w-4 rounded-full bg-slate-100 block"></span>
+                   )}
+                 </button>
+               );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* --- Liste des RDV --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 flex-1">
+        {filteredAppointments.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center py-20 bg-white/50 border-2 border-dashed border-slate-200 rounded-[3rem]">
+             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mb-4">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+             </div>
+             <p className="text-slate-400 font-bold">Aucun rendez-vous trouvé pour ce jour</p>
+             <p className="text-slate-300 text-sm mt-1">Sélectionnez une autre date ou changez de mois.</p>
+          </div>
+        ) : (
+          filteredAppointments.map((app) => {
+            const customer = customers.find(c => c.id === app.client_id);
+            const mechanic = mecaniciens.find(m => m.id === app.mecanicien_id);
+            const vehicle = vehicles.find(v => v.id === app.vehicule_id);
+            const isSynced = !!app.google_event_id;
+            
+            return (
+              <div key={app.id} className="bg-white p-6 lg:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group flex flex-col h-full relative animate-in zoom-in duration-300">
+                
+                {/* Indicateur Synchro Google */}
+                <div className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
+                   <div className={`w-1.5 h-1.5 rounded-full ${isSynced ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                   <span className={`text-[8px] font-black uppercase tracking-widest ${isSynced ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {isSynced ? 'Google' : 'Local'}
+                   </span>
+                </div>
+
+                {/* Heure et Statut */}
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-4 bg-slate-900 text-white rounded-2xl font-black text-center min-w-[4.5rem] shadow-lg shadow-slate-200">
+                    <span className="block text-lg leading-none">{app.heure.split(':')[0]}</span>
+                    <span className="block text-xs opacity-60">:{app.heure.split(':')[1]}</span>
+                  </div>
+                  <div>
+                    <span className={`inline-block px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest mb-1 ${getStatusStyle(app.statut)}`}>
+                      {statusLabels[app.statut]}
+                    </span>
+                    <h4 className="font-black text-slate-800 line-clamp-1">{app.type_intervention}</h4>
+                  </div>
+                </div>
+                
+                {/* Détails Client & Véhicule */}
+                <div className="space-y-3 mb-6 flex-grow">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-slate-400 font-black text-xs shadow-sm">
+                      {customer?.nom?.charAt(0) || '?'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-1 tracking-tighter">Client</p>
+                      <p className="text-sm font-bold text-slate-700 truncate">{customer?.nom} {customer?.prenom}</p>
+                    </div>
+                  </div>
+
+                  {vehicle && (
+                     <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-slate-400 font-black text-xs shadow-sm">
+                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.6 2 11.8 2 12v4c0 .6.4 1 1 1h2" /></svg>
+                        </div>
+                        <div className="min-w-0">
+                           <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-1 tracking-tighter">Véhicule</p>
+                           <p className="text-sm font-bold text-slate-700 truncate">{vehicle.marque} {vehicle.modele} - <span className="text-xs text-slate-500">{vehicle.immatriculation}</span></p>
+                        </div>
+                     </div>
+                  )}
+
+                  {mechanic && (
+                    <div className="flex items-center gap-3 p-3 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-xs shadow-sm">
+                        {mechanic.prenom.charAt(0)}{mechanic.nom.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-black text-blue-400 uppercase leading-none mb-1 tracking-tighter">Mécanicien</p>
+                        <p className="text-sm font-bold text-blue-900 truncate">{mechanic.prenom} {mechanic.nom}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Durée</span>
+                    <span className="text-sm font-black text-slate-900">{app.duree}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEdit(app)} className="p-3 bg-white border border-slate-200 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button onClick={() => { if(confirm('Supprimer ce RDV ?')) onDelete(app.id); }} className="p-3 bg-white border border-slate-200 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* --- Modal (Reste inchangé en logique, juste le style adapté si besoin) --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={handleClose}>
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
@@ -221,97 +520,6 @@ const Appointments: React.FC<AppointmentsProps> = ({
           </div>
         </div>
       )}
-
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-3xl font-black text-slate-800 tracking-tight">Agenda Atelier</h3>
-          <p className="text-slate-500 font-medium">Planifiez et suivez l'état des réparations.</p>
-        </div>
-        <button onClick={() => { setEditingRDV(null); setIsModalOpen(true); }} className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-700 active:scale-95 flex items-center justify-center gap-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-          Nouveau rendez-vous
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {appointments.length === 0 ? (
-          <div className="col-span-full py-24 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100 italic font-black text-slate-300">
-             Aucun rendez-vous planifié
-          </div>
-        ) : (
-          appointments.map((app) => {
-            const customer = customers.find(c => c.id === app.client_id);
-            const mechanic = mecaniciens.find(m => m.id === app.mecanicien_id);
-            const isSynced = !!app.google_event_id;
-            
-            return (
-              <div key={app.id} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group flex flex-col h-full relative">
-                
-                {/* Indicateur Synchro Google */}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm">
-                   <div className={`w-1.5 h-1.5 rounded-full ${isSynced ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                   <span className={`text-[8px] font-black uppercase tracking-widest ${isSynced ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    {isSynced ? 'Google OK' : 'Non Synchro'}
-                   </span>
-                </div>
-
-                <div className="flex items-start justify-between mb-6">
-                  <div className={`p-3 rounded-2xl border transition-colors ${getStatusStyle(app.statut)}`}>
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </div>
-                  <div className="flex flex-col items-end gap-2 pr-20">
-                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-xl border ${getStatusStyle(app.statut)}`}>
-                      {statusLabels[app.statut]}
-                    </span>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{app.date} • {app.heure}</span>
-                  </div>
-                </div>
-                
-                <h4 className="text-lg font-black text-slate-800 mb-2 line-clamp-1">{app.type_intervention}</h4>
-                <p className="text-sm text-slate-500 font-medium mb-6 line-clamp-2">{app.description || 'Intervention planifiée.'}</p>
-                
-                <div className="space-y-2 mb-8 flex-grow">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl">
-                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-400 font-black text-xs border border-slate-100">
-                      {customer?.nom?.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-1 tracking-tighter">Client</p>
-                      <p className="text-sm font-black text-slate-700 truncate">{customer?.nom} {customer?.prenom}</p>
-                    </div>
-                  </div>
-                  {mechanic && (
-                    <div className="flex items-center gap-3 p-3 bg-blue-50/50 rounded-2xl border border-blue-100/50">
-                      <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-[10px]">
-                        {mechanic.prenom.charAt(0)}{mechanic.nom.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-black text-blue-400 uppercase leading-none mb-1 tracking-tighter">Mécanicien</p>
-                        <p className="text-sm font-black text-blue-900 truncate">{mechanic.prenom} {mechanic.nom}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Durée</span>
-                    <span className="text-sm font-black text-slate-900">{app.duree}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleEdit(app)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                    </button>
-                    <button onClick={() => { if(confirm('Supprimer ce RDV ?')) onDelete(app.id); }} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
     </div>
   );
 };

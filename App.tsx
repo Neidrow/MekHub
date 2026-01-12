@@ -295,7 +295,17 @@ const App: React.FC = () => {
 
       <aside className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-100 flex flex-col z-40 transition-transform lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8 text-center flex flex-col items-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] flex items-center justify-center text-white font-black text-3xl mb-4">{garageDisplayName.charAt(0)}</div>
+          {settings?.logo_url ? (
+            <img 
+              src={settings.logo_url} 
+              alt="Logo Garage" 
+              className="w-20 h-20 rounded-[2rem] object-cover shadow-lg mb-4 border-2 border-white ring-2 ring-slate-100" 
+            />
+          ) : (
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] flex items-center justify-center text-white font-black text-3xl mb-4">
+              {garageDisplayName.charAt(0)}
+            </div>
+          )}
           <h1 className="text-lg font-black text-slate-800 truncate w-full">{garageDisplayName}</h1>
         </div>
         <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto">
@@ -331,7 +341,8 @@ const App: React.FC = () => {
               customers={clients} 
               vehicles={vehicules} 
               mecaniciens={mecaniciens}
-              appointments={rendezVous} 
+              appointments={rendezVous}
+              invoices={factures}
               onAddAppointment={async (app) => { await api.postData('rendez_vous', app); loadAllData(); }} 
               onNavigate={navigateTo} 
             />

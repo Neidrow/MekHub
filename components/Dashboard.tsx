@@ -1,17 +1,18 @@
 
 import React, { useState, useMemo } from 'react';
-import { Client, Vehicule, RendezVous, Mecanicien, ViewState } from '../types';
+import { Client, Vehicule, RendezVous, Mecanicien, ViewState, Facture } from '../types';
 
 interface DashboardProps {
   customers: Client[];
   vehicles: Vehicule[];
   mecaniciens: Mecanicien[];
   appointments: RendezVous[];
+  invoices: Facture[];
   onAddAppointment: (app: Omit<RendezVous, 'id' | 'user_id'>) => void;
   onNavigate: (view: ViewState) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens, appointments, onAddAppointment, onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens, appointments, invoices, onAddAppointment, onNavigate }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -39,11 +40,60 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
   const todayStr = new Date().toISOString().split('T')[0];
   const todayAppointments = useMemo(() => appointments.filter(app => app.date === todayStr), [appointments, todayStr]);
 
+  // Calcul du Chiffre d'Affaires (CA)
+  const revenueStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Mois dernier (gestion du passage d'année janvier -> décembre)
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = lastMonthDate.getMonth();
+    const lastMonthYear = lastMonthDate.getFullYear();
+
+    // Fonction utilitaire pour sécuriser le montant (parfois string venant de la DB)
+    const getAmount = (amount: any) => Number(amount) || 0;
+
+    const currentRevenue = invoices
+      .filter(inv => {
+        const d = new Date(inv.date_facture);
+        // On s'assure que le statut correspond exactement
+        return inv.statut === 'payee' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, inv) => sum + getAmount(inv.montant_ttc), 0);
+
+    const lastRevenue = invoices
+      .filter(inv => {
+        const d = new Date(inv.date_facture);
+        return inv.statut === 'payee' && d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+      })
+      .reduce((sum, inv) => sum + getAmount(inv.montant_ttc), 0);
+
+    let percentChange = 0;
+    if (lastRevenue > 0) {
+      percentChange = ((currentRevenue - lastRevenue) / lastRevenue) * 100;
+    } else if (currentRevenue > 0) {
+      percentChange = 100; // Si on passe de 0 à X, c'est +100% (symbolique)
+    }
+
+    return {
+      current: currentRevenue,
+      last: lastRevenue,
+      percent: percentChange
+    };
+  }, [invoices]);
+
   const stats = [
+    { 
+        label: 'CA Mensuel', 
+        value: `${revenueStats.current.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`, 
+        target: 'invoices' as ViewState,
+        trend: revenueStats.percent,
+        isCurrency: true
+    },
     { label: 'Clients', value: customers.length, target: 'customers' as ViewState },
     { label: 'Véhicules', value: vehicles.length, target: 'vehicles' as ViewState },
     { label: "RDV Aujourd'hui", value: todayAppointments.length, target: 'appointments' as ViewState },
-    { label: 'Alertes Stock', value: 0, target: 'inventory' as ViewState },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -206,9 +256,26 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
-          <div key={i} onClick={() => onNavigate(stat.target)} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all">
+          <div key={i} onClick={() => onNavigate(stat.target)} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
+            {stat.isCurrency && (
+               <div className="absolute top-0 right-0 p-4 opacity-5">
+                  <svg className="w-20 h-20 text-blue-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+               </div>
+            )}
             <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{stat.label}</p>
-            <h3 className="text-3xl font-black text-[#1e293b]">{stat.value}</h3>
+            <h3 className={`text-3xl font-black ${stat.isCurrency ? 'text-blue-600' : 'text-[#1e293b]'}`}>{stat.value}</h3>
+            
+            {/* Affichage de la variation pour le CA */}
+            {stat.trend !== undefined && (
+              <div className={`mt-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${stat.trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {stat.trend >= 0 ? (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
+                )}
+                <span>{Math.abs(stat.trend).toFixed(1)}% vs M-1</span>
+              </div>
+            )}
           </div>
         ))}
       </div>
