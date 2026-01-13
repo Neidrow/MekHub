@@ -15,6 +15,10 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
   const [editingVehicle, setEditingVehicle] = useState<Vehicule | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // States pour la suppression
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicule | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
   // States pour filtres
   const [searchQuery, setSearchQuery] = useState('');
   const [filterClient, setFilterClient] = useState('');
@@ -90,8 +94,58 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
     setIsModalOpen(true);
   };
 
+  const confirmDelete = async () => {
+    if (!vehicleToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await onDelete(vehicleToDelete.id);
+      setVehicleToDelete(null);
+    } catch (error) {
+      console.error("Erreur suppression:", error);
+      alert("Impossible de supprimer ce véhicule.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      
+      {/* --- Modal Suppression Sécurisé --- */}
+      {vehicleToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setVehicleToDelete(null)}>
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative animate-in zoom-in duration-300 flex flex-col" onClick={(e) => e.stopPropagation()}>
+             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+             </div>
+             <h3 className="text-xl font-black text-slate-800 text-center mb-2">Supprimer ce véhicule ?</h3>
+             <p className="text-slate-500 text-center text-sm mb-8 leading-relaxed">
+               Attention, cette action est <span className="font-bold text-rose-600">irréversible</span>. Le véhicule <span className="font-bold text-slate-700">{vehicleToDelete.immatriculation}</span> sera effacé ainsi que son historique.
+             </p>
+             <div className="flex flex-col gap-3">
+               <button 
+                 onClick={confirmDelete}
+                 disabled={deleteLoading}
+                 className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-600/20 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+               >
+                 {deleteLoading ? (
+                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                 ) : (
+                   "Supprimer définitivement"
+                 )}
+               </button>
+               <button 
+                 onClick={() => setVehicleToDelete(null)}
+                 disabled={deleteLoading}
+                 className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs"
+               >
+                 Annuler
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={handleClose}>
           <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
@@ -256,7 +310,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
                     <button onClick={() => handleEdit(v)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Modifier">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
-                    <button onClick={() => { if(confirm('Supprimer ce véhicule ?')) onDelete(v.id); }} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Supprimer">
+                    <button onClick={() => setVehicleToDelete(v)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Supprimer">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>

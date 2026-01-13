@@ -30,6 +30,10 @@ const Appointments: React.FC<AppointmentsProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
+  // States pour la suppression
+  const [appointmentToDelete, setAppointmentToDelete] = useState<RendezVous | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // --- States pour les Filtres et la Navigation ---
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -191,6 +195,20 @@ const Appointments: React.FC<AppointmentsProps> = ({
     setIsModalOpen(true);
   };
 
+  const confirmDelete = async () => {
+    if (!appointmentToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await onDelete(appointmentToDelete.id);
+      setAppointmentToDelete(null);
+    } catch (error) {
+      console.error("Erreur suppression:", error);
+      alert("Impossible de supprimer ce rendez-vous.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const getStatusStyle = (status: RendezVous['statut']) => {
     switch(status) {
       case 'en_attente': return 'bg-blue-50 text-blue-600 border-blue-100';
@@ -213,6 +231,41 @@ const Appointments: React.FC<AppointmentsProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in duration-500 min-h-[80vh] flex flex-col">
       
+      {/* --- Modal Suppression Sécurisé --- */}
+      {appointmentToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setAppointmentToDelete(null)}>
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative animate-in zoom-in duration-300 flex flex-col" onClick={(e) => e.stopPropagation()}>
+             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+             </div>
+             <h3 className="text-xl font-black text-slate-800 text-center mb-2">Supprimer ce rendez-vous ?</h3>
+             <p className="text-slate-500 text-center text-sm mb-8 leading-relaxed">
+               Attention, cette action est <span className="font-bold text-rose-600">irréversible</span>. Le rendez-vous pour <span className="font-bold text-slate-700">{appointmentToDelete.type_intervention}</span> sera supprimé.
+             </p>
+             <div className="flex flex-col gap-3">
+               <button 
+                 onClick={confirmDelete}
+                 disabled={deleteLoading}
+                 className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-600/20 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+               >
+                 {deleteLoading ? (
+                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                 ) : (
+                   "Supprimer définitivement"
+                 )}
+               </button>
+               <button 
+                 onClick={() => setAppointmentToDelete(null)}
+                 disabled={deleteLoading}
+                 className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs"
+               >
+                 Annuler
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Header & Filtres --- */}
       <div className="bg-white rounded-[2.5rem] p-6 lg:p-8 border border-slate-100 shadow-sm space-y-6">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
@@ -409,7 +462,7 @@ const Appointments: React.FC<AppointmentsProps> = ({
                     <button onClick={() => handleEdit(app)} className="p-3 bg-white border border-slate-200 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
-                    <button onClick={() => { if(confirm('Supprimer ce RDV ?')) onDelete(app.id); }} className="p-3 bg-white border border-slate-200 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm">
+                    <button onClick={() => setAppointmentToDelete(app)} className="p-3 bg-white border border-slate-200 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>

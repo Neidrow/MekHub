@@ -575,11 +575,11 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

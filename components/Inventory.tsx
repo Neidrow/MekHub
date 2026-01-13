@@ -22,6 +22,10 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
   const [activeFilter, setActiveFilter] = useState('Tout');
   const [loading, setLoading] = useState(false);
   
+  // States pour la suppression
+  const [itemToDelete, setItemToDelete] = useState<StockItem | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
   const [newItem, setNewItem] = useState({
     reference: '',
     nom: '',
@@ -74,6 +78,20 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
     }
   };
 
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await onDeleteItem(itemToDelete.id);
+      setItemToDelete(null);
+    } catch (error) {
+      console.error("Erreur suppression:", error);
+      alert("Impossible de supprimer cet article.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   if (!isPremium) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden text-center">
@@ -99,6 +117,42 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      
+      {/* --- Modal Suppression Sécurisé --- */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setItemToDelete(null)}>
+          <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative animate-in zoom-in duration-300 flex flex-col" onClick={(e) => e.stopPropagation()}>
+             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+             </div>
+             <h3 className="text-xl font-black text-slate-800 text-center mb-2">Supprimer cet article ?</h3>
+             <p className="text-slate-500 text-center text-sm mb-8 leading-relaxed">
+               Attention, cette action est <span className="font-bold text-rose-600">irréversible</span>. L'article <span className="font-bold text-slate-700">{itemToDelete.nom}</span> sera retiré du stock.
+             </p>
+             <div className="flex flex-col gap-3">
+               <button 
+                 onClick={confirmDelete}
+                 disabled={deleteLoading}
+                 className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-600/20 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+               >
+                 {deleteLoading ? (
+                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                 ) : (
+                   "Supprimer définitivement"
+                 )}
+               </button>
+               <button 
+                 onClick={() => setItemToDelete(null)}
+                 disabled={deleteLoading}
+                 className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs"
+               >
+                 Annuler
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Ajout */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setIsModalOpen(false)}>
@@ -263,7 +317,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
                                </button>
                             </div>
                             <button 
-                              onClick={() => { if(confirm('Supprimer cet article ?')) onDeleteItem(item.id); }}
+                              onClick={() => setItemToDelete(item)}
                               className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" 
                               title="Supprimer"
                             >
