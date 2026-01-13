@@ -82,9 +82,9 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={handleClose}>
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+            <div className="p-6 sm:p-8 border-b border-slate-50 flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-black text-slate-800">{editingMech ? 'Modifier le Collaborateur' : 'Nouveau Collaborateur'}</h2>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-800">{editingMech ? 'Modifier le Collaborateur' : 'Nouveau Collaborateur'}</h2>
                 <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-1">Gestion des ressources atelier</p>
               </div>
               <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-900 rounded-xl transition-all">
@@ -92,8 +92,8 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-5 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nom</label>
                   <input required placeholder="ex: DUPONT" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value.toUpperCase()})} />

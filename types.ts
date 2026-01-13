@@ -76,6 +76,13 @@ export interface RendezVous {
   created_at?: string;
 }
 
+export interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
 export interface Devis {
   id: string;
   user_id: string;
@@ -83,6 +90,7 @@ export interface Devis {
   vehicule_id: string;
   numero_devis: string;
   date_devis: string;
+  items: InvoiceItem[];
   montant_ht: number;
   montant_ttc: number;
   statut: 'en_attente' | 'accepte' | 'refuse';
@@ -97,7 +105,7 @@ export interface Facture {
   vehicule_id: string;
   numero_facture: string;
   date_facture: string;
-  items?: any; // jsonb dans la DB
+  items: InvoiceItem[];
   montant_ht: number;
   tva: number;
   montant_ttc: number;

@@ -146,9 +146,9 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[95vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+            <div className="p-6 sm:p-8 border-b border-slate-50 flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-black text-slate-800">Planifier une intervention</h2>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-800">Planifier une intervention</h2>
                 <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-1">Saisie rapide Dashboard</p>
               </div>
               <button 
@@ -159,7 +159,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-5 overflow-y-auto scrollbar-hide">
+            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto scrollbar-hide">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client</label>
@@ -254,7 +254,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
         <button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-blue-700 active:scale-95">Nouveau RDV</button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
           <div key={i} onClick={() => onNavigate(stat.target)} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
             {stat.isCurrency && (
@@ -290,12 +290,12 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
               todayAppointments.map(app => {
                 const client = customers.find(c => c.id === app.client_id);
                 return (
-                  <div key={app.id} className="p-5 bg-slate-50 border border-transparent rounded-2xl flex items-center justify-between transition-all">
+                  <div key={app.id} className="p-5 bg-slate-50 border border-transparent rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all">
                     <div>
                       <p className="font-black text-slate-800 uppercase tracking-tight">{client?.nom} {client?.prenom}</p>
                       <p className="text-[10px] font-bold text-blue-600 uppercase mt-0.5">{app.type_intervention}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right w-full sm:w-auto flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-end">
                       <p className="font-black text-slate-900">{app.heure}</p>
                       <span className="text-[9px] uppercase font-black text-slate-400">{statusLabels[app.statut]}</span>
                     </div>

@@ -293,7 +293,7 @@ const App: React.FC = () => {
 
       {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      <aside className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-100 flex flex-col z-40 transition-transform lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-100 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8 text-center flex flex-col items-center">
           {settings?.logo_url ? (
             <img 
@@ -308,7 +308,7 @@ const App: React.FC = () => {
           )}
           <h1 className="text-lg font-black text-slate-800 truncate w-full">{garageDisplayName}</h1>
         </div>
-        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto scrollbar-hide">
           {isSuperAdmin && <NavItem view="super-admin" label="Master SaaS" icon={ICONS.Dashboard} color="purple" currentView={currentView} onClick={navigateTo} />}
           <NavItem view="dashboard" label="Dashboard" icon={ICONS.Dashboard} currentView={currentView} onClick={navigateTo} />
           <NavItem view="appointments" label="Rendez-vous" icon={ICONS.Appointments} currentView={currentView} onClick={navigateTo} />
@@ -331,10 +331,10 @@ const App: React.FC = () => {
           <button className="lg:hidden p-2 text-slate-500" onClick={() => setIsSidebarOpen(true)}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
-          <span className="text-sm font-bold text-slate-700">{session.user?.email}</span>
+          <span className="text-sm font-bold text-slate-700 truncate max-w-[200px]">{session.user?.email}</span>
         </header>
 
-        <div className="p-6 lg:p-10 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 lg:p-10 flex-1 overflow-y-auto">
           {currentView === 'super-admin' && isSuperAdmin && <SuperAdmin />}
           {currentView === 'dashboard' && (
             <Dashboard 
@@ -352,6 +352,7 @@ const App: React.FC = () => {
               customers={clients} 
               onAddCustomer={async (c) => { await api.postData('clients', c); loadAllData(); }}
               onUpdateCustomer={async (id, updates) => { await api.updateData('clients', id, updates); loadAllData(); }}
+              onDeleteCustomer={async (id) => { await api.deleteData('clients', id); loadAllData(); }}
             />
           )}
           {currentView === 'inventory' && <Inventory inventory={stock} userRole={userRole} onAddItem={async (item) => { await api.postData('stock', item); loadAllData(); }} onDeleteItem={async (id) => { await api.deleteData('stock', id); loadAllData(); }} />}
@@ -385,8 +386,28 @@ const App: React.FC = () => {
               onDelete={async (id) => { await api.deleteData('mecaniciens', id); loadAllData(); }}
             />
           )}
-          {currentView === 'quotes' && <Quotes devis={devis} />}
-          {currentView === 'invoices' && <Invoices invoices={factures} />}
+          {currentView === 'quotes' && (
+            <Quotes 
+              devis={devis} 
+              customers={clients}
+              vehicles={vehicules}
+              settings={settings}
+              onAdd={async (d) => { await api.postData('devis', d); loadAllData(); }}
+              onUpdate={async (id, updates) => { await api.updateData('devis', id, updates); loadAllData(); }}
+              onDelete={async (id) => { await api.deleteData('devis', id); loadAllData(); }}
+            />
+          )}
+          {currentView === 'invoices' && (
+            <Invoices 
+              invoices={factures} 
+              customers={clients}
+              vehicles={vehicules}
+              settings={settings}
+              onAdd={async (f) => { await api.postData('factures', f); loadAllData(); }}
+              onUpdate={async (id, updates) => { await api.updateData('factures', id, updates); loadAllData(); }}
+              onDelete={async (id) => { await api.deleteData('factures', id); loadAllData(); }}
+            />
+          )}
           {currentView === 'ai-assistant' && <AIAssistant />}
           {currentView === 'settings' && (
             <Settings 

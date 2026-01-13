@@ -76,20 +76,20 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
 
   if (!isPremium) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden text-center">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 blur-3xl opacity-50"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-50 rounded-full -ml-32 -mb-32 blur-3xl opacity-50"></div>
         
-        <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl mb-8 transform rotate-3">
+        <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl mb-8 transform rotate-3 mx-auto">
           <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
         </div>
         
-        <h2 className="text-3xl font-black text-slate-800 text-center tracking-tight">Gestion Visuelle du Stock</h2>
-        <p className="text-slate-500 mt-4 text-center max-w-md font-medium leading-relaxed">
+        <h2 className="text-3xl font-black text-slate-800 tracking-tight">Gestion Visuelle du Stock</h2>
+        <p className="text-slate-500 mt-4 max-w-md font-medium leading-relaxed mx-auto">
           Passez à la version <span className="text-amber-600 font-black">Premium</span> pour débloquer la vue par colonnes, le suivi des alertes visuelles et la catégorisation avancée de vos pièces.
         </p>
         
-        <div className="mt-10 p-2 bg-slate-50 rounded-2xl flex gap-2">
+        <div className="mt-10 p-2 bg-slate-50 rounded-2xl flex flex-col sm:flex-row gap-2">
            <button className="px-8 py-4 bg-slate-900 text-white rounded-xl font-black shadow-xl hover:bg-black transition-all text-xs uppercase tracking-widest">Voir les tarifs</button>
            <button className="px-8 py-4 bg-white text-slate-600 border border-slate-200 rounded-xl font-black hover:bg-slate-50 transition-all text-xs uppercase tracking-widest">En savoir plus</button>
         </div>
@@ -103,14 +103,14 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setIsModalOpen(false)}>
           <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800">Ajouter un article</h2>
+            <div className="p-6 sm:p-8 border-b border-slate-50 flex justify-between items-center">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800">Ajouter un article</h2>
               <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 rounded-xl transition-all">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-5 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Catégorie</label>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -138,7 +138,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock Initial</label>
                   <input required type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-center" value={newItem.quantite} onChange={e => setNewItem({...newItem, quantite: e.target.value})} />
@@ -172,7 +172,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
              <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 11m8 4V11" /></svg>
              </div>
-             <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestion du Stock Visuelle</h1>
+             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Gestion du Stock</h1>
              <span className="bg-amber-100 text-amber-600 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">Premium</span>
           </div>
           <p className="text-slate-500 font-medium mt-1">{inventory.length} article{inventory.length > 1 ? 's' : ''} • <span className={alertCount > 0 ? 'text-rose-500 font-bold' : ''}>{alertCount} alerte{alertCount > 1 ? 's' : ''}</span></p>
