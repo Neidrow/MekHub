@@ -38,19 +38,6 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
     }
   };
 
-  const handleManualSync = async () => {
-    setSyncLoading(true);
-    try {
-      const count = await api.syncAllUpcomingToGoogle();
-      await onRefresh();
-      alert(`${count} rendez-vous ont été synchronisés avec Google Calendar.`);
-    } catch (err: any) {
-      alert(`La synchronisation a échoué : ${err.message}`);
-    } finally {
-      setSyncLoading(false);
-    }
-  };
-
   const handleGoogleToggle = async () => {
     setSyncLoading(true);
     try {
@@ -143,15 +130,6 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
                     "Connecter"
                 )}
                 </button>
-                {formData.google_calendar_enabled && (
-                    <button 
-                    onClick={handleManualSync}
-                    disabled={syncLoading}
-                    className="w-full text-[9px] font-black uppercase text-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
-                    >
-                    Sync. Manuelle
-                    </button>
-                )}
             </div>
           </div>
         </div>

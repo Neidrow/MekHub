@@ -185,9 +185,54 @@ class ApiService {
       
       const endDateTime = new Date(startDateTime.getTime() + durationInMs);
 
+      // --- Construction intelligente du Titre et de la Description ---
+      let clientName = 'Client';
+      let vehicleInfo = '';
+
+      // Récupération des infos liées pour avoir un titre propre
+      if (action !== 'delete') {
+        const { data: client } = await supabase.from('clients').select('nom, prenom').eq('id', rdv.client_id).single();
+        if (client) clientName = `${client.nom} ${client.prenom}`;
+
+        if (rdv.vehicule_id) {
+          const { data: vehicule } = await supabase.from('vehicules').select('marque, modele, immatriculation').eq('id', rdv.vehicule_id).single();
+          if (vehicule) vehicleInfo = `${vehicule.marque} ${vehicule.modele} (${vehicule.immatriculation})`;
+        }
+      }
+
+      const statusEmojis: Record<string, string> = {
+        'en_attente': '📅', // Planifié
+        'en_cours': '⏳',   // En cours
+        'termine': '✅',    // Terminé
+        'annule': '❌'      // Annulé
+      };
+      
+      const statusLabels: Record<string, string> = {
+        'en_attente': 'Planifié',
+        'en_cours': 'En cours',
+        'termine': 'Terminé',
+        'annule': 'Annulé'
+      };
+
+      const statusEmoji = statusEmojis[rdv.statut] || '🔧';
+      const statusLabel = statusLabels[rdv.statut] || rdv.statut;
+
+      // Titre Format: [Emoji] Nom Client : Type Intervention (Vehicule)
+      // Ex: 📅 DUPONT Jean : Révision (Clio IV)
+      const summary = `${statusEmoji} ${clientName} : ${rdv.type_intervention}${vehicleInfo ? ` (${vehicleInfo})` : ''}`;
+
+      const description = `
+Statut: ${statusLabel.toUpperCase()}
+-------------------
+Véhicule: ${vehicleInfo || 'Non spécifié'}
+Notes: ${rdv.description || 'Aucune note'}
+-------------------
+Géré via GaragePro SaaS
+      `.trim();
+
       const event = {
-        summary: `🔧 [${rdv.statut.toUpperCase()}] RDV Garage: ${rdv.type_intervention}`,
-        description: `Notes: ${rdv.description || ''}\nStatut: ${rdv.statut}`,
+        summary: summary,
+        description: description,
         start: { dateTime: startDateTime.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
         end: { dateTime: endDateTime.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       };
@@ -213,12 +258,13 @@ class ApiService {
       });
 
       if (!res.ok) {
+          console.warn("Erreur API Google:", await res.text());
           return false;
       }
 
       if (action === 'create') {
         const data = await res.json();
-        const { error: upError } = await supabase
+        await supabase
             .from('rendez_vous')
             .update({ google_event_id: data.id })
             .eq('id', rdv.id);
