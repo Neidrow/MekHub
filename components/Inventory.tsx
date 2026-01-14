@@ -1,11 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
-import { StockItem, UserRole } from '../types';
+import { StockItem, UserRole, StockHistory } from '../types';
+import { api } from '../services/api';
+import DatePicker from './DatePicker';
 
 interface InventoryProps {
   inventory: StockItem[];
   userRole: UserRole;
   onAddItem: (item: Omit<StockItem, 'id' | 'user_id'>) => Promise<void>;
+  onUpdateItem: (id: string, updates: Partial<StockItem>) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
 }
 
@@ -16,8 +19,26 @@ const CATEGORIES = [
   { id: 'Autre', label: 'Autre', color: 'bg-slate-700', icon: '📦' }
 ];
 
-const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, onDeleteItem }) => {
+const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, onUpdateItem, onDeleteItem }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+  
+  // History States
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState<StockHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<StockItem | null>(null);
+
+  // Restock States
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [restockItem, setRestockItem] = useState<StockItem | null>(null);
+  const [restockData, setRestockData] = useState({
+    type: 'add' as 'add' | 'remove',
+    quantity: 1,
+    date: new Date().toISOString().split('T')[0],
+    note: ''
+  });
+
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('Tout');
   const [loading, setLoading] = useState(false);
@@ -51,11 +72,52 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
 
   const alertCount = useMemo(() => inventory.filter(i => i.quantite <= i.seuil_alerte).length, [inventory]);
 
+  const openEditModal = (item: StockItem) => {
+    setEditingItem(item);
+    setNewItem({
+      reference: item.reference,
+      nom: item.nom,
+      categorie: item.categorie,
+      quantite: item.quantite.toString(),
+      seuil_alerte: item.seuil_alerte.toString(),
+      prix_achat: item.prix_achat.toString(),
+      prix_vente: item.prix_vente.toString(),
+      fournisseur: item.fournisseur,
+      notes: item.notes
+    });
+    setIsModalOpen(true);
+  };
+
+  const openRestockModal = (item: StockItem) => {
+    setRestockItem(item);
+    setRestockData({
+      type: 'add',
+      quantity: 1,
+      date: new Date().toISOString().split('T')[0],
+      note: ''
+    });
+    setIsRestockModalOpen(true);
+  };
+
+  const openHistoryModal = async (item: StockItem) => {
+    setSelectedHistoryItem(item);
+    setIsHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      const data = await api.fetchStockHistory(item.id);
+      setHistoryData(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await onAddItem({
+      const payload = {
         reference: newItem.reference,
         nom: newItem.nom,
         categorie: newItem.categorie,
@@ -65,17 +127,79 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
         prix_vente: parseFloat(newItem.prix_vente) || 0,
         fournisseur: newItem.fournisseur,
         notes: newItem.notes
-      });
-      setIsModalOpen(false);
-      setNewItem({
-        reference: '', nom: '', categorie: 'Piece', quantite: '0', seuil_alerte: '5',
-        prix_achat: '0', prix_vente: '0', fournisseur: '', notes: ''
-      });
+      };
+
+      if (editingItem) {
+        // Détecter changement de quantité pour l'historique
+        const diff = payload.quantite - editingItem.quantite;
+        if (diff !== 0) {
+          await api.addStockHistory({
+            item_id: editingItem.id,
+            change_amount: diff,
+            new_quantity: payload.quantite,
+            reason: diff > 0 ? 'Correction manuelle (Ajout)' : 'Correction manuelle (Retrait)',
+            created_at: new Date().toISOString()
+          });
+        }
+        await onUpdateItem(editingItem.id, payload);
+      } else {
+        const createdItem = await onAddItem(payload);
+        // @ts-ignore
+        if (createdItem?.id) {
+           await api.addStockHistory({
+             // @ts-ignore
+             item_id: createdItem.id,
+             change_amount: payload.quantite,
+             new_quantity: payload.quantite,
+             reason: 'Création initiale',
+             created_at: new Date().toISOString()
+           });
+        }
+      }
+      
+      closeModal();
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRestockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockItem) return;
+    setLoading(true);
+    try {
+      const change = restockData.type === 'add' ? restockData.quantity : -restockData.quantity;
+      const newStock = restockItem.quantite + change;
+      
+      await onUpdateItem(restockItem.id, { quantite: newStock });
+      
+      await api.addStockHistory({
+        item_id: restockItem.id,
+        change_amount: change,
+        new_quantity: newStock,
+        reason: restockData.note || (restockData.type === 'add' ? 'Réapprovisionnement' : 'Sortie de stock'),
+        created_at: new Date(restockData.date).toISOString()
+      });
+
+      setIsRestockModalOpen(false);
+      setRestockItem(null);
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la mise à jour du stock.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+    setNewItem({
+      reference: '', nom: '', categorie: 'Piece', quantite: '0', seuil_alerte: '5',
+      prix_achat: '0', prix_vente: '0', fournisseur: '', notes: ''
+    });
   };
 
   const confirmDelete = async () => {
@@ -95,6 +219,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
   if (!isPremium) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden text-center">
+        {/* ... (Premium overlay unchanged) ... */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 blur-3xl opacity-50"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-50 rounded-full -ml-32 -mb-32 blur-3xl opacity-50"></div>
         
@@ -118,7 +243,117 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
-      {/* --- Modal Suppression Sécurisé --- */}
+      {/* --- Modal Historique --- */}
+      {isHistoryOpen && selectedHistoryItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setIsHistoryOpen(false)}>
+          <div className="bg-white rounded-3xl sm:rounded-[2.5rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+               <div>
+                 <h3 className="text-xl font-black text-slate-800">Historique</h3>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest truncate max-w-[200px]">{selectedHistoryItem.nom}</p>
+               </div>
+               <button onClick={() => setIsHistoryOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 rounded-xl transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
+             </div>
+             
+             <div className="p-6 overflow-y-auto">
+                {historyLoading ? (
+                  <div className="flex justify-center py-10"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>
+                ) : historyData.length === 0 ? (
+                  <p className="text-center text-slate-400 font-medium py-10">Aucun mouvement enregistré.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {historyData.map((h) => (
+                      <div key={h.id} className="flex gap-4 items-start">
+                         <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${h.change_amount > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                         <div className="flex-1 pb-4 border-b border-slate-50 last:border-0">
+                            <div className="flex justify-between items-start">
+                               <p className="font-bold text-slate-800 text-sm">{h.reason || 'Mise à jour'}</p>
+                               <span className={`text-xs font-black ${h.change_amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                 {h.change_amount > 0 ? '+' : ''}{h.change_amount}
+                               </span>
+                            </div>
+                            <div className="flex justify-between items-end mt-1">
+                               <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">{new Date(h.created_at).toLocaleDateString()} à {new Date(h.created_at).toLocaleTimeString().slice(0,5)}</p>
+                               <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold">Stock: {h.new_quantity}</span>
+                            </div>
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Modal Réapprovisionnement --- */}
+      {isRestockModalOpen && restockItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setIsRestockModalOpen(false)}>
+          <div className="bg-white rounded-3xl sm:rounded-[2.5rem] w-full max-w-md shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+               <div>
+                 <h3 className="text-xl font-black text-slate-800">Mouvement de Stock</h3>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest truncate max-w-[200px]">{restockItem.nom}</p>
+               </div>
+               <button onClick={() => setIsRestockModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 rounded-xl transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
+             </div>
+             
+             <form onSubmit={handleRestockSubmit} className="p-6 space-y-6 overflow-y-auto">
+                {/* Type de mouvement */}
+                <div className="flex bg-slate-100 p-1 rounded-2xl">
+                   <button 
+                     type="button" 
+                     onClick={() => setRestockData({...restockData, type: 'add'})} 
+                     className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${restockData.type === 'add' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
+                   >
+                     Entrée (+)
+                   </button>
+                   <button 
+                     type="button" 
+                     onClick={() => setRestockData({...restockData, type: 'remove'})} 
+                     className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${restockData.type === 'remove' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
+                   >
+                     Sortie (-)
+                   </button>
+                </div>
+
+                <div className="space-y-4">
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantité</label>
+                      <input required type="number" min="1" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-center text-lg" value={restockData.quantity} onChange={e => setRestockData({...restockData, quantity: parseInt(e.target.value) || 1})} />
+                   </div>
+                   
+                   <div className="space-y-1">
+                      <DatePicker 
+                        label="Date du mouvement"
+                        required
+                        value={restockData.date}
+                        onChange={(date) => setRestockData({...restockData, date})}
+                      />
+                   </div>
+
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Note / Raison</label>
+                      <textarea placeholder="Ex: Livraison fournisseur, Casse..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-medium text-sm h-20" value={restockData.note} onChange={e => setRestockData({...restockData, note: e.target.value})} />
+                   </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center">
+                   <span className="text-xs font-black text-slate-500 uppercase tracking-wide">Nouveau Stock :</span>
+                   <span className="text-2xl font-black text-slate-900">
+                      {restockItem.quantite + (restockData.type === 'add' ? restockData.quantity : -restockData.quantity)}
+                   </span>
+                </div>
+
+                <button type="submit" disabled={loading} className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest text-xs">
+                   {loading ? "Mise à jour..." : "Confirmer le mouvement"}
+                </button>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- Modal Suppression --- */}
       {itemToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setItemToDelete(null)}>
           <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative animate-in zoom-in duration-300 flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -130,36 +365,22 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
                Attention, cette action est <span className="font-bold text-rose-600">irréversible</span>. L'article <span className="font-bold text-slate-700">{itemToDelete.nom}</span> sera retiré du stock.
              </p>
              <div className="flex flex-col gap-3">
-               <button 
-                 onClick={confirmDelete}
-                 disabled={deleteLoading}
-                 className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-600/20 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
-               >
-                 {deleteLoading ? (
-                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                 ) : (
-                   "Supprimer définitivement"
-                 )}
+               <button onClick={confirmDelete} disabled={deleteLoading} className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl hover:bg-rose-700 shadow-xl shadow-rose-600/20 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                 {deleteLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Supprimer définitivement"}
                </button>
-               <button 
-                 onClick={() => setItemToDelete(null)}
-                 disabled={deleteLoading}
-                 className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs"
-               >
-                 Annuler
-               </button>
+               <button onClick={() => setItemToDelete(null)} disabled={deleteLoading} className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs">Annuler</button>
              </div>
           </div>
         </div>
       )}
 
-      {/* Modal Ajout */}
+      {/* Modal Ajout / Edition */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={closeModal}>
+          <div className="bg-white rounded-3xl sm:rounded-[2.5rem] w-full max-w-xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 sm:p-8 border-b border-slate-50 flex justify-between items-center">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-800">Ajouter un article</h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 rounded-xl transition-all">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800">{editingItem ? 'Modifier l\'article' : 'Ajouter un article'}</h2>
+              <button onClick={closeModal} className="p-2 text-slate-400 hover:text-slate-900 rounded-xl transition-all">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -194,7 +415,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock Initial</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock</label>
                   <input required type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-center" value={newItem.quantite} onChange={e => setNewItem({...newItem, quantite: e.target.value})} />
                 </div>
                 <div className="space-y-1">
@@ -212,7 +433,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
               </div>
 
               <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
-                {loading ? "Chargement..." : "Enregistrer l'article"}
+                {loading ? "Chargement..." : editingItem ? "Mettre à jour" : "Enregistrer l'article"}
               </button>
             </form>
           </div>
@@ -231,7 +452,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
           </div>
           <p className="text-slate-500 font-medium mt-1">{inventory.length} article{inventory.length > 1 ? 's' : ''} • <span className={alertCount > 0 ? 'text-rose-500 font-bold' : ''}>{alertCount} alerte{alertCount > 1 ? 's' : ''}</span></p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-3">
+        <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-3">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
           Nouvel article
         </button>
@@ -309,10 +530,14 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
 
                          <div className="flex justify-between items-center pt-3 border-t border-slate-50">
                             <div className="flex gap-1.5">
-                               <button className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Historique">
+                               <button onClick={() => openRestockModal(item)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Réapprovisionner">
+                                  {/* Nouvelle Icône : Flèche en zig-zag (type graphique boursier) */}
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                               </button>
+                               <button onClick={() => openHistoryModal(item)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Historique">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                </button>
-                               <button className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all" title="Éditer">
+                               <button onClick={() => openEditModal(item)} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all" title="Éditer">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                </button>
                             </div>

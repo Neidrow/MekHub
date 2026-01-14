@@ -72,7 +72,7 @@ export interface RendezVous {
   description: string;
   statut: 'en_attente' | 'en_cours' | 'termine' | 'annule';
   notes: string;
-  google_event_id?: string; // Pour la synchro Google Calendar
+  google_event_id?: string;
   created_at?: string;
 }
 
@@ -93,7 +93,7 @@ export interface Devis {
   items: InvoiceItem[];
   montant_ht: number;
   montant_ttc: number;
-  statut: 'en_attente' | 'accepte' | 'refuse';
+  statut: 'brouillon' | 'en_attente' | 'accepte' | 'refuse';
   notes?: string;
   created_at?: string;
 }
@@ -111,7 +111,7 @@ export interface Facture {
   montant_ttc: number;
   acompte: number;
   montant_paye: number;
-  statut: 'payee' | 'non_payee' | 'annule';
+  statut: 'brouillon' | 'payee' | 'non_payee' | 'annule';
   notes?: string;
   created_at?: string;
 }
@@ -129,6 +129,27 @@ export interface StockItem {
   fournisseur: string;
   notes: string;
   created_at?: string;
+}
+
+export interface StockHistory {
+  id: string;
+  item_id: string;
+  change_amount: number;
+  new_quantity: number;
+  reason: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id?: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  title: string;
+  message: string;
+  read: boolean;
+  created_at?: string;
+  isLocal?: boolean; // Pour les notifs générées à la volée
+  link?: ViewState;
 }
 
 export type ViewState = 'dashboard' | 'appointments' | 'customers' | 'vehicles' | 'mechanics' | 'quotes' | 'invoices' | 'inventory' | 'ai-assistant' | 'settings' | 'super-admin';

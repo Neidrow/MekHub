@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RendezVous, Client, Vehicule, Mecanicien, ViewState } from '../types';
+import DatePicker from './DatePicker';
 
 interface AppointmentsProps {
   appointments: RendezVous[];
@@ -316,7 +317,7 @@ const Appointments: React.FC<AppointmentsProps> = ({
         </div>
       </div>
 
-      {/* --- Navigation Temporelle (Timeline) avec navigation par mois --- */}
+      {/* --- Navigation Temporelle (Timeline) --- */}
       <div className="space-y-4">
         {/* Contrôles de Mois */}
         <div className="flex items-center justify-between px-2">
@@ -342,7 +343,7 @@ const Appointments: React.FC<AppointmentsProps> = ({
                const isSelected = day.dateStr === selectedDate;
                const isToday = day.dateStr === todayStr;
                
-               // Compter les RDV pour ce jour (sans les filtres clients/meca pour montrer la charge globale)
+               // Compter les RDV pour ce jour
                const count = appointments.filter(a => a.date === day.dateStr).length;
 
                return (
@@ -473,11 +474,11 @@ const Appointments: React.FC<AppointmentsProps> = ({
         )}
       </div>
 
-      {/* --- Modal (Reste inchangé en logique, juste le style adapté si besoin) --- */}
+      {/* --- Modal Editor --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={handleClose}>
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+          <div className="bg-white rounded-3xl sm:rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[95vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white">
               <div>
                 <h2 className="text-2xl font-black text-slate-800">{editingRDV ? 'Modifier l\'intervention' : 'Planifier une intervention'}</h2>
                 <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-1">Agenda atelier</p>
@@ -487,7 +488,7 @@ const Appointments: React.FC<AppointmentsProps> = ({
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-5 overflow-y-auto scrollbar-hide">
+            <form onSubmit={handleSubmit} className="p-8 space-y-5 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client</label>
@@ -523,8 +524,12 @@ const Appointments: React.FC<AppointmentsProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Date</label>
-                  <input type="date" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                  <DatePicker 
+                    label="Date"
+                    required
+                    value={formData.date}
+                    onChange={(date) => setFormData({...formData, date})}
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Heure</label>

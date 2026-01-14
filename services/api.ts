@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole } from '../types';
+import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory } from '../types';
 
 const supabaseUrl = 'https://qvyqptiekeunidxdomne.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2eXFwdGlla2V1bmlkeGRvbW5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMzUwODAsImV4cCI6MjA4MTYxMTA4MH0.gIpXpTSt3wIWhUmipuy53a1j_JeLh5rRI1gpkXVu-EA';
@@ -97,6 +97,44 @@ class ApiService {
     if (error) throw error;
   }
 
+  async shortenUrl(longUrl: string): Promise<string> {
+    try {
+      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+      if (response.ok) {
+        return await response.text();
+      }
+      return longUrl;
+    } catch (error) {
+      console.warn("Impossible de raccourcir l'URL:", error);
+      return longUrl;
+    }
+  }
+
+  async uploadDocument(fileName: string, fileBlob: Blob): Promise<string> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Utilisateur non connecté");
+
+    const filePath = `${user.id}/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from('documents')
+      .upload(filePath, fileBlob, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
+
+    if (error) {
+      console.error("Erreur Upload Supabase:", error);
+      throw new Error("Erreur lors de l'envoi du fichier vers le cloud.");
+    }
+
+    const { data } = supabase.storage
+      .from('documents')
+      .getPublicUrl(filePath, { download: true });
+
+    return data.publicUrl;
+  }
+
   async syncAllUpcomingToGoogle() {
     const token = this.getStoredGoogleToken();
     if (!token) throw new Error("Veuillez d'abord connecter votre compte Google.");
@@ -125,12 +163,11 @@ class ApiService {
     if (!token) return false;
 
     try {
-      // Parsing sécurisé de la date et de l'heure
-      const dateParts = rdv.date.split('-'); // [YYYY, MM, DD]
-      const timeParts = rdv.heure.split(':'); // [HH, mm, ss]
+      const dateParts = rdv.date.split('-');
+      const timeParts = rdv.heure.split(':');
       
       const year = parseInt(dateParts[0]);
-      const month = parseInt(dateParts[1]) - 1; // JS months are 0-11
+      const month = parseInt(dateParts[1]) - 1;
       const day = parseInt(dateParts[2]);
       const hours = parseInt(timeParts[0]);
       const minutes = parseInt(timeParts[1]) || 0;
@@ -138,7 +175,6 @@ class ApiService {
       const startDateTime = new Date(year, month, day, hours, minutes, 0);
       
       if (isNaN(startDateTime.getTime())) {
-          console.error("Date ou Heure invalide pour le RDV:", rdv);
           return false;
       }
 
@@ -149,7 +185,6 @@ class ApiService {
       
       const endDateTime = new Date(startDateTime.getTime() + durationInMs);
 
-      // Google attend du ISO8601 (toISOString est parfait si la date est valide)
       const event = {
         summary: `🔧 [${rdv.statut.toUpperCase()}] RDV Garage: ${rdv.type_intervention}`,
         description: `Notes: ${rdv.description || ''}\nStatut: ${rdv.statut}`,
@@ -178,8 +213,6 @@ class ApiService {
       });
 
       if (!res.ok) {
-          const errText = await res.text();
-          console.error(`Erreur Google Calendar API (${res.status}):`, errText);
           return false;
       }
 
@@ -189,11 +222,6 @@ class ApiService {
             .from('rendez_vous')
             .update({ google_event_id: data.id })
             .eq('id', rdv.id);
-            
-        if (upError) {
-            console.error("Impossible de sauvegarder l'ID Google dans Supabase:", upError);
-            return false;
-        }
       }
       
       return true;
@@ -217,6 +245,54 @@ class ApiService {
       .select();
     if (error) throw error;
     return data[0];
+  }
+
+  // --- Stock History ---
+  async fetchStockHistory(itemId: string): Promise<StockHistory[]> {
+    const { data, error } = await supabase
+      .from('stock_history')
+      .select('*')
+      .eq('item_id', itemId)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return data as StockHistory[];
+  }
+
+  async addStockHistory(history: Omit<StockHistory, 'id'>) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('stock_history').insert([{ ...history, user_id: user.id }]);
+    }
+  }
+
+  // --- Notifications ---
+  async fetchNotifications(): Promise<Notification[]> {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    if (error) {
+      console.warn("Fetch Notifications:", error.message);
+      return [];
+    }
+    return data as Notification[];
+  }
+
+  async markNotificationAsRead(id: string) {
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+  }
+
+  async deleteNotification(id: string) {
+    await supabase.from('notifications').delete().eq('id', id);
+  }
+
+  async markAllNotificationsAsRead() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('notifications').update({ read: true }).eq('user_id', user.id);
+    }
   }
 
   async login(email: string, pass: string) {

@@ -46,18 +46,15 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Mois dernier (gestion du passage d'année janvier -> décembre)
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonth = lastMonthDate.getMonth();
     const lastMonthYear = lastMonthDate.getFullYear();
 
-    // Fonction utilitaire pour sécuriser le montant (parfois string venant de la DB)
     const getAmount = (amount: any) => Number(amount) || 0;
 
     const currentRevenue = invoices
       .filter(inv => {
         const d = new Date(inv.date_facture);
-        // On s'assure que le statut correspond exactement
         return inv.statut === 'payee' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       })
       .reduce((sum, inv) => sum + getAmount(inv.montant_ttc), 0);
@@ -73,7 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     if (lastRevenue > 0) {
       percentChange = ((currentRevenue - lastRevenue) / lastRevenue) * 100;
     } else if (currentRevenue > 0) {
-      percentChange = 100; // Si on passe de 0 à X, c'est +100% (symbolique)
+      percentChange = 100; 
     }
 
     return {
@@ -265,7 +262,6 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{stat.label}</p>
             <h3 className={`text-3xl font-black ${stat.isCurrency ? 'text-blue-600' : 'text-[#1e293b]'}`}>{stat.value}</h3>
             
-            {/* Affichage de la variation pour le CA */}
             {stat.trend !== undefined && (
               <div className={`mt-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${stat.trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                 {stat.trend >= 0 ? (
