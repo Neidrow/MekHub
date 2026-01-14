@@ -17,6 +17,7 @@ import Mechanics from './components/Mechanics.tsx';
 import SuperAdmin from './components/SuperAdmin.tsx';
 import WelcomeOverlay from './components/WelcomeOverlay.tsx';
 import GoogleCalendarModal from './components/GoogleCalendarModal.tsx';
+import HelpModal from './components/HelpModal.tsx';
 
 interface NavItemProps {
   view: ViewState;
@@ -77,6 +78,7 @@ const App: React.FC = () => {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showGooglePrompt, setShowGooglePrompt] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
   
   const [clients, setClients] = useState<Client[]>([]);
@@ -120,42 +122,48 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // --- AUTOMATISATION DES STATUTS RDV ---
+  // --- AUTOMATISATION DES STATUTS RDV (CORRIGÉE) ---
   useEffect(() => {
     if (!session || rendezVous.length === 0) return;
 
     const checkAndAutoUpdateStatus = async () => {
-      const now = new Date();
+      const now = new Date(); // Heure actuelle exacte du navigateur (Local Time)
       let hasUpdates = false;
 
       const updates = rendezVous.map(async (rdv) => {
-        // Ignorer les RDV annulés ou déjà terminés
+        // Ignorer si déjà annulé ou terminé
         if (rdv.statut === 'annule' || rdv.statut === 'termine') return;
 
-        // Construire la date de début
-        // rdv.date est au format YYYY-MM-DD, rdv.heure au format HH:MM
-        const startDateTime = new Date(`${rdv.date}T${rdv.heure}:00`);
+        // Parsing STRICT de la date pour éviter l'interprétation UTC
+        // rdv.date = "2023-10-27"
+        // rdv.heure = "09:00"
+        const [year, month, day] = rdv.date.split('-').map(Number);
+        const [hours, minutes] = rdv.heure.split(':').map(Number);
+
+        // Construction de la date en LOCAL TIME (identique à `now`)
+        // Mois est 0-indexé dans JS Date
+        const startDateTime = new Date(year, month - 1, day, hours, minutes, 0);
         
-        // Calculer la durée en millisecondes
+        // Calcul de la durée
         let durationMs = 60 * 60 * 1000; // 1h par défaut
         if (rdv.duree) {
-          if (rdv.duree.includes('m')) durationMs = parseInt(rdv.duree) * 60 * 1000;
-          else if (rdv.duree.includes('h')) durationMs = parseFloat(rdv.duree) * 60 * 60 * 1000;
+          const val = parseInt(rdv.duree);
+          if (rdv.duree.includes('m')) durationMs = val * 60 * 1000;
+          else if (rdv.duree.includes('h')) durationMs = val * 60 * 60 * 1000;
         }
 
         const endDateTime = new Date(startDateTime.getTime() + durationMs);
 
         let newStatus: RendezVous['statut'] | null = null;
 
-        // Logique de transition
+        // Logique de comparaison temporelle
         if (now >= endDateTime) {
-          // Si l'heure actuelle dépasse la fin, on passe à TERMINE
+          // Si l'heure actuelle a dépassé la fin -> Terminé
           if (rdv.statut !== 'termine') {
             newStatus = 'termine';
           }
         } else if (now >= startDateTime && now < endDateTime) {
-          // Si l'heure actuelle est dans l'intervalle, on passe à EN COURS
-          // Uniquement si le statut actuel est 'en_attente'
+          // Si l'heure actuelle est DANS le créneau -> En cours
           if (rdv.statut === 'en_attente') {
             newStatus = 'en_cours';
           }
@@ -163,25 +171,27 @@ const App: React.FC = () => {
 
         if (newStatus) {
           hasUpdates = true;
-          // Mise à jour silencieuse pour ne pas spammer
+          // Mise à jour API silencieuse
           await api.updateData('rendez_vous', rdv.id, { statut: newStatus });
         }
       });
 
       await Promise.all(updates);
 
-      // Si des changements ont eu lieu, on recharge les données pour mettre à jour l'interface
       if (hasUpdates) {
+        // Recharger les données pour refléter les changements dans l'UI
         loadAllData();
       }
     };
 
-    // Vérifier immédiatement puis toutes les 60 secondes
+    // Check immédiat au montage
     checkAndAutoUpdateStatus();
-    const intervalId = setInterval(checkAndAutoUpdateStatus, 60000);
+    
+    // Check toutes les 15 secondes pour être réactif
+    const intervalId = setInterval(checkAndAutoUpdateStatus, 15000);
 
     return () => clearInterval(intervalId);
-  }, [rendezVous, session]); // Dépendance à rendezVous pour avoir les dernières données
+  }, [rendezVous, session]);
 
   const handleSession = async (sess: any) => {
     setLoading(true);
@@ -207,9 +217,7 @@ const App: React.FC = () => {
       if (metadata.role === 'super_admin') {
         setCurrentView('super-admin');
       } else {
-        // Lecture directe du localStorage pour s'assurer qu'on n'écrase pas la vue courante avec un stale state
         const savedView = localStorage.getItem('garagepro_current_view');
-        // Si l'utilisateur était en super-admin (via cache) mais n'a plus les droits, on le remet au dashboard
         if (savedView === 'super-admin') {
           setCurrentView('dashboard');
           localStorage.setItem('garagepro_current_view', 'dashboard');
@@ -244,7 +252,6 @@ const App: React.FC = () => {
     setShowWelcome(false);
     setShowGooglePrompt(false);
     setIsSuspended(false);
-    // On ne supprime PAS 'garagepro_current_view' ici pour garder la préférence utilisateur même après déconnexion/expiration
   };
 
   const handleLogout = async () => {
@@ -457,6 +464,10 @@ const App: React.FC = () => {
         />
       )}
 
+      {showHelp && (
+        <HelpModal onClose={() => setShowHelp(false)} />
+      )}
+
       {mustChangePassword && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4">
           <div className="bg-white rounded-[3rem] w-full max-w-md p-10">
@@ -509,7 +520,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 lg:ml-72 flex flex-col min-w-0">
+      <main className="flex-1 lg:ml-72 flex flex-col min-w-0 relative">
         <header className="h-20 bg-white/70 backdrop-blur-xl border-b flex items-center justify-between px-6 sticky top-0 z-20">
           <button className="lg:hidden p-2 text-slate-500" onClick={() => setIsSidebarOpen(true)}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -680,6 +691,16 @@ const App: React.FC = () => {
             />
           )}
         </div>
+
+        {/* --- Floating Help Button --- */}
+        <button 
+          onClick={() => setShowHelp(true)}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-black transition-all hover:scale-110 active:scale-95 group"
+          title="Aide & Documentation"
+        >
+          <span className="text-2xl font-black group-hover:rotate-12 transition-transform">?</span>
+        </button>
+
       </main>
     </div>
   );

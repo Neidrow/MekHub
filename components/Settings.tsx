@@ -46,9 +46,10 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
         const updated = { ...formData, google_calendar_enabled: true };
         setFormData(updated);
         await onSave(updated);
-        await api.syncAllUpcomingToGoogle();
+        // On lance une première synchro automatique silencieuse
+        await api.syncAllUpcomingToGoogle(); 
         await onRefresh();
-        alert("Agenda connecté et synchronisé !");
+        alert("Agenda connecté avec succès !");
       } else {
         const updated = { ...formData, google_calendar_enabled: false };
         setFormData(updated);
@@ -125,9 +126,9 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
                 {syncLoading ? (
                     <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                 ) : formData.google_calendar_enabled ? (
-                    "Déconnecter"
+                    "Déconnecter l'agenda"
                 ) : (
-                    "Connecter"
+                    "Connecter l'agenda"
                 )}
                 </button>
             </div>

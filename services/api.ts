@@ -1,11 +1,22 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory } from '../types';
+import { sendInvitationEmail } from './emailService';
 
 const supabaseUrl = 'https://qvyqptiekeunidxdomne.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2eXFwdGlla2V1bmlkeGRvbW5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMzUwODAsImV4cCI6MjA4MTYxMTA4MH0.gIpXpTSt3wIWhUmipuy53a1j_JeLh5rRI1gpkXVu-EA';
 
+// Client principal
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Client secondaire ISOLÉ pour les invitations (évite de déconnecter l'admin lors de la création d'un autre user)
+const inviteClient = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  }
+});
 
 const GOOGLE_CLIENT_ID = "575548398550-vlghdffigbstdqmfqeq3grbdbleid0j2.apps.googleusercontent.com";
 
@@ -185,11 +196,9 @@ class ApiService {
       
       const endDateTime = new Date(startDateTime.getTime() + durationInMs);
 
-      // --- Construction intelligente du Titre et de la Description ---
       let clientName = 'Client';
       let vehicleInfo = '';
 
-      // Récupération des infos liées pour avoir un titre propre
       if (action !== 'delete') {
         const { data: client } = await supabase.from('clients').select('nom, prenom').eq('id', rdv.client_id).single();
         if (client) clientName = `${client.nom} ${client.prenom}`;
@@ -200,30 +209,9 @@ class ApiService {
         }
       }
 
-      const statusEmojis: Record<string, string> = {
-        'en_attente': '📅', // Planifié
-        'en_cours': '⏳',   // En cours
-        'termine': '✅',    // Terminé
-        'annule': '❌'      // Annulé
-      };
-      
-      const statusLabels: Record<string, string> = {
-        'en_attente': 'Planifié',
-        'en_cours': 'En cours',
-        'termine': 'Terminé',
-        'annule': 'Annulé'
-      };
-
-      const statusEmoji = statusEmojis[rdv.statut] || '🔧';
-      const statusLabel = statusLabels[rdv.statut] || rdv.statut;
-
-      // Titre Format: [Emoji] Nom Client : Type Intervention (Vehicule)
-      // Ex: 📅 DUPONT Jean : Révision (Clio IV)
-      const summary = `${statusEmoji} ${clientName} : ${rdv.type_intervention}${vehicleInfo ? ` (${vehicleInfo})` : ''}`;
+      const summary = `📅 ${clientName} : ${rdv.type_intervention}${vehicleInfo ? ` (${vehicleInfo})` : ''}`;
 
       const description = `
-Statut: ${statusLabel.toUpperCase()}
--------------------
 Véhicule: ${vehicleInfo || 'Non spécifié'}
 Notes: ${rdv.description || 'Aucune note'}
 -------------------
@@ -346,20 +334,61 @@ Géré via GaragePro SaaS
     if (error) throw error;
     return data;
   }
+  
   async signup(email: string, pass: string, garage: string) {
     const { data, error } = await supabase.auth.signUp({ email, password: pass, options: { data: { garage_name: garage, role: 'user_basic' } } });
     if (error) throw error;
     return data;
   }
+  
   async updatePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({ password: newPassword, data: { needs_password_change: false } });
     if (error) throw error;
   }
+  
   async checkStatus(email: string) {
     const { data } = await supabase.from('invitations').select('status').eq('email', email).maybeSingle();
     return data?.status || 'Inexistant';
   }
-  async inviteUser(email: string, role: UserRole) { await supabase.from('invitations').insert([{ email, role, status: 'Actif' }]); }
+  
+  // Fonction centralisée qui gère tout le flux d'invitation (Auth + DB + Email)
+  async inviteUser(email: string, role: UserRole) {
+    // 1. Génération du mot de passe temporaire
+    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + '!';
+    
+    // 2. Création du compte via le client isolé (pour ne pas déconnecter l'admin)
+    const { data, error } = await inviteClient.auth.signUp({
+      email,
+      password: tempPassword,
+      options: {
+        data: { 
+          role: role,
+          needs_password_change: true, // Force le changement au premier login
+          garage_name: 'Nouveau Garage'
+        }
+      }
+    });
+
+    if (error) throw error;
+
+    // 3. Insertion dans la table invitations pour le suivi
+    await supabase.from('invitations').insert([{ 
+      email, 
+      role, 
+      status: 'Actif' 
+    }]);
+
+    // 4. Envoi de l'email avec le mot de passe temporaire
+    try {
+        await sendInvitationEmail(email, role, tempPassword);
+    } catch (e: any) {
+        // On renvoie une erreur contenant le mot de passe pour que l'admin puisse le noter manuellement si l'email échoue
+        throw new Error(`Compte créé (Mdp: ${tempPassword}), mais erreur email: ${e.message}`);
+    }
+
+    return { user: data.user, tempPassword };
+  }
+
   async fetchInvitations() { const { data } = await supabase.from('invitations').select('*').order('created_at', { ascending: false }); return data || []; }
   async updateInvitationStatus(id: string, newStatus: string) { await supabase.from('invitations').update({ status: newStatus }).eq('id', id); }
   async deleteGarageAccount(id: string) { await supabase.from('invitations').delete().eq('id', id); }

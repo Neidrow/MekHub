@@ -7,7 +7,7 @@ const SuperAdmin: React.FC = () => {
   const [stats, setStats] = useState({ totalGarages: 0, revenue: 0 });
   const [loading, setLoading] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', role: 'user_basic' as UserRole });
-  const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
   const [invitedUsers, setInvitedUsers] = useState<any[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   
@@ -42,13 +42,20 @@ const SuperAdmin: React.FC = () => {
     setLoading(true);
     setMessage(null);
     try {
+      // Appel à la fonction unifiée qui gère Auth + DB + Email
       await api.inviteUser(newUser.email, newUser.role);
-      setMessage({ text: `Succès ! Email envoyé à ${newUser.email}.`, type: 'success' });
+      
+      setMessage({ text: `Compte créé avec succès ! Email d'invitation envoyé à ${newUser.email}.`, type: 'success' });
       setNewUser({ email: '', role: 'user_basic' });
       await loadData();
     } catch (err: any) {
-      console.error("Erreur SuperAdmin handleCreateUser:", err);
-      setMessage({ text: err.message || "Erreur lors de la création", type: 'error' });
+      console.error("Erreur création utilisateur:", err);
+      // Si l'erreur contient le mot de passe (cas d'échec email), on l'affiche en warning
+      if (err.message && err.message.includes('Mdp:')) {
+         setMessage({ text: err.message, type: 'warning' });
+      } else {
+         setMessage({ text: err.message || "Erreur lors de la création du compte", type: 'error' });
+      }
     } finally {
       setLoading(false);
     }
@@ -126,6 +133,7 @@ const SuperAdmin: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 bg-white p-6 sm:p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8 h-fit">
           <h3 className="text-xl font-black text-slate-800">Ajouter un Garage</h3>
+          <p className="text-xs text-slate-400 leading-relaxed font-medium">Le système créera un compte et enverra un email d'invitation avec un mot de passe temporaire.</p>
           <form onSubmit={handleCreateUser} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email du gérant</label>
@@ -138,8 +146,17 @@ const SuperAdmin: React.FC = () => {
                  <button type="button" onClick={() => setNewUser({...newUser, role: 'user_premium'})} className={`py-4 rounded-2xl border-2 font-black text-[10px] uppercase tracking-widest transition-all ${newUser.role === 'user_premium' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-100 text-slate-400'}`}>Premium</button>
               </div>
             </div>
-            {message && <div className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center ${message.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{message.text}</div>}
-            <button disabled={loading} type="submit" className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-xs">Inviter le garage</button>
+            {message && (
+              <div className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center leading-relaxed
+                ${message.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 
+                  message.type === 'warning' ? 'bg-amber-50 text-amber-600' : 
+                  'bg-rose-50 text-rose-600'}`}>
+                {message.text}
+              </div>
+            )}
+            <button disabled={loading} type="submit" className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all active:scale-95 uppercase tracking-widest text-xs">
+              {loading ? "Création en cours..." : "Créer et Inviter"}
+            </button>
           </form>
         </div>
 
@@ -208,9 +225,9 @@ const SuperAdmin: React.FC = () => {
          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="max-w-xl">
                <h4 className="text-xl font-black mb-2">💡 Conseil d'administration</h4>
-               <p className="text-blue-200 text-sm leading-relaxed">Si le journal est vide, vérifiez que vous avez bien créé la table <strong>'invitations'</strong> sur Supabase et désactivé le RLS pour l'accès en lecture/écriture.</p>
+               <p className="text-blue-200 text-sm leading-relaxed">Les comptes sont créés directement via l'API Auth. Assurez-vous que l'option "Enable Email Confirmation" est désactivée dans Supabase si vous souhaitez une connexion immédiate avec le mot de passe temporaire.</p>
             </div>
-            <button className="px-8 py-4 bg-white text-blue-900 font-black rounded-2xl hover:bg-blue-50 transition-all text-xs uppercase tracking-widest active:scale-95">Documentation SQL</button>
+            <button className="px-8 py-4 bg-white text-blue-900 font-black rounded-2xl hover:bg-blue-50 transition-all text-xs uppercase tracking-widest active:scale-95">Documentation</button>
          </div>
          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
       </div>
