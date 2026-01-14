@@ -1,20 +1,31 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Vehicule, Client } from '../types';
+import { Vehicule, Client, RendezVous, Facture } from '../types';
+import { api } from '../services/api';
 
 interface VehiclesProps {
   vehicles: Vehicule[];
   customers: Client[];
+  appointments: RendezVous[];
+  invoices: Facture[];
   onAdd: (v: Omit<Vehicule, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
   onUpdate: (id: string, updates: Partial<Vehicule>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
-const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdate, onDelete }) => {
+const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, invoices, onAdd, onUpdate, onDelete }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicule | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // State pour la recherche par plaque
+  const [isSearchingPlate, setIsSearchingPlate] = useState(false);
+  const [plateError, setPlateError] = useState('');
+
+  // History View State
+  const [historyVehicle, setHistoryVehicle] = useState<Vehicule | null>(null);
+  const [historyTab, setHistoryTab] = useState<'appointments' | 'invoices'>('appointments');
+
   // States pour la suppression
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicule | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -65,6 +76,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
         annee: new Date().getFullYear(), couleur: '', kilometrage: 0
       });
     }
+    setPlateError('');
   }, [editingVehicle]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,14 +96,53 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
     }
   };
 
+  const handleSearchPlate = async () => {
+    const plate = formData.immatriculation;
+    if (!plate || plate.length < 2) {
+      setPlateError("Veuillez saisir une plaque valide.");
+      return;
+    }
+    
+    setIsSearchingPlate(true);
+    setPlateError('');
+    
+    try {
+      const vehicleInfo = await api.fetchVehicleInfo(plate);
+      
+      if (vehicleInfo) {
+        setFormData(prev => ({
+          ...prev,
+          marque: vehicleInfo.marque || prev.marque,
+          modele: vehicleInfo.modele || prev.modele,
+          annee: vehicleInfo.annee || prev.annee,
+          vin: vehicleInfo.vin || prev.vin,
+          couleur: vehicleInfo.couleur || prev.couleur,
+          // On garde le km existant si déjà saisi, sinon on prend l'estimé
+          kilometrage: prev.kilometrage > 0 ? prev.kilometrage : (vehicleInfo.kilometrage || 0)
+        }));
+      }
+    } catch (err: any) {
+      console.error("Erreur API SIV:", err);
+      setPlateError("Véhicule introuvable ou erreur de service.");
+    } finally {
+      setIsSearchingPlate(false);
+    }
+  };
+
   const handleClose = () => {
     setIsModalOpen(false);
     setEditingVehicle(null);
+    setPlateError('');
   };
 
   const handleEdit = (v: Vehicule) => {
     setEditingVehicle(v);
     setIsModalOpen(true);
+  };
+
+  const handleViewHistory = (v: Vehicule) => {
+    setHistoryVehicle(v);
+    setHistoryTab('appointments');
   };
 
   const confirmDelete = async () => {
@@ -108,9 +159,111 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
     }
   };
 
+  // Filtrage des données pour l'historique
+  const vehicleAppointments = useMemo(() => {
+    if (!historyVehicle) return [];
+    return appointments
+      .filter(a => a.vehicule_id === historyVehicle.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [appointments, historyVehicle]);
+
+  const vehicleInvoices = useMemo(() => {
+    if (!historyVehicle) return [];
+    return invoices
+      .filter(f => f.vehicule_id === historyVehicle.id)
+      .sort((a, b) => new Date(b.date_facture).getTime() - new Date(a.date_facture).getTime());
+  }, [invoices, historyVehicle]);
+
+  const getStatusBadge = (status: string) => {
+    switch(status) {
+      case 'termine': case 'payee': return 'bg-emerald-100 text-emerald-700';
+      case 'en_cours': case 'en_attente': return 'bg-blue-100 text-blue-700';
+      case 'non_payee': return 'bg-amber-100 text-amber-700';
+      case 'annule': return 'bg-rose-100 text-rose-700';
+      default: return 'bg-slate-100 text-slate-600';
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
+      {/* --- Modal Historique Complet --- */}
+      {historyVehicle && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setHistoryVehicle(null)}>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">Dossier Véhicule</h3>
+                <p className="text-sm font-bold text-slate-500 mt-1">{historyVehicle.marque} {historyVehicle.modele} - <span className="uppercase">{historyVehicle.immatriculation}</span></p>
+              </div>
+              <button onClick={() => setHistoryVehicle(null)} className="p-2 text-slate-400 hover:text-slate-900 rounded-xl transition-all">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Onglets */}
+            <div className="flex border-b border-slate-100">
+              <button 
+                onClick={() => setHistoryTab('appointments')}
+                className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${historyTab === 'appointments' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+              >
+                Interventions ({vehicleAppointments.length})
+              </button>
+              <button 
+                onClick={() => setHistoryTab('invoices')}
+                className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${historyTab === 'invoices' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+              >
+                Factures ({vehicleInvoices.length})
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 scrollbar-hide">
+              {historyTab === 'appointments' ? (
+                <div className="space-y-3">
+                  {vehicleAppointments.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 italic font-medium">Aucune intervention enregistrée.</div>
+                  ) : (
+                    vehicleAppointments.map(app => (
+                      <div key={app.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
+                        <div>
+                          <p className="font-black text-slate-800 text-sm">{app.type_intervention}</p>
+                          <p className="text-xs text-slate-500 mt-1 font-medium">{new Date(app.date).toLocaleDateString()} à {app.heure}</p>
+                          {app.description && <p className="text-xs text-slate-400 mt-1 italic line-clamp-1">{app.description}</p>}
+                        </div>
+                        <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${getStatusBadge(app.statut)}`}>
+                          {app.statut.replace('_', ' ')}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {vehicleInvoices.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 italic font-medium">Aucune facture enregistrée.</div>
+                  ) : (
+                    vehicleInvoices.map(inv => (
+                      <div key={inv.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
+                        <div>
+                          <p className="font-black text-slate-800 text-sm">{inv.numero_facture}</p>
+                          <p className="text-xs text-slate-500 mt-1 font-medium">{new Date(inv.date_facture).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-slate-900 text-sm">{inv.montant_ttc.toFixed(2)} €</p>
+                          <span className={`inline-block mt-1 px-3 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${getStatusBadge(inv.statut)}`}>
+                            {inv.statut.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Modal Suppression Sécurisé --- */}
       {vehicleToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setVehicleToDelete(null)}>
@@ -160,6 +313,44 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto scrollbar-hide">
+              {/* --- SECTION RECHERCHE PAR PLAQUE --- */}
+              <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 mb-1 block">Saisie Rapide</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <div className="w-4 h-8 bg-blue-700 rounded-sm flex flex-col items-center justify-center gap-0.5">
+                         <div className="w-2 h-2 rounded-full border border-white flex items-center justify-center"><span className="text-[4px] text-white font-bold">★</span></div>
+                         <span className="text-[5px] text-white font-bold">F</span>
+                      </div>
+                    </div>
+                    <input 
+                      placeholder="AA-123-BB" 
+                      className="w-full pl-12 pr-4 py-4 bg-white border border-blue-200 rounded-2xl outline-none font-black uppercase tracking-wider text-slate-800 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-300" 
+                      value={formData.immatriculation} 
+                      onChange={e => setFormData({...formData, immatriculation: e.target.value.toUpperCase()})} 
+                    />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={handleSearchPlate}
+                    disabled={isSearchingPlate || !formData.immatriculation}
+                    className="px-6 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSearchingPlate ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <span className="hidden sm:inline text-xs uppercase tracking-widest">Auto</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                {plateError && <p className="text-rose-500 text-xs font-bold mt-2 ml-1 animate-in fade-in">{plateError}</p>}
+                <p className="text-[10px] text-slate-400 mt-2 ml-1 font-medium">Entrez la plaque et cliquez sur le bouton pour remplir automatiquement la fiche.</p>
+              </div>
+
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Propriétaire</label>
                 <select required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})}>
@@ -181,16 +372,9 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Immatriculation</label>
-                  <input required placeholder="AA-123-BB" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold uppercase" value={formData.immatriculation} onChange={e => setFormData({...formData, immatriculation: e.target.value.toUpperCase()})} />
-                </div>
-                <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Année</label>
                   <input required type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.annee} onChange={e => setFormData({...formData, annee: parseInt(e.target.value)})} />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kilométrage actuel</label>
                   <div className="relative">
@@ -198,18 +382,20 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">km</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Couleur</label>
                   <input placeholder="ex: Noir" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.couleur} onChange={e => setFormData({...formData, couleur: e.target.value})} />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Numéro VIN (Optionnel)</label>
+                  <input placeholder="Numéro de châssis" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold uppercase tracking-wider" value={formData.vin} onChange={e => setFormData({...formData, vin: e.target.value.toUpperCase()})} />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Numéro VIN (Optionnel)</label>
-                <input placeholder="Numéro de châssis" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold uppercase tracking-wider" value={formData.vin} onChange={e => setFormData({...formData, vin: e.target.value.toUpperCase()})} />
-              </div>
-
-              <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
+              <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 mt-2">
                 {loading ? "Chargement..." : editingVehicle ? "Mettre à jour la fiche" : "Ajouter au parc"}
               </button>
             </form>
@@ -307,6 +493,13 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, onAdd, onUpdat
                   </div>
                   
                   <div className="flex gap-1 pl-2">
+                    <button 
+                      onClick={() => handleViewHistory(v)} 
+                      className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" 
+                      title="Historique"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
                     <button onClick={() => handleEdit(v)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Modifier">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>

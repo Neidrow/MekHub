@@ -392,6 +392,43 @@ Géré via GaragePro SaaS
   async fetchInvitations() { const { data } = await supabase.from('invitations').select('*').order('created_at', { ascending: false }); return data || []; }
   async updateInvitationStatus(id: string, newStatus: string) { await supabase.from('invitations').update({ status: newStatus }).eq('id', id); }
   async deleteGarageAccount(id: string) { await supabase.from('invitations').delete().eq('id', id); }
+
+  // --- SIV / Immatriculation API (Simulation) ---
+  /**
+   * Récupère les infos d'un véhicule à partir de sa plaque.
+   * NOTE: Pour la production, remplacez le contenu de cette fonction par un appel fetch 
+   * vers une API payante comme 'Immatriculation API' ou 'AAA Data'.
+   */
+  async fetchVehicleInfo(plate: string): Promise<Partial<Vehicule>> {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // Validation basique
+        if (!plate || plate.length < 5) {
+          reject(new Error("Format de plaque invalide"));
+          return;
+        }
+
+        // SIMULATION : On retourne des données aléatoires mais réalistes
+        // Dans un vrai cas : const res = await fetch(`https://api.provider.com/v1/vehicule/${plate}?key=VOTRE_API_KEY`);
+        
+        const mockDb = [
+          { marque: 'RENAULT', modele: 'CLIO V', annee: 2021, couleur: 'Gris', vin: 'VF1RJA000000', kilometrage: 45000 },
+          { marque: 'PEUGEOT', modele: '208 II', annee: 2022, couleur: 'Jaune Faro', vin: 'VF3UP000000', kilometrage: 28000 },
+          { marque: 'VOLKSWAGEN', modele: 'GOLF 8', annee: 2020, couleur: 'Blanc', vin: 'WVWZZZCDZLW', kilometrage: 62000 },
+          { marque: 'AUDI', modele: 'A3 SPORTBACK', annee: 2023, couleur: 'Noir Mythic', vin: 'WAUZZZ8YZA', kilometrage: 15000 },
+          { marque: 'TOYOTA', modele: 'YARIS HYBRID', annee: 2019, couleur: 'Rouge', vin: 'VNKKJ3D', kilometrage: 85000 },
+        ];
+
+        // On prend un véhicule au hasard pour la démo, ou un spécifique si on tape 'AA-123-BB'
+        const randomCar = mockDb[Math.floor(Math.random() * mockDb.length)];
+        
+        resolve({
+          ...randomCar,
+          immatriculation: plate.toUpperCase()
+        });
+      }, 1500); // Délai simulant l'appel réseau
+    });
+  }
 }
 
 export const api = new ApiService();

@@ -135,8 +135,6 @@ const App: React.FC = () => {
         if (rdv.statut === 'annule' || rdv.statut === 'termine') return;
 
         // Parsing STRICT de la date pour éviter l'interprétation UTC
-        // rdv.date = "2023-10-27"
-        // rdv.heure = "09:00"
         const [year, month, day] = rdv.date.split('-').map(Number);
         const [hours, minutes] = rdv.heure.split(':').map(Number);
 
@@ -339,7 +337,14 @@ const App: React.FC = () => {
 
       setNotifications(allNotifs);
 
-      if (sett && sett.google_calendar_enabled === undefined) {
+      // --- LOGIQUE D'AFFICHAGE DU MODAL GOOGLE ---
+      // Affiche le modal SI :
+      // 1. Google n'est PAS déjà activé (enabled != true)
+      // 2. L'utilisateur n'a PAS demandé à ne plus être notifié (dismissed != true)
+      const isGoogleConnected = sett?.google_calendar_enabled || false;
+      const isDismissed = sett?.google_prompt_dismissed || false;
+
+      if (!isGoogleConnected && !isDismissed) {
         setShowGooglePrompt(true);
       }
     } catch (err) {
@@ -389,6 +394,7 @@ const App: React.FC = () => {
     }
   };
 
+  // 1. Connexion (Action principale)
   const handleGoogleConnect = async () => {
     try {
       await api.requestGoogleAccess();
@@ -401,12 +407,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGoogleSkip = async () => {
+  // 2. Plus tard (Ferme juste le modal pour cette session)
+  const handleGoogleRemindLater = () => {
+    setShowGooglePrompt(false);
+  };
+
+  // 3. Ne plus demander (Sauvegarde en DB)
+  const handleGoogleDismissForever = async () => {
     try {
-      await api.saveSettings({ google_calendar_enabled: false });
+      await api.saveSettings({ google_prompt_dismissed: true });
       setShowGooglePrompt(false);
     } catch (err) {
-      console.error(err);
+      console.error("Erreur lors de la sauvegarde de la préférence", err);
+      // On ferme quand même pour ne pas bloquer l'utilisateur
+      setShowGooglePrompt(false);
     }
   };
 
@@ -460,7 +474,8 @@ const App: React.FC = () => {
       {showGooglePrompt && !showWelcome && (
         <GoogleCalendarModal 
           onConnect={handleGoogleConnect}
-          onSkip={handleGoogleSkip}
+          onRemindLater={handleGoogleRemindLater}
+          onDismissForever={handleGoogleDismissForever}
         />
       )}
 
@@ -643,7 +658,9 @@ const App: React.FC = () => {
           {currentView === 'vehicles' && (
             <Vehicles 
               vehicles={vehicules} 
-              customers={clients} 
+              customers={clients}
+              appointments={rendezVous}
+              invoices={factures}
               onAdd={async (v) => { await api.postData('vehicules', v); loadAllData(); }}
               onUpdate={async (id, updates) => { await api.updateData('vehicules', id, updates); loadAllData(); }}
               onDelete={async (id) => { await api.deleteData('vehicules', id); loadAllData(); }}

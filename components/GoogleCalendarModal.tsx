@@ -3,15 +3,22 @@ import React, { useState } from 'react';
 
 interface GoogleCalendarModalProps {
   onConnect: () => Promise<void>;
-  onSkip: () => Promise<void>;
+  onRemindLater: () => void;
+  onDismissForever: () => Promise<void>;
 }
 
-const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, onSkip }) => {
+const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, onRemindLater, onDismissForever }) => {
   const [loading, setLoading] = useState(false);
 
   const handleConnect = async () => {
     setLoading(true);
     await onConnect();
+    setLoading(false);
+  };
+
+  const handleDismiss = async () => {
+    setLoading(true);
+    await onDismissForever();
     setLoading(false);
   };
 
@@ -37,14 +44,15 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
             Synchronisez votre Agenda
           </h2>
           <p className="text-slate-500 font-medium leading-relaxed mb-10">
-            Retrouvez tous vos rendez-vous clients directement sur votre <span className="font-bold text-slate-900">Google Agenda</span>. Ne manquez plus aucune intervention.
+            Retrouvez tous vos rendez-vous clients directement sur votre <span className="font-bold text-slate-900">Google Agenda</span>.
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
+            {/* 1. Connecter (Action Principale) */}
             <button 
               onClick={handleConnect}
               disabled={loading}
-              className="w-full py-5 bg-[#4285F4] text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-[#357ae8] transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+              className="w-full py-5 bg-[#4285F4] text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-[#357ae8] transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 text-sm uppercase tracking-widest"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -56,18 +64,30 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
                     <path fill="#FBBC05" d="M5.29 13.57c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.13H1.71C.62 8.28 0 10.72 0 13.29s.62 5.01 1.71 7.16l3.58-2.86c-.95-2.83-.95-5.96 0-8.02z"/>
                     <path fill="#EA4335" d="M12 4.75c1.69 0 3.21.58 4.41 1.72l3.31-3.31C17.71 1.05 15.11 0 12 0 7.55 0 3.61 2.69 1.71 6.13l3.58 2.86c.95-2.83 3.59-4.94 6.71-4.94z"/>
                   </svg>
-                  Connecter mon compte Google
+                  Connecter maintenant
                 </>
               )}
             </button>
             
+            {/* 2. Me rappeler plus tard (Ferme juste le modal) */}
             <button 
-              onClick={onSkip}
+              onClick={onRemindLater}
               disabled={loading}
-              className="w-full py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600 transition-colors"
+              className="w-full py-4 bg-slate-50 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all text-xs uppercase tracking-widest border border-slate-100"
             >
-              Peut-être plus tard
+              Me rappeler plus tard
             </button>
+
+            {/* 3. Ne plus demander (Sauvegarde en base) */}
+            <div className="pt-2">
+                <button 
+                onClick={handleDismiss}
+                disabled={loading}
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 hover:underline transition-colors"
+                >
+                Ne plus me demander (je configurerai plus tard)
+                </button>
+            </div>
           </div>
         </div>
       </div>

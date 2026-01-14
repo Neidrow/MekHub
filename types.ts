@@ -20,6 +20,7 @@ export interface GarageSettings {
   tva: number;
   logo_url?: string;
   google_calendar_enabled?: boolean;
+  google_prompt_dismissed?: boolean;
 }
 
 export interface Client {
