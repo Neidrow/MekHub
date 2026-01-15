@@ -18,10 +18,6 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
   const [editingVehicle, setEditingVehicle] = useState<Vehicule | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // State pour la recherche par plaque
-  const [isSearchingPlate, setIsSearchingPlate] = useState(false);
-  const [plateError, setPlateError] = useState('');
-
   // History View State
   const [historyVehicle, setHistoryVehicle] = useState<Vehicule | null>(null);
   const [historyTab, setHistoryTab] = useState<'appointments' | 'invoices'>('appointments');
@@ -76,7 +72,6 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
         annee: new Date().getFullYear(), couleur: '', kilometrage: 0
       });
     }
-    setPlateError('');
   }, [editingVehicle]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,43 +91,9 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
     }
   };
 
-  const handleSearchPlate = async () => {
-    const plate = formData.immatriculation;
-    if (!plate || plate.length < 2) {
-      setPlateError("Veuillez saisir une plaque valide.");
-      return;
-    }
-    
-    setIsSearchingPlate(true);
-    setPlateError('');
-    
-    try {
-      const vehicleInfo = await api.fetchVehicleInfo(plate);
-      
-      if (vehicleInfo) {
-        setFormData(prev => ({
-          ...prev,
-          marque: vehicleInfo.marque || prev.marque,
-          modele: vehicleInfo.modele || prev.modele,
-          annee: vehicleInfo.annee || prev.annee,
-          vin: vehicleInfo.vin || prev.vin,
-          couleur: vehicleInfo.couleur || prev.couleur,
-          // On garde le km existant si déjà saisi, sinon on prend l'estimé
-          kilometrage: prev.kilometrage > 0 ? prev.kilometrage : (vehicleInfo.kilometrage || 0)
-        }));
-      }
-    } catch (err: any) {
-      console.error("Erreur API SIV:", err);
-      setPlateError("Véhicule introuvable ou erreur de service.");
-    } finally {
-      setIsSearchingPlate(false);
-    }
-  };
-
   const handleClose = () => {
     setIsModalOpen(false);
     setEditingVehicle(null);
-    setPlateError('');
   };
 
   const handleEdit = (v: Vehicule) => {
@@ -313,50 +274,17 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto scrollbar-hide">
-              {/* --- SECTION RECHERCHE PAR PLAQUE --- */}
-              <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 mb-1 block">Saisie Rapide</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <div className="w-4 h-8 bg-blue-700 rounded-sm flex flex-col items-center justify-center gap-0.5">
-                         <div className="w-2 h-2 rounded-full border border-white flex items-center justify-center"><span className="text-[4px] text-white font-bold">★</span></div>
-                         <span className="text-[5px] text-white font-bold">F</span>
-                      </div>
-                    </div>
-                    <input 
-                      placeholder="AA-123-BB" 
-                      className="w-full pl-12 pr-4 py-4 bg-white border border-blue-200 rounded-2xl outline-none font-black uppercase tracking-wider text-slate-800 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-300" 
-                      value={formData.immatriculation} 
-                      onChange={e => setFormData({...formData, immatriculation: e.target.value.toUpperCase()})} 
-                    />
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={handleSearchPlate}
-                    disabled={isSearchingPlate || !formData.immatriculation}
-                    className="px-6 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isSearchingPlate ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    ) : (
-                      <>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        <span className="hidden sm:inline text-xs uppercase tracking-widest">Auto</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                {plateError && <p className="text-rose-500 text-xs font-bold mt-2 ml-1 animate-in fade-in">{plateError}</p>}
-                <p className="text-[10px] text-slate-400 mt-2 ml-1 font-medium">Entrez la plaque et cliquez sur le bouton pour remplir automatiquement la fiche.</p>
-              </div>
-
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Propriétaire</label>
                 <select required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})}>
                   <option value="">Sélectionner un client</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}
                 </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Immatriculation</label>
+                <input required placeholder="AA-123-BB" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-black uppercase tracking-wider text-slate-800" value={formData.immatriculation} onChange={e => setFormData({...formData, immatriculation: e.target.value.toUpperCase()})} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

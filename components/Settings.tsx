@@ -100,7 +100,7 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
           Intégrations & Services
         </h4>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Google Calendar */}
           <div className="flex flex-col justify-between p-6 bg-slate-50 rounded-[2rem] border border-slate-100 gap-4 h-full">
             <div className="flex items-center gap-4">

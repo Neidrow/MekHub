@@ -9,7 +9,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // Client principal
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Client secondaire ISOLÉ pour les invitations (évite de déconnecter l'admin lors de la création d'un autre user)
+// Client secondaire ISOLÉ pour les invitations
 const inviteClient = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: false,
@@ -353,17 +353,15 @@ Géré via GaragePro SaaS
   
   // Fonction centralisée qui gère tout le flux d'invitation (Auth + DB + Email)
   async inviteUser(email: string, role: UserRole) {
-    // 1. Génération du mot de passe temporaire
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + '!';
     
-    // 2. Création du compte via le client isolé (pour ne pas déconnecter l'admin)
     const { data, error } = await inviteClient.auth.signUp({
       email,
       password: tempPassword,
       options: {
         data: { 
           role: role,
-          needs_password_change: true, // Force le changement au premier login
+          needs_password_change: true,
           garage_name: 'Nouveau Garage'
         }
       }
@@ -371,18 +369,11 @@ Géré via GaragePro SaaS
 
     if (error) throw error;
 
-    // 3. Insertion dans la table invitations pour le suivi
-    await supabase.from('invitations').insert([{ 
-      email, 
-      role, 
-      status: 'Actif' 
-    }]);
+    await supabase.from('invitations').insert([{ email, role, status: 'Actif' }]);
 
-    // 4. Envoi de l'email avec le mot de passe temporaire
     try {
         await sendInvitationEmail(email, role, tempPassword);
     } catch (e: any) {
-        // On renvoie une erreur contenant le mot de passe pour que l'admin puisse le noter manuellement si l'email échoue
         throw new Error(`Compte créé (Mdp: ${tempPassword}), mais erreur email: ${e.message}`);
     }
 
@@ -392,43 +383,6 @@ Géré via GaragePro SaaS
   async fetchInvitations() { const { data } = await supabase.from('invitations').select('*').order('created_at', { ascending: false }); return data || []; }
   async updateInvitationStatus(id: string, newStatus: string) { await supabase.from('invitations').update({ status: newStatus }).eq('id', id); }
   async deleteGarageAccount(id: string) { await supabase.from('invitations').delete().eq('id', id); }
-
-  // --- SIV / Immatriculation API (Simulation) ---
-  /**
-   * Récupère les infos d'un véhicule à partir de sa plaque.
-   * NOTE: Pour la production, remplacez le contenu de cette fonction par un appel fetch 
-   * vers une API payante comme 'Immatriculation API' ou 'AAA Data'.
-   */
-  async fetchVehicleInfo(plate: string): Promise<Partial<Vehicule>> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Validation basique
-        if (!plate || plate.length < 5) {
-          reject(new Error("Format de plaque invalide"));
-          return;
-        }
-
-        // SIMULATION : On retourne des données aléatoires mais réalistes
-        // Dans un vrai cas : const res = await fetch(`https://api.provider.com/v1/vehicule/${plate}?key=VOTRE_API_KEY`);
-        
-        const mockDb = [
-          { marque: 'RENAULT', modele: 'CLIO V', annee: 2021, couleur: 'Gris', vin: 'VF1RJA000000', kilometrage: 45000 },
-          { marque: 'PEUGEOT', modele: '208 II', annee: 2022, couleur: 'Jaune Faro', vin: 'VF3UP000000', kilometrage: 28000 },
-          { marque: 'VOLKSWAGEN', modele: 'GOLF 8', annee: 2020, couleur: 'Blanc', vin: 'WVWZZZCDZLW', kilometrage: 62000 },
-          { marque: 'AUDI', modele: 'A3 SPORTBACK', annee: 2023, couleur: 'Noir Mythic', vin: 'WAUZZZ8YZA', kilometrage: 15000 },
-          { marque: 'TOYOTA', modele: 'YARIS HYBRID', annee: 2019, couleur: 'Rouge', vin: 'VNKKJ3D', kilometrage: 85000 },
-        ];
-
-        // On prend un véhicule au hasard pour la démo, ou un spécifique si on tape 'AA-123-BB'
-        const randomCar = mockDb[Math.floor(Math.random() * mockDb.length)];
-        
-        resolve({
-          ...randomCar,
-          immatriculation: plate.toUpperCase()
-        });
-      }, 1500); // Délai simulant l'appel réseau
-    });
-  }
 }
 
 export const api = new ApiService();

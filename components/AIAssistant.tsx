@@ -58,6 +58,20 @@ const AIAssistant: React.FC = () => {
         <div className="p-6 lg:p-8">
           {activeTab === 'diagnostic' ? (
             <div className="space-y-6">
+              
+              {/* DISCLAIMER IA */}
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex gap-3 items-start">
+                <div className="text-amber-500 mt-0.5">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                </div>
+                <div>
+                  <p className="text-xs font-black text-amber-800 uppercase tracking-wide mb-1">Avertissement Important</p>
+                  <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                    Les résultats fournis par cette Intelligence Artificielle sont des <strong>hypothèses techniques</strong> basées sur les symptômes décrits. Ils ne constituent pas une certitude absolue et ne remplacent en aucun cas un diagnostic physique réalisé par un professionnel qualifié.
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Symptômes du véhicule</label>
                 <textarea 
@@ -81,8 +95,8 @@ const AIAssistant: React.FC = () => {
               </button>
 
               {diagnosis && (
-                <div className="mt-8 p-6 lg:p-10 bg-slate-50 rounded-[2rem] border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="prose prose-slate prose-sm lg:prose-base max-w-none text-slate-700 whitespace-pre-line leading-relaxed font-medium">
+                <div className="mt-8 p-6 lg:p-10 bg-slate-50 rounded-[2rem] border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-inner">
+                  <div className="prose prose-slate prose-sm lg:prose-base max-w-none text-slate-700 whitespace-pre-line leading-relaxed font-medium font-mono text-[13px]">
                     {diagnosis}
                   </div>
                 </div>
