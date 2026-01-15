@@ -1,20 +1,49 @@
 
-// Service IA utilisant Groq (Llama 3.3) pour une rapidité extrême et des limites très larges en version gratuite.
+// Service IA utilisant Groq (Llama 3.3)
+import { UserRole } from '../types';
+import { api } from './api';
+
+// LIMITES
+const BASIC_HOURLY_LIMIT = 10;
+const PREMIUM_HOURLY_LIMIT = 100;
+const MAX_WORDS = 1200;
 
 // Fonction utilitaire pour récupérer la clé API
 const getApiKey = (): string | undefined => {
+  // 1. Vérifie les variables d'environnement (Vercel / Local)
   // @ts-ignore
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
     // @ts-ignore
     return import.meta.env.VITE_API_KEY;
   }
-  if (typeof process !== 'undefined' && process.env) {
-    // @ts-ignore
-    if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
-    if (process.env.API_KEY) return process.env.API_KEY;
-  }
-  return undefined;
+  
+  // 2. Clé de secours pour les tests (Configuration directe demandée)
+  return "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";
 };
+
+// --- LOGIQUE DE QUOTAS VIA SUPABASE ---
+const checkUsage = async (userId: string, role: UserRole) => {
+    // Récupérer le compte réel depuis la DB
+    const currentCount = await api.getAiUsageCount(userId);
+    
+    // Définir la limite
+    const limit = (role === 'user_premium' || role === 'super_admin') ? PREMIUM_HOURLY_LIMIT : BASIC_HOURLY_LIMIT;
+    
+    if (currentCount >= limit) {
+        throw new Error(`⚠️ Quota atteint (${currentCount}/${limit} par heure). Passez en Premium pour plus de diagnostics.`);
+    }
+
+    return currentCount;
+};
+
+const checkWordCount = (text: string) => {
+    const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+    if (wordCount > MAX_WORDS) {
+        throw new Error(`⚠️ Texte trop long (${wordCount}/${MAX_WORDS} mots). Veuillez raccourcir votre demande.`);
+    }
+};
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Prompt système expert pour le diagnostic mécanique
 const DIAGNOSTIC_SYSTEM_PROMPT = `Tu es un Chef d'Atelier Expert Automobile. Tu assistes un mécanicien professionnel.
@@ -70,74 +99,119 @@ const localExpertDiagnostic = (symptoms: string, errorMessage: string = ""): str
   return suggestions + "\n" + (errorMessage || "⚠️ Connexion API instable - Diagnostic générique affiché.");
 };
 
-// Fonction générique pour appeler l'API Groq
+// Fonction générique pour appeler l'API Groq avec Retry & Backoff
 const callGroqAPI = async (messages: any[]) => {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error("API_KEY_MISSING");
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messages: messages,
-      model: "llama-3.3-70b-versatile", // Nouveau modèle supporté par Groq
-      temperature: 0.2,
-      max_tokens: 1024,
-    })
-  });
+  const MAX_RETRIES = 3;
+  let attempt = 0;
 
-  if (!response.ok) {
-    const errData = await response.json();
-    throw new Error(errData.error?.message || `Groq Error: ${response.status}`);
+  while (attempt <= MAX_RETRIES) {
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+            messages: messages,
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.2,
+            max_tokens: 1024,
+            })
+        });
+
+        if (response.status === 429) {
+            // Rate Limit Hit
+            if (attempt === MAX_RETRIES) {
+                throw new Error("⚠️ Service surchargé (Trop de requêtes globales). Veuillez réessayer dans une minute.");
+            }
+            // Backoff: 2s, 4s, 8s
+            const delay = 2000 * Math.pow(2, attempt);
+            console.warn(`Rate limit 429. Retrying in ${delay}ms...`);
+            await sleep(delay);
+            attempt++;
+            continue;
+        }
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error?.message || `Groq Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0]?.message?.content || "";
+
+    } catch (error: any) {
+        // Si c'est notre erreur 429 custom ou une erreur fatale, on throw
+        if (attempt === MAX_RETRIES || error.message.includes("Service surchargé")) {
+            throw error;
+        }
+        attempt++;
+        await sleep(1000); // Petit délai pour les erreurs réseau standard
+    }
   }
-
-  const data = await response.json();
-  return data.choices[0]?.message?.content || "";
+  throw new Error("Echec de connexion au service IA.");
 };
 
-export const getDiagnosticSuggestions = async (symptoms: string) => {
+export const getDiagnosticSuggestions = async (symptoms: string, userId: string, role: UserRole) => {
   if (!symptoms) return "Veuillez entrer des symptômes.";
   
-  const apiKey = getApiKey();
-
-  if (!apiKey) {
-    console.error("❌ CLÉ API MANQUANTE : Vérifiez 'VITE_API_KEY' dans Vercel.");
-    return localExpertDiagnostic(symptoms, "⚠️ CLÉ API MANQUANTE (Vérifiez VITE_API_KEY avec une clé Groq)");
-  }
-
   try {
-    const result = await callGroqAPI([
-      { role: "system", content: DIAGNOSTIC_SYSTEM_PROMPT },
-      { role: "user", content: `Symptômes du véhicule : "${symptoms}"` }
-    ]);
-    return result || localExpertDiagnostic(symptoms);
+      // 1. Check Word Count
+      checkWordCount(symptoms);
+      
+      // 2. Check User Quota (Server Side Check)
+      await checkUsage(userId, role);
+
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        return localExpertDiagnostic(symptoms, "⚠️ CLÉ API MANQUANTE");
+      }
+
+      // 3. Call API
+      const result = await callGroqAPI([
+        { role: "system", content: DIAGNOSTIC_SYSTEM_PROMPT },
+        { role: "user", content: `Symptômes du véhicule : "${symptoms}"` }
+      ]);
+      
+      // 4. Log Usage only on success (Server Side)
+      await api.logAiUsage(userId);
+
+      return result || localExpertDiagnostic(symptoms);
+
   } catch (error: any) {
     console.error("❌ ERREUR API IA :", error);
     
-    let userMessage = "⚠️ Erreur de connexion au service IA.";
-    
-    if (error.message === "API_KEY_MISSING") {
-        userMessage = "⚠️ Clé API manquante.";
-    } else if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
-        userMessage = "⚠️ Limite de requêtes atteinte. Réessayez dans quelques secondes.";
-    } else if (error.message?.includes('model') && error.message?.includes('decommissioned')) {
-        userMessage = "⚠️ Modèle IA obsolète. Mise à jour requise.";
+    // Si c'est une erreur de quota ou de mot, on l'affiche directement
+    if (error.message.includes('Quota') || error.message.includes('Texte trop long') || error.message.includes('Service surchargé')) {
+        throw error; // Remonter l'erreur à l'UI
     }
-
+    
+    // Sinon fallback soft
+    let userMessage = "⚠️ Erreur de connexion.";
+    if (error.message === "API_KEY_MISSING") userMessage = "⚠️ Clé API manquante.";
+    
     return localExpertDiagnostic(symptoms, userMessage);
   }
 };
 
-export const generateCustomerMessage = async (serviceDetails: string, customerName: string) => {
-  const apiKey = getApiKey();
+export const generateCustomerMessage = async (serviceDetails: string, customerName: string, userId: string, role: UserRole) => {
   const fallbackMessage = `Bonjour ${customerName}, les travaux suivants sont terminés : ${serviceDetails}. Vous pouvez récupérer votre véhicule. Cordialement.`;
 
-  if (!apiKey) return fallbackMessage;
-
   try {
+    // 1. Check Word Count
+    checkWordCount(serviceDetails);
+
+    // 2. Check User Quota
+    await checkUsage(userId, role);
+
+    const apiKey = getApiKey();
+    if (!apiKey) return fallbackMessage;
+
+    // 3. Call API
     const result = await callGroqAPI([
       { role: "system", content: "Tu es un assistant administratif de garage automobile. Tu rédiges des SMS courts et professionnels." },
       { role: "user", content: `Rédige un SMS pour un client.
@@ -149,9 +223,16 @@ export const generateCustomerMessage = async (serviceDetails: string, customerNa
       - Pas d'objet, pas de titre.
       - Ne signe pas (le système l'ajoute).` }
     ]);
+    
+    // 4. Log Usage
+    await api.logAiUsage(userId);
+
     return result || fallbackMessage;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erreur IA Message:", error);
+    if (error.message.includes('Quota') || error.message.includes('Texte trop long')) {
+        throw error;
+    }
     return fallbackMessage;
   }
 };

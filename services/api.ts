@@ -329,6 +329,28 @@ Géré via GaragePro SaaS
     }
   }
 
+  // --- AI USAGE (PERSISTANT DB) ---
+  async getAiUsageCount(userId: string): Promise<number> {
+    // Calcul de l'heure précédente
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    
+    const { count, error } = await supabase
+      .from('ai_usage_logs')
+      .select('*', { count: 'exact', head: true }) // count exact, pas de récupération de données lourdes
+      .eq('user_id', userId)
+      .gt('created_at', oneHourAgo);
+
+    if (error) {
+      console.error("Erreur récupération usage IA:", error);
+      return 0; // Fallback
+    }
+    return count || 0;
+  }
+
+  async logAiUsage(userId: string) {
+    await supabase.from('ai_usage_logs').insert([{ user_id: userId }]);
+  }
+
   async login(email: string, pass: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;

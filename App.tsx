@@ -35,7 +35,7 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
   const baseClasses = "flex items-center justify-between px-4 py-3 rounded-2xl transition-all w-full group relative";
   
   const getActiveClasses = () => {
-    if (!isActive) return "text-slate-500 hover:bg-slate-100 hover:text-slate-800";
+    if (!isActive) return "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200";
     if (color === 'purple') return "bg-purple-600 text-white shadow-xl shadow-purple-500/20";
     return "bg-blue-600 text-white shadow-xl shadow-blue-500/20";
   };
@@ -43,19 +43,19 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
   return (
     <button onClick={() => onClick(view)} className={`${baseClasses} ${getActiveClasses()}`}>
       <div className="flex items-center gap-3">
-        <div className={`transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-500'}`}>
+        <div className={`transition-colors ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-blue-500 dark:group-hover:text-blue-400'}`}>
           <Icon />
         </div>
         <span className="font-bold text-sm tracking-tight">{label}</span>
       </div>
       <div className="flex items-center gap-2">
         {isPremium && (
-          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter ${isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600'}`}>
+          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-tighter ${isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400'}`}>
             PRO
           </span>
         )}
         {alertCount !== undefined && alertCount > 0 && (
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-sm ring-2 ring-white">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-sm ring-2 ring-white dark:ring-slate-900">
             {alertCount > 9 ? '9+' : alertCount}
           </span>
         )}
@@ -72,6 +72,26 @@ const App: React.FC = () => {
     const savedView = localStorage.getItem('garagepro_current_view');
     return (savedView as ViewState) || 'dashboard';
   });
+
+  // --- GESTION DU THÈME SOMBRE (LOCAL ONLY) ---
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('garagepro_theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('garagepro_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('garagepro_theme', 'light');
+    }
+  }, [darkMode]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -127,23 +147,17 @@ const App: React.FC = () => {
     if (!session || rendezVous.length === 0) return;
 
     const checkAndAutoUpdateStatus = async () => {
-      const now = new Date(); // Heure actuelle exacte du navigateur (Local Time)
+      const now = new Date();
       let hasUpdates = false;
 
       const updates = rendezVous.map(async (rdv) => {
-        // Ignorer si déjà annulé ou terminé
         if (rdv.statut === 'annule' || rdv.statut === 'termine') return;
 
-        // Parsing STRICT de la date pour éviter l'interprétation UTC
         const [year, month, day] = rdv.date.split('-').map(Number);
         const [hours, minutes] = rdv.heure.split(':').map(Number);
-
-        // Construction de la date en LOCAL TIME (identique à `now`)
-        // Mois est 0-indexé dans JS Date
         const startDateTime = new Date(year, month - 1, day, hours, minutes, 0);
         
-        // Calcul de la durée
-        let durationMs = 60 * 60 * 1000; // 1h par défaut
+        let durationMs = 60 * 60 * 1000;
         if (rdv.duree) {
           const val = parseInt(rdv.duree);
           if (rdv.duree.includes('m')) durationMs = val * 60 * 1000;
@@ -151,43 +165,26 @@ const App: React.FC = () => {
         }
 
         const endDateTime = new Date(startDateTime.getTime() + durationMs);
-
         let newStatus: RendezVous['statut'] | null = null;
 
-        // Logique de comparaison temporelle
         if (now >= endDateTime) {
-          // Si l'heure actuelle a dépassé la fin -> Terminé
-          if (rdv.statut !== 'termine') {
-            newStatus = 'termine';
-          }
+          if (rdv.statut !== 'termine') newStatus = 'termine';
         } else if (now >= startDateTime && now < endDateTime) {
-          // Si l'heure actuelle est DANS le créneau -> En cours
-          if (rdv.statut === 'en_attente') {
-            newStatus = 'en_cours';
-          }
+          if (rdv.statut === 'en_attente') newStatus = 'en_cours';
         }
 
         if (newStatus) {
           hasUpdates = true;
-          // Mise à jour API silencieuse
           await api.updateData('rendez_vous', rdv.id, { statut: newStatus });
         }
       });
 
       await Promise.all(updates);
-
-      if (hasUpdates) {
-        // Recharger les données pour refléter les changements dans l'UI
-        loadAllData();
-      }
+      if (hasUpdates) loadAllData();
     };
 
-    // Check immédiat au montage
     checkAndAutoUpdateStatus();
-    
-    // Check toutes les 15 secondes pour être réactif
     const intervalId = setInterval(checkAndAutoUpdateStatus, 15000);
-
     return () => clearInterval(intervalId);
   }, [rendezVous, session]);
 
@@ -286,7 +283,6 @@ const App: React.FC = () => {
       setFactures(f);
       setSettings(sett);
 
-      // Générer des notifications locales pour les factures impayées
       const today = new Date();
       const generatedNotifs: Notification[] = [];
       
@@ -312,7 +308,6 @@ const App: React.FC = () => {
         }
       });
 
-      // Générer des notifications locales pour le STOCK BAS
       s.forEach(item => {
         if (item.quantite <= item.seuil_alerte) {
           generatedNotifs.push({
@@ -328,7 +323,6 @@ const App: React.FC = () => {
         }
       });
 
-      // Fusionner les notifications DB et locales, triées par date
       const allNotifs = [...notifs, ...generatedNotifs].sort((a, b) => {
          const da = a.created_at ? new Date(a.created_at).getTime() : 0;
          const db = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -337,10 +331,6 @@ const App: React.FC = () => {
 
       setNotifications(allNotifs);
 
-      // --- LOGIQUE D'AFFICHAGE DU MODAL GOOGLE ---
-      // Affiche le modal SI :
-      // 1. Google n'est PAS déjà activé (enabled != true)
-      // 2. L'utilisateur n'a PAS demandé à ne plus être notifié (dismissed != true)
       const isGoogleConnected = sett?.google_calendar_enabled || false;
       const isDismissed = sett?.google_prompt_dismissed || false;
 
@@ -358,7 +348,6 @@ const App: React.FC = () => {
     if (!notif.isLocal) {
       await api.markNotificationAsRead(notif.id);
     }
-    // Mise à jour locale du state
     setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     
     if (notif.link) {
@@ -372,7 +361,6 @@ const App: React.FC = () => {
     if (!notif.isLocal) {
       await api.deleteNotification(notif.id);
     }
-    // Supprimer visuellement (local ou DB)
     setNotifications(prev => prev.filter(n => n.id !== notif.id));
   };
 
@@ -394,7 +382,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 1. Connexion (Action principale)
   const handleGoogleConnect = async () => {
     try {
       await api.requestGoogleAccess();
@@ -407,19 +394,16 @@ const App: React.FC = () => {
     }
   };
 
-  // 2. Plus tard (Ferme juste le modal pour cette session)
   const handleGoogleRemindLater = () => {
     setShowGooglePrompt(false);
   };
 
-  // 3. Ne plus demander (Sauvegarde en DB)
   const handleGoogleDismissForever = async () => {
     try {
       await api.saveSettings({ google_prompt_dismissed: true });
       setShowGooglePrompt(false);
     } catch (err) {
       console.error("Erreur lors de la sauvegarde de la préférence", err);
-      // On ferme quand même pour ne pas bloquer l'utilisateur
       setShowGooglePrompt(false);
     }
   };
@@ -451,6 +435,7 @@ const App: React.FC = () => {
   const isSuperAdmin = userMetadata.role === 'super_admin';
   const userRole = userMetadata.role || 'user_basic';
   const isPremium = userRole === 'user_premium' || isSuperAdmin;
+  const userId = session.user.id;
 
   const navigateTo = (view: ViewState) => {
     setCurrentView(view);
@@ -459,11 +444,10 @@ const App: React.FC = () => {
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  // Calculer les alertes de stock
   const stockAlerts = stock.filter(i => i.quantite <= i.seuil_alerte).length;
 
   return (
-    <div className="flex min-h-screen bg-[#f8fafc] text-[#1e293b]">
+    <div className="flex min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-[#1e293b] dark:text-slate-100 transition-colors duration-300">
       {showWelcome && (
         <WelcomeOverlay 
           garageName={garageDisplayName} 
@@ -485,13 +469,13 @@ const App: React.FC = () => {
 
       {mustChangePassword && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[3rem] w-full max-w-md p-10">
-            <h2 className="text-2xl font-black text-slate-800 text-center mb-6">Initialisation du compte</h2>
+          <div className="bg-white dark:bg-slate-800 rounded-[3rem] w-full max-w-md p-10">
+            <h2 className="text-2xl font-black text-slate-800 dark:text-white text-center mb-6">Initialisation du compte</h2>
             <form onSubmit={handleUpdatePassword} className="space-y-4">
-               <input required type="password" placeholder="Nouveau mot de passe" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none" value={newPass} onChange={e => setNewPass(e.target.value)} />
-               <input required type="password" placeholder="Confirmer" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} />
+               <input required type="password" placeholder="Nouveau mot de passe" className="w-full p-4 bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-2xl outline-none dark:text-white" value={newPass} onChange={e => setNewPass(e.target.value)} />
+               <input required type="password" placeholder="Confirmer" className="w-full p-4 bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-2xl outline-none dark:text-white" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} />
                {passError && <p className="text-rose-500 text-xs font-bold text-center">{passError}</p>}
-               <button disabled={passLoading} type="submit" className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl">Activer mon compte</button>
+               <button disabled={passLoading} type="submit" className="w-full py-5 bg-slate-900 dark:bg-slate-700 text-white font-black rounded-2xl">Activer mon compte</button>
             </form>
           </div>
         </div>
@@ -499,21 +483,21 @@ const App: React.FC = () => {
 
       {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      <aside className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-100 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 w-72 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 flex flex-col z-40 transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-8 text-center flex flex-col items-center">
           {settings?.logo_url ? (
             <img 
               src={settings.logo_url} 
               alt="Logo Garage" 
-              className="w-20 h-20 rounded-[2rem] object-cover shadow-lg mb-4 border-2 border-white ring-2 ring-slate-100" 
+              className="w-20 h-20 rounded-[2rem] object-cover shadow-lg mb-4 border-2 border-white dark:border-slate-800 ring-2 ring-slate-100 dark:ring-slate-800" 
             />
           ) : (
             <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] flex items-center justify-center text-white font-black text-3xl mb-4">
               {garageDisplayName.charAt(0)}
             </div>
           )}
-          <h1 className="text-lg font-black text-slate-800 truncate w-full">{garageDisplayName}</h1>
-          <div className={`mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isPremium ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
+          <h1 className="text-lg font-black text-slate-800 dark:text-white truncate w-full">{garageDisplayName}</h1>
+          <div className={`mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isPremium ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
              {isPremium ? 'Abonnement Premium' : 'Abonnement Basic'}
           </div>
         </div>
@@ -530,36 +514,49 @@ const App: React.FC = () => {
           <NavItem view="ai-assistant" label="Assistant AI" icon={ICONS.AI} currentView={currentView} onClick={navigateTo} />
           <NavItem view="settings" label="Paramètres" icon={ICONS.Settings} currentView={currentView} onClick={navigateTo} />
         </nav>
-        <div className="p-4 border-t">
-          <button onClick={handleLogout} className="w-full py-4 text-rose-500 font-bold hover:bg-rose-50 rounded-2xl transition-all flex items-center justify-center gap-2">Déconnexion</button>
+        <div className="p-4 border-t dark:border-slate-800">
+          <button onClick={handleLogout} className="w-full py-4 text-rose-500 font-bold hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all flex items-center justify-center gap-2">Déconnexion</button>
         </div>
       </aside>
 
       <main className="flex-1 lg:ml-72 flex flex-col min-w-0 relative">
-        <header className="h-20 bg-white/70 backdrop-blur-xl border-b flex items-center justify-between px-6 sticky top-0 z-20">
-          <button className="lg:hidden p-2 text-slate-500" onClick={() => setIsSidebarOpen(true)}>
+        <header className="h-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-20">
+          <button className="lg:hidden p-2 text-slate-500 dark:text-slate-400" onClick={() => setIsSidebarOpen(true)}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
           
-          <div className="flex items-center gap-6 ml-auto">
+          <div className="flex items-center gap-4 ml-auto">
+            {/* THEME TOGGLE */}
+            <button 
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
+            >
+              {darkMode ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+              )}
+            </button>
+
             {/* Notification Center */}
             <div className="relative" ref={notifRef}>
               <button 
                 onClick={() => setIsNotifOpen(!isNotifOpen)} 
-                className="p-2 text-slate-400 hover:text-slate-600 transition-colors relative"
+                className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors relative"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
                 )}
               </button>
 
               {isNotifOpen && (
-                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200 origin-top-right z-50">
-                  <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                    <h3 className="font-black text-slate-800">Notifications</h3>
+                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200 origin-top-right z-50">
+                  <div className="p-4 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                    <h3 className="font-black text-slate-800 dark:text-white">Notifications</h3>
                     {unreadCount > 0 && (
-                      <button onClick={async () => { await api.markAllNotificationsAsRead(); loadAllData(); }} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">Tout lire</button>
+                      <button onClick={async () => { await api.markAllNotificationsAsRead(); loadAllData(); }} className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:underline">Tout lire</button>
                     )}
                   </div>
                   <div className="max-h-[400px] overflow-y-auto">
@@ -572,13 +569,13 @@ const App: React.FC = () => {
                         <div 
                           key={idx} 
                           onClick={() => markAsRead(notif)}
-                          className={`p-4 border-b border-slate-50 cursor-pointer transition-colors hover:bg-slate-50 flex gap-3 group relative ${!notif.read ? 'bg-blue-50/30' : ''}`}
+                          className={`p-4 border-b border-slate-50 dark:border-slate-700 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50 flex gap-3 group relative ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
                         >
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                            notif.type === 'error' ? 'bg-rose-100 text-rose-500' :
-                            notif.type === 'warning' ? 'bg-amber-100 text-amber-500' :
-                            notif.type === 'success' ? 'bg-emerald-100 text-emerald-500' :
-                            'bg-blue-100 text-blue-500'
+                            notif.type === 'error' ? 'bg-rose-100 text-rose-500 dark:bg-rose-900/30 dark:text-rose-400' :
+                            notif.type === 'warning' ? 'bg-amber-100 text-amber-500 dark:bg-amber-900/30 dark:text-amber-400' :
+                            notif.type === 'success' ? 'bg-emerald-100 text-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                            'bg-blue-100 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400'
                           }`}>
                             {notif.type === 'warning' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> : 
                              notif.type === 'success' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> :
@@ -586,8 +583,8 @@ const App: React.FC = () => {
                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                           </div>
                           <div className="flex-1 pr-6">
-                            <p className={`text-sm ${!notif.read ? 'font-black text-slate-800' : 'font-bold text-slate-600'}`}>{notif.title}</p>
-                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notif.message}</p>
+                            <p className={`text-sm ${!notif.read ? 'font-black text-slate-800 dark:text-slate-200' : 'font-bold text-slate-600 dark:text-slate-400'}`}>{notif.title}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{notif.message}</p>
                             {notif.created_at && <p className="text-[9px] text-slate-400 mt-1.5 font-medium uppercase tracking-wider">{new Date(notif.created_at).toLocaleDateString()}</p>}
                           </div>
                           {!notif.read && <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0"></div>}
@@ -595,7 +592,7 @@ const App: React.FC = () => {
                           {/* Bouton Supprimer */}
                           <button 
                             onClick={(e) => deleteNotification(e, notif)}
-                            className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                             title="Supprimer"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -608,11 +605,11 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <span className="text-sm font-bold text-slate-700 truncate max-w-[150px]">{session.user?.email}</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate max-w-[150px]">{session.user?.email}</span>
           </div>
         </header>
 
-        <div className="p-4 sm:p-6 lg:p-10 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 lg:p-10 flex-1 overflow-y-auto scrollbar-hide">
           {currentView === 'super-admin' && isSuperAdmin && <SuperAdmin />}
           {currentView === 'dashboard' && (
             <Dashboard 
@@ -699,7 +696,12 @@ const App: React.FC = () => {
               onDelete={async (id) => { await api.deleteData('factures', id); loadAllData(); }}
             />
           )}
-          {currentView === 'ai-assistant' && <AIAssistant />}
+          {currentView === 'ai-assistant' && (
+            <AIAssistant 
+              userId={userId}
+              userRole={userRole}
+            />
+          )}
           {currentView === 'settings' && (
             <Settings 
               initialSettings={settings} 
@@ -712,7 +714,7 @@ const App: React.FC = () => {
         {/* --- Floating Help Button --- */}
         <button 
           onClick={() => setShowHelp(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-black transition-all hover:scale-110 active:scale-95 group"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-slate-900 dark:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-black dark:hover:bg-blue-700 transition-all hover:scale-110 active:scale-95 group"
           title="Aide & Documentation"
         >
           <span className="text-2xl font-black group-hover:rotate-12 transition-transform">?</span>
