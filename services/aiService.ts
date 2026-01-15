@@ -1,6 +1,25 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+// Fonction utilitaire pour récupérer la clé API peu importe l'environnement (Vite ou Node)
+const getApiKey = (): string | undefined => {
+  // 1. Essayer via import.meta.env (Standard Vite pour le frontend)
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+    // @ts-ignore
+    return import.meta.env.VITE_API_KEY;
+  }
+  
+  // 2. Essayer via process.env (Compatibilité Node/Webpack)
+  if (typeof process !== 'undefined' && process.env) {
+    // @ts-ignore
+    if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
+    if (process.env.API_KEY) return process.env.API_KEY;
+  }
+  
+  return undefined;
+};
+
 // Prompt système expert pour le diagnostic mécanique - Niveau Technicien
 const DIAGNOSTIC_SYSTEM_PROMPT = `Tu es un Chef d'Atelier Expert Automobile. Tu assistes un mécanicien professionnel.
 
@@ -52,16 +71,16 @@ const localExpertDiagnostic = (symptoms: string): string => {
     suggestions += "🔍 ANALYSE RAPIDE\nSymptôme générique nécessitant une investigation standard.\n\n🛠️ VÉRIFICATIONS ATELIER\n👉 LECTURE CODES DÉFAUTS : Brancher la valise OBD pour relever les DTC.\n👉 ESSAI ROUTIER : Reproduire le défaut pour affiner le ressenti.\n";
   }
   
-  return suggestions + "\n⚠️ Connexion API instable - Diagnostic générique affiché.";
+  return suggestions + "\n⚠️ CLÉ API NON DÉTECTÉE - Vérifiez la configuration Vercel (VITE_API_KEY).";
 };
 
 export const getDiagnosticSuggestions = async (symptoms: string) => {
   if (!symptoms) return "Veuillez entrer des symptômes.";
   
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
 
   if (!apiKey) {
-    console.error("❌ CLÉ API MANQUANTE : Vérifiez vos variables d'environnement (API_KEY).");
+    console.error("❌ CLÉ API MANQUANTE : Assurez-vous d'avoir ajouté 'VITE_API_KEY' dans les variables d'environnement Vercel.");
     return localExpertDiagnostic(symptoms);
   }
 
@@ -72,7 +91,7 @@ export const getDiagnosticSuggestions = async (symptoms: string) => {
       contents: `Symptômes du véhicule : "${symptoms}"`,
       config: {
         systemInstruction: DIAGNOSTIC_SYSTEM_PROMPT,
-        temperature: 0.2, // Température basse pour des réponses plus factuelles et techniques
+        temperature: 0.2,
       },
     });
     return response.text || localExpertDiagnostic(symptoms);
@@ -83,9 +102,8 @@ export const getDiagnosticSuggestions = async (symptoms: string) => {
 };
 
 export const generateCustomerMessage = async (serviceDetails: string, customerName: string) => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getApiKey();
   
-  // Fallback simple si pas de clé pour éviter de bloquer l'UI
   const fallbackMessage = `Bonjour ${customerName}, les travaux suivants sont terminés : ${serviceDetails}. Vous pouvez récupérer votre véhicule. Cordialement.`;
 
   if (!apiKey) return fallbackMessage;
