@@ -1,5 +1,5 @@
 
-// Service IA utilisant Groq (Llama 3) pour une rapidité extrême et des limites très larges en version gratuite.
+// Service IA utilisant Groq (Llama 3.3) pour une rapidité extrême et des limites très larges en version gratuite.
 
 // Fonction utilitaire pour récupérer la clé API
 const getApiKey = (): string | undefined => {
@@ -83,7 +83,7 @@ const callGroqAPI = async (messages: any[]) => {
     },
     body: JSON.stringify({
       messages: messages,
-      model: "llama3-70b-8192", // Modèle très puissant et rapide
+      model: "llama-3.3-70b-versatile", // Nouveau modèle supporté par Groq
       temperature: 0.2,
       max_tokens: 1024,
     })
@@ -122,8 +122,9 @@ export const getDiagnosticSuggestions = async (symptoms: string) => {
     if (error.message === "API_KEY_MISSING") {
         userMessage = "⚠️ Clé API manquante.";
     } else if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
-        // Groq a des limites très hautes, mais au cas où
         userMessage = "⚠️ Limite de requêtes atteinte. Réessayez dans quelques secondes.";
+    } else if (error.message?.includes('model') && error.message?.includes('decommissioned')) {
+        userMessage = "⚠️ Modèle IA obsolète. Mise à jour requise.";
     }
 
     return localExpertDiagnostic(symptoms, userMessage);
