@@ -160,17 +160,17 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in duration-300"
+        className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in duration-300 border dark:border-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 text-white shrink-0">
+        <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 text-white shrink-0">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-inner">
               <span className="text-2xl">💡</span>
             </div>
             <div>
-              <h2 className="text-2xl font-black tracking-tight">Centre d'Aide</h2>
+              <h2 className="text-2xl font-black tracking-tight text-white">Centre d'Aide</h2>
               <p className="text-slate-300 text-sm font-medium">Guide d'utilisation GaragePro</p>
             </div>
           </div>
@@ -183,25 +183,25 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50 dark:bg-slate-950 scrollbar-hide">
           {HELP_SECTIONS.map((section) => {
             const isOpen = openSection === section.id;
             return (
               <div 
                 key={section.id} 
-                className={`bg-white border transition-all duration-300 rounded-[1.5rem] overflow-hidden ${isOpen ? 'border-blue-200 shadow-xl ring-4 ring-blue-500/5' : 'border-slate-200 shadow-sm hover:border-blue-100'}`}
+                className={`bg-white dark:bg-slate-900 border transition-all duration-300 rounded-[1.5rem] overflow-hidden ${isOpen ? 'border-blue-200 dark:border-blue-900/50 shadow-xl ring-4 ring-blue-500/5 dark:ring-blue-900/10' : 'border-slate-200 dark:border-slate-800 shadow-sm hover:border-blue-100 dark:hover:border-slate-700'}`}
               >
                 <button 
                   onClick={() => toggleSection(section.id)}
                   className="w-full p-5 flex items-center justify-between text-left group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${isOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500'}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${isOpen ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 group-hover:text-blue-500 dark:group-hover:text-blue-400'}`}>
                       {section.icon}
                     </div>
-                    <span className={`font-black text-sm tracking-tight ${isOpen ? 'text-slate-900' : 'text-slate-600'}`}>{section.title}</span>
+                    <span className={`font-black text-sm tracking-tight ${isOpen ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200'}`}>{section.title}</span>
                   </div>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isOpen ? 'bg-blue-50 text-blue-600 rotate-180' : 'bg-slate-50 text-slate-300'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isOpen ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rotate-180' : 'bg-slate-50 dark:bg-slate-800 text-slate-300 dark:text-slate-600'}`}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
                   </div>
                 </button>
@@ -209,15 +209,15 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
                 <div 
                   className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}
                 >
-                  <div className="p-6 pt-2 pb-8 border-t border-slate-50 grid gap-4">
+                  <div className="p-6 pt-2 pb-8 border-t border-slate-50 dark:border-slate-800 grid gap-4">
                     {section.details.map((item, idx) => (
-                      <div key={idx} className="flex gap-4 items-start p-3 rounded-2xl hover:bg-slate-50 transition-colors">
-                        <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-xl shadow-sm shrink-0">
+                      <div key={idx} className="flex gap-4 items-start p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center text-xl shadow-sm shrink-0">
                           {item.emoji}
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-800 text-sm mb-1">{item.subtitle}</h4>
-                          <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                          <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-1">{item.subtitle}</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
                             {item.text}
                           </p>
                         </div>
@@ -231,8 +231,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-white border-t border-slate-100 text-center shrink-0">
-          <p className="text-xs font-bold text-slate-400">Besoin d'une assistance technique ? <a href="mailto:support@garagepro.saas" className="text-blue-600 hover:underline">Contactez le support</a></p>
+        <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-center shrink-0">
+          <p className="text-xs font-bold text-slate-400 dark:text-slate-500">Besoin d'une assistance technique ? <a href="mailto:support@garagepro.saas" className="text-blue-600 dark:text-blue-400 hover:underline">Contactez le support</a></p>
         </div>
       </div>
     </div>

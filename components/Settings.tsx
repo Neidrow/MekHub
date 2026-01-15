@@ -96,7 +96,7 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
       {/* --- Section Intégrations --- */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8 lg:p-12 space-y-8">
         <h4 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
-          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
           Services Connectés
         </h4>
         
@@ -121,7 +121,7 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
                 <button 
                 onClick={handleGoogleToggle}
                 disabled={syncLoading}
-                className={`w-full px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${formData.google_calendar_enabled ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white dark:bg-rose-900/20 dark:text-rose-400' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}
+                className={`w-full px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${formData.google_calendar_enabled ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-600' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}
                 >
                 {syncLoading ? (
                     <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
