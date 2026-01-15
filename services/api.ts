@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory } from '../types';
 import { sendInvitationEmail } from './emailService';
@@ -110,13 +109,23 @@ class ApiService {
 
   async shortenUrl(longUrl: string): Promise<string> {
     try {
-      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+      // Utilisation de da.gd qui offre une redirection directe sans page de pub intermédiaire
+      // Cela permet de garder un lien court ET d'avoir le téléchargement direct
+      const response = await fetch(`https://da.gd/s?url=${encodeURIComponent(longUrl)}`);
+      
       if (response.ok) {
-        return await response.text();
+        const text = await response.text();
+        const shortUrl = text.trim();
+        // Vérification basique que c'est bien une URL
+        if (shortUrl.startsWith('http')) {
+          return shortUrl;
+        }
       }
+      // Si le service est down ou erreur, on retourne l'URL longue par sécurité
+      // pour garantir que le client puisse toujours télécharger son document
       return longUrl;
-    } catch (error) {
-      console.warn("Impossible de raccourcir l'URL:", error);
+    } catch (e) {
+      console.warn("Erreur raccourcisseur, fallback sur URL directe:", e);
       return longUrl;
     }
   }
