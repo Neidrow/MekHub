@@ -101,6 +101,9 @@ const App: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
   
+  // Toast Notification State
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', title: string, message: string } | null>(null);
+
   const [clients, setClients] = useState<Client[]>([]);
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
   const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
@@ -110,7 +113,7 @@ const App: React.FC = () => {
   const [factures, setFactures] = useState<Facture[]>([]);
   const [settings, setSettings] = useState<GarageSettings | null>(null);
   
-  // Notification State
+  // Notification Center State
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -408,6 +411,12 @@ const App: React.FC = () => {
     }
   };
 
+  // --- FONCTION TOAST ---
+  const showToast = (type: 'success' | 'error' | 'info', title: string, message: string) => {
+    setToast({ type, title, message });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   if (isSuspended) {
     return (
       <div className="min-h-screen bg-rose-50 dark:bg-slate-900 flex flex-col items-center justify-center p-10 text-center">
@@ -448,6 +457,32 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-500">
+      
+      {/* --- TOAST NOTIFICATION COMPONENT --- */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[500] animate-in slide-in-from-bottom-5 fade-in duration-300 pointer-events-none">
+           <div className={`pointer-events-auto px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 min-w-[300px] border border-white/10 backdrop-blur-md ${
+             toast.type === 'success' ? 'bg-slate-900 text-white dark:bg-emerald-600' : 
+             toast.type === 'error' ? 'bg-rose-600 text-white' : 
+             'bg-blue-600 text-white'
+           }`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-300' :
+                toast.type === 'error' ? 'bg-rose-800/20 text-white' :
+                'bg-blue-500/20 text-white'
+              }`}>
+                 {toast.type === 'success' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                 {toast.type === 'error' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>}
+                 {toast.type === 'info' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              </div>
+              <div>
+                 <h4 className="font-black text-sm tracking-tight">{toast.title}</h4>
+                 <p className="text-xs font-medium opacity-90">{toast.message}</p>
+              </div>
+           </div>
+        </div>
+      )}
+
       {showWelcome && (
         <WelcomeOverlay 
           garageName={garageDisplayName} 
@@ -683,6 +718,7 @@ const App: React.FC = () => {
               onDelete={async (id) => { await api.deleteData('devis', id); loadAllData(); }}
               onAddInvoice={async (f) => { await api.postData('factures', f); loadAllData(); }}
               onNavigate={navigateTo}
+              onNotify={showToast}
             />
           )}
           {currentView === 'invoices' && (
@@ -694,6 +730,7 @@ const App: React.FC = () => {
               onAdd={async (f) => { await api.postData('factures', f); loadAllData(); }}
               onUpdate={async (id, updates) => { await api.updateData('factures', id, updates); loadAllData(); }}
               onDelete={async (id) => { await api.deleteData('factures', id); loadAllData(); }}
+              onNotify={showToast}
             />
           )}
           {currentView === 'ai-assistant' && (

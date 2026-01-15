@@ -14,9 +14,10 @@ interface InvoicesProps {
   onAdd: (f: Omit<Facture, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
   onUpdate: (id: string, updates: Partial<Facture>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onNotify: (type: 'success' | 'error' | 'info', title: string, message: string) => void;
 }
 
-const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, settings, onAdd, onUpdate, onDelete }) => {
+const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, settings, onAdd, onUpdate, onDelete, onNotify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Facture | null>(null);
   const [loading, setLoading] = useState(false);
@@ -118,7 +119,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.vehicule_id) {
-        alert("Veuillez sélectionner un véhicule.");
+        onNotify("error", "Erreur de saisie", "Veuillez sélectionner un véhicule.");
         return;
     }
     setLoading(true);
@@ -135,15 +136,17 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
       if (editingInvoice) {
         // @ts-ignore
         await onUpdate(editingInvoice.id, payload);
+        onNotify("success", "Facture mise à jour", "Les modifications ont été enregistrées.");
       } else {
         // @ts-ignore
         await onAdd(payload);
+        onNotify("success", "Facture créée", "La nouvelle facture a été ajoutée.");
       }
       setIsModalOpen(false);
       setEditingInvoice(null);
     } catch (err: any) {
       console.error(err);
-      alert(`Erreur : ${err.message}`);
+      onNotify("error", "Erreur système", err.message);
     } finally {
       setLoading(false);
     }
@@ -256,7 +259,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
   };
 
   const handleDownloadPDF = (f: Facture) => {
-    if (!settings) { alert("Configurez les paramètres avant."); return; }
+    if (!settings) { onNotify("error", "Configuration manquante", "Configurez les paramètres avant de télécharger."); return; }
     const doc = createPDFDoc(f);
     doc.save(`Facture_${f.numero_facture}.pdf`);
   };
@@ -264,7 +267,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
   const handleSendEmail = async (f: Facture) => {
     const client = customers.find(c => c.id === f.client_id);
     if (!client || !client.email) {
-      alert("Impossible d'envoyer : Le client n'a pas d'email renseigné.");
+      onNotify("error", "Email manquant", "Le client n'a pas d'adresse email renseignée.");
       return;
     }
     
@@ -315,15 +318,15 @@ Cordialement,
       window.location.href = mailtoLink;
       
       await onUpdate(f.id, { statut: 'non_payee' });
-      // Le changement de statut verrouille automatiquement le bouton
-      alert("📨 Email ouvert !");
+      
+      onNotify("success", "Messagerie ouverte", "Le brouillon de l'email a été généré. Veuillez cliquer sur 'Envoyer' dans votre logiciel de messagerie.");
 
     } catch (err: any) {
       console.error("Erreur:", err);
       if (err.message.includes('bucket not found')) {
-         alert("ERREUR : Veuillez exécuter le script SQL fourni dans Supabase pour autoriser l'envoi.");
+         onNotify("error", "Erreur Configuration", "Veuillez exécuter le script SQL fourni dans Supabase pour autoriser l'envoi.");
       } else {
-         alert("Erreur lors de l'envoi : " + err.message);
+         onNotify("error", "Erreur d'envoi", err.message);
       }
     } finally {
       setSendingEmail(null);
@@ -336,9 +339,10 @@ Cordialement,
     try {
       await onDelete(invoiceToDelete.id);
       setInvoiceToDelete(null);
+      onNotify("success", "Suppression réussie", "La facture a été supprimée.");
     } catch (error) {
       console.error("Erreur suppression:", error);
-      alert("Impossible de supprimer cette facture.");
+      onNotify("error", "Erreur", "Impossible de supprimer cette facture.");
     } finally {
       setDeleteLoading(false);
     }

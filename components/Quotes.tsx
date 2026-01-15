@@ -17,9 +17,10 @@ interface QuotesProps {
   onDelete: (id: string) => Promise<void>;
   onAddInvoice: (f: Omit<Facture, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
   onNavigate?: (view: ViewState) => void;
+  onNotify: (type: 'success' | 'error' | 'info', title: string, message: string) => void;
 }
 
-const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, userRole, onAdd, onUpdate, onDelete, onAddInvoice, onNavigate }) => {
+const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, userRole, onAdd, onUpdate, onDelete, onAddInvoice, onNavigate, onNotify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDevis, setEditingDevis] = useState<Devis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -123,7 +124,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.vehicule_id) {
-        alert("Veuillez sélectionner un véhicule.");
+        onNotify("error", "Erreur de saisie", "Veuillez sélectionner un véhicule.");
         return;
     }
     setLoading(true);
@@ -138,15 +139,17 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       if (editingDevis) {
         // @ts-ignore
         await onUpdate(editingDevis.id, payload);
+        onNotify("success", "Devis mis à jour", "Les modifications ont été enregistrées.");
       } else {
         // @ts-ignore
         await onAdd(payload);
+        onNotify("success", "Devis créé", "Le nouveau devis a été ajouté.");
       }
       setIsModalOpen(false);
       setEditingDevis(null);
     } catch (err: any) {
       console.error(err);
-      alert(`Erreur : ${err.message}`);
+      onNotify("error", "Erreur système", err.message);
     } finally {
       setLoading(false);
     }
@@ -154,7 +157,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
   const handleConversionClick = (d: Devis) => {
     if (!d.vehicule_id) {
-      alert("Impossible de convertir : Le devis n'a pas de véhicule associé.");
+      onNotify("error", "Conversion impossible", "Le devis n'a pas de véhicule associé.");
       return;
     }
     setQuoteToConvert(d);
@@ -184,11 +187,13 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       await onAddInvoice(newInvoice);
       await onUpdate(d.id, { statut: 'accepte' });
       setQuoteToConvert(null);
-      alert("✅ Facture créée avec succès !");
+      
+      onNotify("success", "Conversion réussie !", "Le devis a été transformé en facture brouillon.");
+      
       if (onNavigate) onNavigate('invoices');
     } catch (error: any) {
       console.error("Erreur conversion:", error);
-      alert("Erreur lors de la conversion.");
+      onNotify("error", "Erreur de conversion", "Impossible de créer la facture.");
     } finally {
       setConversionLoading(false);
     }
@@ -272,7 +277,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
   };
 
   const handleDownloadPDF = (d: Devis) => {
-    if (!settings) { alert("Configurez les paramètres avant."); return; }
+    if (!settings) { onNotify("error", "Configuration manquante", "Configurez les paramètres avant de télécharger."); return; }
     const doc = createPDFDoc(d);
     doc.save(`Devis_${d.numero_devis}.pdf`);
   };
@@ -281,7 +286,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     const client = customers.find(c => c.id === d.client_id);
     const vehicule = vehicles.find(v => v.id === d.vehicule_id);
     if (!client || !client.email) {
-      alert("Impossible d'envoyer : Le client n'a pas d'email renseigné.");
+      onNotify("error", "Email manquant", "Le client n'a pas d'adresse email renseignée.");
       return;
     }
     
@@ -333,15 +338,15 @@ Cordialement,
       window.location.href = mailtoLink;
       
       await onUpdate(d.id, { statut: 'en_attente' });
-      // Pas besoin de setSentQuotes car le statut 'en_attente' va désactiver le bouton automatiquement via la prop
-      alert("📨 Email ouvert !");
+      
+      onNotify("success", "Messagerie ouverte", "Le brouillon de l'email a été généré. Veuillez cliquer sur 'Envoyer' dans votre logiciel de messagerie.");
 
     } catch (err: any) {
       console.error("Erreur:", err);
       if (err.message.includes('bucket not found') || err.message.includes('new row violates row-level security policy')) {
-         alert("ERREUR CONFIGURATION : Veuillez exécuter le script SQL fourni dans Supabase pour autoriser l'envoi.");
+         onNotify("error", "Erreur Configuration", "Veuillez exécuter le script SQL fourni dans Supabase pour autoriser l'envoi.");
       } else {
-         alert("Erreur lors de l'envoi : " + err.message);
+         onNotify("error", "Erreur d'envoi", err.message);
       }
     } finally {
       setSendingEmail(null);
@@ -354,9 +359,10 @@ Cordialement,
     try {
       await onDelete(quoteToDelete.id);
       setQuoteToDelete(null);
+      onNotify("success", "Suppression réussie", "Le devis a été supprimé.");
     } catch (error) {
       console.error("Erreur suppression:", error);
-      alert("Impossible de supprimer ce devis.");
+      onNotify("error", "Erreur", "Impossible de supprimer ce devis.");
     } finally {
       setDeleteLoading(false);
     }
