@@ -1,26 +1,22 @@
 
-import { GoogleGenAI } from "@google/genai";
+// Service IA utilisant Groq (Llama 3) pour une rapidité extrême et des limites très larges en version gratuite.
 
-// Fonction utilitaire pour récupérer la clé API peu importe l'environnement (Vite ou Node)
+// Fonction utilitaire pour récupérer la clé API
 const getApiKey = (): string | undefined => {
-  // 1. Essayer via import.meta.env (Standard Vite pour le frontend)
   // @ts-ignore
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
     // @ts-ignore
     return import.meta.env.VITE_API_KEY;
   }
-  
-  // 2. Essayer via process.env (Compatibilité Node/Webpack)
   if (typeof process !== 'undefined' && process.env) {
     // @ts-ignore
     if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
     if (process.env.API_KEY) return process.env.API_KEY;
   }
-  
   return undefined;
 };
 
-// Prompt système expert pour le diagnostic mécanique - Niveau Technicien
+// Prompt système expert pour le diagnostic mécanique
 const DIAGNOSTIC_SYSTEM_PROMPT = `Tu es un Chef d'Atelier Expert Automobile. Tu assistes un mécanicien professionnel.
 
 🎯 OBJECTIF : 
@@ -59,7 +55,7 @@ Donner un diagnostic structuré, priorisé et directement exploitable à l'ateli
 ⚠️ VIGILANCE
 [Un point de sécurité ou une erreur de débutant à éviter]`;
 
-const localExpertDiagnostic = (symptoms: string): string => {
+const localExpertDiagnostic = (symptoms: string, errorMessage: string = ""): string => {
   const s = symptoms.toLowerCase();
   let suggestions = "🛠️ DIAGNOSTIC LOCAL (MODE SECOURS)\n\n";
   
@@ -71,7 +67,35 @@ const localExpertDiagnostic = (symptoms: string): string => {
     suggestions += "🔍 ANALYSE RAPIDE\nSymptôme générique nécessitant une investigation standard.\n\n🛠️ VÉRIFICATIONS ATELIER\n👉 LECTURE CODES DÉFAUTS : Brancher la valise OBD pour relever les DTC.\n👉 ESSAI ROUTIER : Reproduire le défaut pour affiner le ressenti.\n";
   }
   
-  return suggestions + "\n⚠️ CLÉ API NON DÉTECTÉE - Vérifiez la configuration Vercel (VITE_API_KEY).";
+  return suggestions + "\n" + (errorMessage || "⚠️ Connexion API instable - Diagnostic générique affiché.");
+};
+
+// Fonction générique pour appeler l'API Groq
+const callGroqAPI = async (messages: any[]) => {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API_KEY_MISSING");
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messages: messages,
+      model: "llama3-70b-8192", // Modèle très puissant et rapide
+      temperature: 0.2,
+      max_tokens: 1024,
+    })
+  });
+
+  if (!response.ok) {
+    const errData = await response.json();
+    throw new Error(errData.error?.message || `Groq Error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0]?.message?.content || "";
 };
 
 export const getDiagnosticSuggestions = async (symptoms: string) => {
@@ -80,48 +104,51 @@ export const getDiagnosticSuggestions = async (symptoms: string) => {
   const apiKey = getApiKey();
 
   if (!apiKey) {
-    console.error("❌ CLÉ API MANQUANTE : Assurez-vous d'avoir ajouté 'VITE_API_KEY' dans les variables d'environnement Vercel.");
-    return localExpertDiagnostic(symptoms);
+    console.error("❌ CLÉ API MANQUANTE : Vérifiez 'VITE_API_KEY' dans Vercel.");
+    return localExpertDiagnostic(symptoms, "⚠️ CLÉ API MANQUANTE (Vérifiez VITE_API_KEY avec une clé Groq)");
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Symptômes du véhicule : "${symptoms}"`,
-      config: {
-        systemInstruction: DIAGNOSTIC_SYSTEM_PROMPT,
-        temperature: 0.2,
-      },
-    });
-    return response.text || localExpertDiagnostic(symptoms);
+    const result = await callGroqAPI([
+      { role: "system", content: DIAGNOSTIC_SYSTEM_PROMPT },
+      { role: "user", content: `Symptômes du véhicule : "${symptoms}"` }
+    ]);
+    return result || localExpertDiagnostic(symptoms);
   } catch (error: any) {
-    console.error("❌ ERREUR API GEMINI :", error);
-    return localExpertDiagnostic(symptoms);
+    console.error("❌ ERREUR API IA :", error);
+    
+    let userMessage = "⚠️ Erreur de connexion au service IA.";
+    
+    if (error.message === "API_KEY_MISSING") {
+        userMessage = "⚠️ Clé API manquante.";
+    } else if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+        // Groq a des limites très hautes, mais au cas où
+        userMessage = "⚠️ Limite de requêtes atteinte. Réessayez dans quelques secondes.";
+    }
+
+    return localExpertDiagnostic(symptoms, userMessage);
   }
 };
 
 export const generateCustomerMessage = async (serviceDetails: string, customerName: string) => {
   const apiKey = getApiKey();
-  
   const fallbackMessage = `Bonjour ${customerName}, les travaux suivants sont terminés : ${serviceDetails}. Vous pouvez récupérer votre véhicule. Cordialement.`;
 
   if (!apiKey) return fallbackMessage;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Rédige un SMS professionnel pour un client de garage automobile.
+    const result = await callGroqAPI([
+      { role: "system", content: "Tu es un assistant administratif de garage automobile. Tu rédiges des SMS courts et professionnels." },
+      { role: "user", content: `Rédige un SMS pour un client.
       Nom Client : ${customerName}
       Contexte : ${serviceDetails}
       
       CONSIGNES :
       - Court, poli et factuel (format SMS).
       - Pas d'objet, pas de titre.
-      - Indique que le véhicule est prêt si le contexte s'y prête.`,
-    });
-    return response.text || fallbackMessage;
+      - Ne signe pas (le système l'ajoute).` }
+    ]);
+    return result || fallbackMessage;
   } catch (error) {
     console.error("Erreur IA Message:", error);
     return fallbackMessage;
