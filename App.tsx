@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ViewState, Client, Vehicule, RendezVous, Facture, Devis, StockItem, Mecanicien, GarageSettings, Notification } from './types.ts';
+import { ViewState, Client, Vehicule, RendezVous, Facture, Devis, StockItem, Mecanicien, GarageSettings, Notification, SystemMaintenance } from './types.ts';
 import { ICONS } from './constants.tsx';
 import { api, supabase } from './services/api.ts';
 import Auth from './components/Auth.tsx';
@@ -18,7 +18,7 @@ import SuperAdmin from './components/SuperAdmin.tsx';
 import WelcomeOverlay from './components/WelcomeOverlay.tsx';
 import GoogleCalendarModal from './components/GoogleCalendarModal.tsx';
 import HelpModal from './components/HelpModal.tsx';
-import PublicQuoteView from './components/PublicQuoteView.tsx'; // IMPORT DU NOUVEAU COMPOSANT
+import PublicQuoteView from './components/PublicQuoteView.tsx';
 
 interface NavItemProps {
   view: ViewState;
@@ -38,6 +38,9 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
   const getActiveClasses = () => {
     if (!isActive) return "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200";
     if (color === 'purple') return "bg-purple-600 text-white shadow-lg shadow-purple-900/20";
+    if (color === 'indigo') return "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20";
+    if (color === 'rose') return "bg-rose-600 text-white shadow-lg shadow-rose-900/20";
+    if (color === 'amber') return "bg-amber-500 text-white shadow-lg shadow-amber-900/20";
     return "bg-blue-600 text-white shadow-lg shadow-blue-900/20";
   };
 
@@ -67,6 +70,7 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
+  const [maintenance, setMaintenance] = useState<SystemMaintenance>({ enabled: false, message: '' });
   
   // -- GESTION DE L'URL POUR LA VUE PUBLIQUE --
   const urlParams = new URLSearchParams(window.location.search);
@@ -130,7 +134,17 @@ const App: React.FC = () => {
   const [passLoading, setPassLoading] = useState(false);
 
   useEffect(() => {
-    // Si vue publique, on ne check pas la session tout de suite pour éviter le flash
+    // Check maintenance status first
+    const checkSys = async () => {
+       try {
+         const m = await api.getMaintenanceStatus();
+         setMaintenance(m);
+       } catch (e) {
+         console.warn("Maintenance check failed", e);
+       }
+    };
+    checkSys();
+
     if (!isPublicView) {
         supabase.auth.getSession().then(({ data: { session: sess } }) => {
           handleSession(sess);
@@ -142,7 +156,7 @@ const App: React.FC = () => {
         
         return () => subscription.unsubscribe();
     } else {
-        setLoading(false); // On arrête le chargement global pour laisser PublicQuoteView gérer
+        setLoading(false);
     }
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -157,7 +171,6 @@ const App: React.FC = () => {
     };
   }, [isPublicView]);
 
-  // --- AUTOMATISATION DES STATUTS RDV (CORRIGÉE) ---
   useEffect(() => {
     if (!session || rendezVous.length === 0) return;
 
@@ -225,10 +238,12 @@ const App: React.FC = () => {
       const needsChange = metadata.needs_password_change;
       
       if (metadata.role === 'super_admin') {
-        setCurrentView('super-admin');
+        if (!currentView.startsWith('super-admin')) {
+           setCurrentView('super-admin-overview');
+        }
       } else {
         const savedView = localStorage.getItem('garagepro_current_view');
-        if (savedView === 'super-admin') {
+        if (savedView && savedView.startsWith('super-admin')) {
           setCurrentView('dashboard');
           localStorage.setItem('garagepro_current_view', 'dashboard');
         }
@@ -239,7 +254,11 @@ const App: React.FC = () => {
         setLoading(false);
       } else {
         setMustChangePassword(false);
-        await loadAllData();
+        if (metadata.role !== 'super_admin') {
+            await loadAllData();
+        } else {
+            setLoading(false);
+        }
       }
     } else {
       resetData();
@@ -389,7 +408,7 @@ const App: React.FC = () => {
       await api.updatePassword(newPass);
       setMustChangePassword(false);
       setShowWelcome(true);
-      await loadAllData();
+      if (!isSuperAdmin) await loadAllData();
     } catch (err: any) {
       setPassError(err.message);
     } finally {
@@ -429,6 +448,25 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  // --- BLOCK MAINTENANCE ---
+  if (maintenance.enabled && session?.user?.user_metadata?.role !== 'super_admin' && !isPublicView) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-10 text-center relative overflow-hidden">
+         <div className="absolute top-0 -left-20 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-[120px]"></div>
+         <div className="absolute bottom-0 -right-20 w-[500px] h-[500px] bg-rose-600/10 rounded-full blur-[120px]"></div>
+         
+         <div className="relative z-10 bg-white/5 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 shadow-2xl max-w-lg">
+            <div className="w-24 h-24 bg-amber-500/20 text-amber-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-xl animate-pulse">
+               <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            </div>
+            <h1 className="text-3xl font-black text-white tracking-tight mb-4">Maintenance en cours</h1>
+            <p className="text-slate-300 font-medium leading-relaxed text-sm mb-8">{maintenance.message || "Nous effectuons une mise à jour importante. Le service sera rétabli très rapidement."}</p>
+            <button onClick={() => window.location.reload()} className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">Actualiser</button>
+         </div>
+      </div>
+    );
+  }
+
   if (isPublicView) {
     return <PublicQuoteView quoteId={publicQuoteId!} />;
   }
@@ -463,6 +501,9 @@ const App: React.FC = () => {
   const userId = session.user.id;
 
   const navigateTo = (view: ViewState) => {
+    if (view !== currentView) {
+        api.logActivity('navigation', view);
+    }
     setCurrentView(view);
     setIsSidebarOpen(false);
     localStorage.setItem('garagepro_current_view', view);
@@ -474,7 +515,6 @@ const App: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-500">
       
-      {/* --- TOAST NOTIFICATION COMPONENT --- */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[500] animate-in slide-in-from-bottom-5 fade-in duration-300 pointer-events-none">
            <div className={`pointer-events-auto px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 min-w-[300px] border border-white/10 backdrop-blur-md ${
@@ -506,7 +546,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {showGooglePrompt && !showWelcome && (
+      {showGooglePrompt && !showWelcome && !isSuperAdmin && (
         <GoogleCalendarModal 
           onConnect={handleGoogleConnect}
           onRemindLater={handleGoogleRemindLater}
@@ -544,26 +584,38 @@ const App: React.FC = () => {
             />
           ) : (
             <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] flex items-center justify-center text-white font-black text-3xl mb-4 shadow-xl shadow-blue-500/20">
-              {garageDisplayName.charAt(0)}
+              {isSuperAdmin ? 'SA' : garageDisplayName.charAt(0)}
             </div>
           )}
-          <h1 className="text-lg font-black text-slate-800 dark:text-white truncate w-full">{garageDisplayName}</h1>
+          <h1 className="text-lg font-black text-slate-800 dark:text-white truncate w-full">{isSuperAdmin ? 'Administration' : garageDisplayName}</h1>
           <div className={`mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isPremium ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-             {isPremium ? 'Premium' : 'Standard'}
+             {isSuperAdmin ? 'Super Admin' : (isPremium ? 'Premium' : 'Standard')}
           </div>
         </div>
         <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto scrollbar-hide">
-          {isSuperAdmin && <NavItem view="super-admin" label="Master SaaS" icon={ICONS.Dashboard} color="purple" currentView={currentView} onClick={navigateTo} />}
-          <NavItem view="dashboard" label="Dashboard" icon={ICONS.Dashboard} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="appointments" label="Rendez-vous" icon={ICONS.Appointments} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="customers" label="Clients" icon={ICONS.Customers} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="vehicles" label="Véhicules" icon={ICONS.Vehicles} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="mechanics" label="Équipe" icon={ICONS.Mechanics} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="inventory" label="Stocks" icon={ICONS.Inventory} isPremium={true} alertCount={stockAlerts} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="quotes" label="Devis" icon={ICONS.Quotes} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="invoices" label="Factures" icon={ICONS.Invoices} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="ai-assistant" label="Assistant AI" icon={ICONS.AI} currentView={currentView} onClick={navigateTo} />
-          <NavItem view="settings" label="Paramètres" icon={ICONS.Settings} currentView={currentView} onClick={navigateTo} />
+          {isSuperAdmin ? (
+            // ONGLETS ADMIN AVEC NOUVELLE STRUCTURE
+            <>
+              <NavItem view="super-admin-overview" label="Vue d'ensemble" icon={ICONS.Dashboard} color="purple" currentView={currentView} onClick={navigateTo} />
+              <NavItem view="super-admin-garages" label="Garages" icon={ICONS.AdminGarages} color="indigo" currentView={currentView} onClick={navigateTo} />
+              <NavItem view="super-admin-communication" label="Communication" icon={ICONS.AdminComm} color="amber" currentView={currentView} onClick={navigateTo} />
+              <NavItem view="super-admin-logs" label="Sécurité & Logs" icon={ICONS.AdminLogs} color="rose" currentView={currentView} onClick={navigateTo} />
+            </>
+          ) : (
+            // ONGLETS GARAGE CLASSIQUE
+            <>
+              <NavItem view="dashboard" label="Dashboard" icon={ICONS.Dashboard} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="appointments" label="Rendez-vous" icon={ICONS.Appointments} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="customers" label="Clients" icon={ICONS.Customers} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="vehicles" label="Véhicules" icon={ICONS.Vehicles} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="mechanics" label="Équipe" icon={ICONS.Mechanics} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="inventory" label="Stocks" icon={ICONS.Inventory} isPremium={true} alertCount={stockAlerts} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="quotes" label="Devis" icon={ICONS.Quotes} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="invoices" label="Factures" icon={ICONS.Invoices} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="ai-assistant" label="Assistant AI" icon={ICONS.AI} currentView={currentView} onClick={navigateTo} />
+              <NavItem view="settings" label="Paramètres" icon={ICONS.Settings} currentView={currentView} onClick={navigateTo} />
+            </>
+          )}
         </nav>
         <div className="p-4 border-t dark:border-slate-800">
           <button onClick={handleLogout} className="w-full py-4 text-rose-500 dark:text-rose-400 font-bold hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-2xl transition-all flex items-center justify-center gap-2">Déconnexion</button>
@@ -577,7 +629,6 @@ const App: React.FC = () => {
           </button>
           
           <div className="flex items-center gap-4 ml-auto">
-            {/* THEME TOGGLE */}
             <button 
               onClick={() => setDarkMode(!darkMode)}
               className="p-2.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -622,6 +673,7 @@ const App: React.FC = () => {
                           onClick={() => markAsRead(notif)}
                           className={`p-4 border-b border-slate-50 dark:border-slate-700/50 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/30 flex gap-3 group relative ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
                         >
+                          {/* (Le contenu de la notif reste identique) */}
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                             notif.type === 'error' ? 'bg-rose-100 text-rose-500 dark:bg-rose-500/10 dark:text-rose-400' :
                             notif.type === 'warning' ? 'bg-amber-100 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400' :
@@ -640,7 +692,6 @@ const App: React.FC = () => {
                           </div>
                           {!notif.read && <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0"></div>}
                           
-                          {/* Bouton Supprimer */}
                           <button 
                             onClick={(e) => deleteNotification(e, notif)}
                             className="absolute top-2 right-2 p-1.5 text-slate-300 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
@@ -661,7 +712,11 @@ const App: React.FC = () => {
         </header>
 
         <div className="p-4 sm:p-6 lg:p-10 flex-1 overflow-y-auto scrollbar-hide">
-          {currentView === 'super-admin' && isSuperAdmin && <SuperAdmin />}
+          {/* VUES SPECIFIQUES ADMIN */}
+          {currentView.startsWith('super-admin') && isSuperAdmin && (
+             <SuperAdmin currentTab={currentView} onNotify={showToast} />
+          )}
+
           {currentView === 'dashboard' && (
             <Dashboard 
               customers={clients} 
@@ -729,7 +784,7 @@ const App: React.FC = () => {
               vehicles={vehicules}
               settings={settings}
               userRole={userRole}
-              invoices={factures} /* Pass factures prop for checking conversion */
+              invoices={factures}
               onAdd={async (d) => { await api.postData('devis', d); loadAllData(); }}
               onUpdate={async (id, updates) => { await api.updateData('devis', id, updates); loadAllData(); }}
               onDelete={async (id) => { await api.deleteData('devis', id); loadAllData(); }}
@@ -766,13 +821,15 @@ const App: React.FC = () => {
         </div>
 
         {/* --- Floating Help Button --- */}
-        <button 
-          onClick={() => setShowHelp(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-slate-900 dark:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-black dark:hover:bg-blue-700 transition-all hover:scale-110 active:scale-95 group"
-          title="Aide & Documentation"
-        >
-          <span className="text-2xl font-black group-hover:rotate-12 transition-transform">?</span>
-        </button>
+        {!isSuperAdmin && (
+          <button 
+            onClick={() => setShowHelp(true)}
+            className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-slate-900 dark:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-black dark:hover:bg-blue-700 transition-all hover:scale-110 active:scale-95 group"
+            title="Aide & Documentation"
+          >
+            <span className="text-2xl font-black group-hover:rotate-12 transition-transform">?</span>
+          </button>
+        )}
 
       </main>
     </div>

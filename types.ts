@@ -9,6 +9,21 @@ export interface User {
   subscription_status: 'active' | 'trial' | 'expired';
 }
 
+export interface ActivityLog {
+  id: string;
+  user_id: string;
+  email: string;
+  action_type: 'login' | 'navigation' | 'create' | 'delete' | 'update';
+  target: string;
+  details?: string;
+  created_at: string;
+}
+
+export interface SystemMaintenance {
+  enabled: boolean;
+  message: string;
+}
+
 export interface GarageSettings {
   id: string;
   user_id: string;
@@ -175,4 +190,19 @@ export interface Notification {
   link?: ViewState;
 }
 
-export type ViewState = 'dashboard' | 'appointments' | 'customers' | 'vehicles' | 'mechanics' | 'quotes' | 'invoices' | 'inventory' | 'ai-assistant' | 'settings' | 'super-admin' | 'public_quote';
+export type ViewState = 
+  | 'dashboard' 
+  | 'appointments' 
+  | 'customers' 
+  | 'vehicles' 
+  | 'mechanics' 
+  | 'quotes' 
+  | 'invoices' 
+  | 'inventory' 
+  | 'ai-assistant' 
+  | 'settings' 
+  | 'super-admin-overview'  // Admin Home
+  | 'super-admin-garages'   // Admin Users
+  | 'super-admin-logs'      // Admin Logs
+  | 'super-admin-communication' // Admin Messages & Maintenance
+  | 'public_quote';

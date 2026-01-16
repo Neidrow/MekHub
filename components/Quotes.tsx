@@ -23,6 +23,7 @@ interface QuotesProps {
 const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, userRole, invoices = [], onAdd, onUpdate, onDelete, onAddInvoice, onNavigate, onNotify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDevis, setEditingDevis] = useState<Devis | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<Devis | null>(null); // Nouvel état pour la duplication
   const [loading, setLoading] = useState(false);
   
   const [currentModalVat, setCurrentModalVat] = useState<number>(20);
@@ -80,6 +81,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
   useEffect(() => {
     if (editingDevis) {
+      // Mode ÉDITION
       let historicalVat = settings?.tva || 20;
       if (editingDevis.montant_ht > 0) {
          const calculatedRate = ((editingDevis.montant_ttc - editingDevis.montant_ht) / editingDevis.montant_ht) * 100;
@@ -96,7 +98,22 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
         notes: editingDevis.notes || ''
       });
       setItems(editingDevis.items && editingDevis.items.length > 0 ? editingDevis.items : [{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
+    } else if (duplicateSource) {
+      // Mode DUPLICATION
+      setCurrentModalVat(settings?.tva !== undefined ? settings.tva : 20);
+      
+      setFormData({
+        client_id: duplicateSource.client_id,
+        vehicule_id: duplicateSource.vehicule_id || '', 
+        numero_devis: generateRef(), // Nouvelle référence
+        date_devis: new Date().toISOString().split('T')[0], // Date d'aujourd'hui
+        statut: 'brouillon', // Reset statut
+        notes: duplicateSource.notes || ''
+      });
+      // Copie profonde des items pour éviter les références partagées
+      setItems(duplicateSource.items ? JSON.parse(JSON.stringify(duplicateSource.items)) : [{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
     } else {
+      // Mode CRÉATION
       setCurrentModalVat(settings?.tva !== undefined ? settings.tva : 20);
       setFormData({
         client_id: '',
@@ -108,7 +125,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       });
       setItems([{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
     }
-  }, [editingDevis, isModalOpen]); 
+  }, [editingDevis, duplicateSource, isModalOpen]); 
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...items];
@@ -131,6 +148,13 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     const tva = ht * (currentModalVat / 100);
     return { ht, tva, ttc: ht + tva };
   }, [items, currentModalVat]);
+
+  const handleDuplicate = (d: Devis) => {
+    setEditingDevis(null);
+    setDuplicateSource(d);
+    setIsModalOpen(true);
+    onNotify('info', 'Duplication', 'Une copie du devis a été préparée. Vérifiez les informations avant d\'enregistrer.');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,7 +217,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
         // Vérifier les lignes supprimées
         if (editingDevis.items.length > items.length) {
-            const removedCount = editingDevis.items.length - items.length;
             // On essaie de lister ce qui a été supprimé
             for (let i = items.length; i < editingDevis.items.length; i++) {
                 changes.push(`- Suppr: "${editingDevis.items[i].description}"`);
@@ -224,8 +247,15 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
         onNotify("success", "Devis mis à jour", "Les modifications ont été enregistrées.");
       } else {
+        // Mode Création (Nouveau ou Duplication)
         // @ts-ignore
         const newDevis = await onAdd(payload);
+        
+        // Message spécifique pour l'historique si c'est une duplication
+        const creationDetails = duplicateSource 
+            ? `Duplication depuis le devis ${duplicateSource.numero_devis} - Montant: ${totals.ttc.toFixed(2)}€`
+            : `Création initiale - Montant: ${totals.ttc.toFixed(2)}€`;
+
         // @ts-ignore
         if (newDevis?.id) {
              await api.addQuoteHistory({
@@ -234,13 +264,14 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
                 // @ts-ignore
                 user_id: newDevis.user_id,
                 action: 'creation',
-                details: `Création initiale - Montant: ${totals.ttc.toFixed(2)}€`
+                details: creationDetails
             });
         }
         onNotify("success", "Devis créé", "Le nouveau devis a été ajouté.");
       }
       setIsModalOpen(false);
       setEditingDevis(null);
+      setDuplicateSource(null);
     } catch (err: any) {
       console.error(err);
       onNotify("error", "Erreur système", err.message);
@@ -591,7 +622,7 @@ Cordialement,
               </div>
               <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-b-[2.5rem] sticky bottom-0">
                 <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest text-xs">
-                  {loading ? "Enregistrement..." : editingDevis ? "Sauvegarder" : "Créer le devis"}
+                  {loading ? "Enregistrement..." : editingDevis ? "Sauvegarder" : duplicateSource ? "Créer le duplicata" : "Créer le devis"}
                 </button>
               </div>
             </form>
@@ -718,6 +749,14 @@ Cordialement,
                             </button>
                           )
                         )}
+
+                        <button 
+                            onClick={() => handleDuplicate(d)} 
+                            className="p-2 text-violet-600 hover:text-violet-800 bg-violet-50 dark:bg-violet-500/10 dark:text-violet-400 rounded-lg transition-all dark:hover:bg-violet-500/20" 
+                            title="Dupliquer"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                        </button>
 
                         <button 
                             onClick={() => handleViewHistory(d)} 

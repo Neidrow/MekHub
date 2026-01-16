@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory, SignatureMetadata, QuoteHistory } from '../types';
+import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory, SignatureMetadata, QuoteHistory, ActivityLog, SystemMaintenance } from '../types';
 import { sendInvitationEmail } from './emailService';
 
 const supabaseUrl = 'https://qvyqptiekeunidxdomne.supabase.co';
@@ -61,6 +61,98 @@ class ApiService {
     this.googleToken = null;
     await supabase.auth.signOut(); 
   }
+
+  // --- ANALYTICS & LOGS ---
+  async logActivity(action_type: ActivityLog['action_type'], target: string, details: string = '') {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('activity_logs').insert([{
+          user_id: user.id,
+          email: user.email,
+          action_type,
+          target,
+          details
+        }]);
+      }
+    } catch (e) {
+      console.warn("Analytics Error:", e);
+    }
+  }
+
+  async fetchGlobalActivityLogs(): Promise<ActivityLog[]> {
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1000); // Limite pour performance
+    
+    if (error) {
+        console.warn("Erreur fetch logs", error);
+        return [];
+    }
+    return data as ActivityLog[];
+  }
+  // -------------------------
+
+  // --- SYSTEM ADMIN FEATURES ---
+  async getMaintenanceStatus(): Promise<SystemMaintenance> {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'maintenance')
+      .single();
+    
+    if (error || !data) return { enabled: false, message: '' };
+    return data.value as SystemMaintenance;
+  }
+
+  async setMaintenanceStatus(status: SystemMaintenance) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Accès refusé");
+
+    const { error } = await supabase
+      .from('system_settings')
+      .update({ 
+        value: status,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id
+      })
+      .eq('key', 'maintenance');
+    
+    if (error) throw error;
+    this.logActivity('update', 'system', `Maintenance ${status.enabled ? 'ACTIVÉE' : 'DÉSACTIVÉE'}`);
+  }
+
+  async sendGlobalNotification(title: string, message: string, type: 'info' | 'warning' | 'error' | 'success') {
+    // 1. Récupérer tous les utilisateurs actifs (ayant des paramètres enregistrés)
+    // NOTE: C'est une méthode simplifiée. Idéalement on utilise une Edge Function.
+    const { data: users, error } = await supabase
+      .from('parametres')
+      .select('user_id');
+    
+    if (error) throw error;
+    if (!users || users.length === 0) return;
+
+    // 2. Préparer les notifications par lots
+    const notifications = users.map(u => ({
+      user_id: u.user_id,
+      title,
+      message,
+      type,
+      read: false,
+      created_at: new Date().toISOString()
+    }));
+
+    // 3. Insérer
+    const { error: insertError } = await supabase
+      .from('notifications')
+      .insert(notifications);
+    
+    if (insertError) throw insertError;
+    this.logActivity('create', 'broadcast', `Notification envoyée à ${users.length} garages`);
+  }
+  // -------------------------
 
   async fetchData<T>(table: string): Promise<T[]> {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
@@ -128,11 +220,17 @@ class ApiService {
     const { data, error } = await supabase.from(table).insert([{ ...item, user_id: user.id }]).select();
     if (error) throw error;
 
+    // Analytics
+    if (table === 'devis') this.logActivity('create', 'quote', `Nouveau devis créé`);
+    if (table === 'factures') this.logActivity('create', 'invoice', `Nouvelle facture créée`);
+    if (table === 'clients') this.logActivity('create', 'client', `Nouveau client`);
+
     if (table === 'rendez_vous') {
       const settings = await this.getSettings();
       if (settings?.google_calendar_enabled) {
         await this.syncWithGoogleCalendar(data[0] as RendezVous, 'create');
       }
+      this.logActivity('create', 'appointment', 'Nouveau RDV');
     }
     return data[0] as T;
   }
@@ -447,6 +545,10 @@ Géré via GaragePro SaaS
   async login(email: string, pass: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
+    // Activity Log
+    if (data.session) {
+       this.logActivity('login', 'system', 'Connexion réussie');
+    }
     return data;
   }
   
