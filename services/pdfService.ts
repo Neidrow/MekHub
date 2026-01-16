@@ -177,6 +177,15 @@ export const generateQuotePDF = (d: Devis, client: Client | undefined, vehicule:
   doc.text(`Conditions de paiement : ${paymentTerms}`, 15, footerY);
   footerY += 5;
 
+  if (settings?.penalites_retard) {
+     const splitPenalties = doc.splitTextToSize(`Pénalités de retard : ${settings.penalites_retard}`, 180);
+     doc.text(splitPenalties, 15, footerY);
+     footerY += (splitPenalties.length * 4);
+  } else {
+     doc.text(`Pénalités de retard : Taux légal en vigueur.`, 15, footerY);
+     footerY += 5;
+  }
+
   doc.text("Devis Gratuit", 15, footerY); 
   
   doc.setFontSize(8);

@@ -241,7 +241,11 @@ const PublicQuoteView: React.FC<PublicQuoteViewProps> = ({ quoteId }) => {
         </div>
 
         {/* FOOTER LEGAL */}
-        <div className="p-6 text-center bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+        <div className="p-6 text-center bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 space-y-2">
+           <div className="mb-4 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+              <p><span className="font-bold">Conditions de paiement :</span> {settings.conditions_paiement || "Paiement à réception"}</p>
+              <p><span className="font-bold">Pénalités de retard :</span> {settings.penalites_retard || "Taux légal en vigueur"}</p>
+           </div>
            <p className="text-[10px] text-slate-400">
               Document généré électroniquement via GaragePro SaaS. 
               {settings.tva_intracom && ` | TVA Intra: ${settings.tva_intracom}`}
