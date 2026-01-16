@@ -112,6 +112,15 @@ export interface Devis {
   created_at?: string;
 }
 
+export interface QuoteHistory {
+  id: string;
+  devis_id: string;
+  user_id: string;
+  action: string; // 'creation', 'modification', 'status_change', 'email_sent', 'signed'
+  details: string;
+  created_at: string;
+}
+
 export interface Facture {
   id: string;
   user_id: string;

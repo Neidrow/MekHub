@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Devis, Client, Vehicule, GarageSettings, InvoiceItem, Facture, UserRole, ViewState } from '../types';
+import { Devis, Client, Vehicule, GarageSettings, InvoiceItem, Facture, UserRole, ViewState, QuoteHistory } from '../types';
 import { generateQuotePDF } from '../services/pdfService';
 import { api } from '../services/api';
 import DatePicker from './DatePicker';
@@ -31,6 +31,12 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
   const [conversionLoading, setConversionLoading] = useState(false);
   const [quoteToDelete, setQuoteToDelete] = useState<Devis | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Historique
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState<QuoteHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedQuoteForHistory, setSelectedQuoteForHistory] = useState<Devis | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -141,13 +147,96 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
         montant_ht: totals.ht,
         montant_ttc: totals.ttc
       };
+      
+      let action = 'creation';
+      let details = 'Création du devis';
+
       if (editingDevis) {
+        const changes: string[] = [];
+
+        // 1. Détection Status
+        if (editingDevis.statut !== formData.statut) {
+            action = 'status_change';
+            changes.push(`Statut: ${editingDevis.statut.toUpperCase()} ➔ ${formData.statut.toUpperCase()}`);
+        } else {
+            action = 'modification';
+        }
+
+        // 2. Détection Client / Véhicule / Date
+        if (editingDevis.client_id !== formData.client_id) {
+            const oldName = customers.find(c => c.id === editingDevis.client_id)?.nom || '?';
+            const newName = customers.find(c => c.id === formData.client_id)?.nom || '?';
+            changes.push(`Client: ${oldName} ➔ ${newName}`);
+        }
+        if (editingDevis.vehicule_id !== formData.vehicule_id) changes.push("Véhicule modifié");
+        if (editingDevis.date_devis !== formData.date_devis) changes.push(`Date: ${editingDevis.date_devis} ➔ ${formData.date_devis}`);
+
+        // 3. Détection détaillée des ITEMS (Lignes)
+        // On compare les lignes une par une
+        items.forEach((newItem, index) => {
+            const oldItem = editingDevis.items[index];
+            if (!oldItem) {
+                // Nouvelle ligne
+                changes.push(`+ Ajout: "${newItem.description}" (${newItem.quantity} x ${newItem.unitPrice}€)`);
+            } else {
+                // Comparaison ligne existante
+                const diffs = [];
+                if (oldItem.description !== newItem.description) diffs.push(`Nom: "${oldItem.description}"➔"${newItem.description}"`);
+                if (oldItem.quantity !== newItem.quantity) diffs.push(`Qté "${newItem.description}": ${oldItem.quantity}➔${newItem.quantity}`);
+                if (oldItem.unitPrice !== newItem.unitPrice) diffs.push(`Prix "${newItem.description}": ${oldItem.unitPrice}➔${newItem.unitPrice}€`);
+                
+                if (diffs.length > 0) {
+                    changes.push(diffs.join(', '));
+                }
+            }
+        });
+
+        // Vérifier les lignes supprimées
+        if (editingDevis.items.length > items.length) {
+            const removedCount = editingDevis.items.length - items.length;
+            // On essaie de lister ce qui a été supprimé
+            for (let i = items.length; i < editingDevis.items.length; i++) {
+                changes.push(`- Suppr: "${editingDevis.items[i].description}"`);
+            }
+        }
+
+        // 4. Fallback si modification mais pas de changement détecté (ex: juste les notes)
+        if (changes.length === 0) {
+             if (editingDevis.notes !== formData.notes) {
+                 changes.push("Mise à jour des notes");
+             } else {
+                 changes.push("Mise à jour mineure");
+             }
+        }
+
+        details = changes.join(' | ');
+
         // @ts-ignore
         await onUpdate(editingDevis.id, payload);
-        onNotify("success", "Devis mis à jour", "Les modifications ont été enregistrées avec le taux de TVA d'origine.");
+        
+        // Enregistrer l'historique
+        await api.addQuoteHistory({
+            devis_id: editingDevis.id,
+            user_id: editingDevis.user_id, // Sera écrasé par API par sécurité
+            action,
+            details
+        });
+
+        onNotify("success", "Devis mis à jour", "Les modifications ont été enregistrées.");
       } else {
         // @ts-ignore
-        await onAdd(payload);
+        const newDevis = await onAdd(payload);
+        // @ts-ignore
+        if (newDevis?.id) {
+             await api.addQuoteHistory({
+                // @ts-ignore
+                devis_id: newDevis.id,
+                // @ts-ignore
+                user_id: newDevis.user_id,
+                action: 'creation',
+                details: `Création initiale - Montant: ${totals.ttc.toFixed(2)}€`
+            });
+        }
         onNotify("success", "Devis créé", "Le nouveau devis a été ajouté.");
       }
       setIsModalOpen(false);
@@ -166,6 +255,21 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       return;
     }
     setQuoteToConvert(d);
+  };
+
+  const handleViewHistory = async (d: Devis) => {
+    setSelectedQuoteForHistory(d);
+    setIsHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+        const history = await api.fetchQuoteHistory(d.id);
+        setHistoryData(history);
+    } catch (e) {
+        console.error(e);
+        onNotify('error', 'Erreur', "Impossible de charger l'historique.");
+    } finally {
+        setHistoryLoading(false);
+    }
   };
 
   const executeConversion = async () => {
@@ -266,6 +370,12 @@ Cordialement,
       window.location.href = mailtoLink;
       
       await onUpdate(d.id, { statut: 'en_attente' });
+      await api.addQuoteHistory({
+          devis_id: d.id,
+          user_id: d.user_id, // placeholder
+          action: 'email_sent',
+          details: 'Email envoyé au client avec lien de signature'
+      });
       
       onNotify("success", "Messagerie ouverte", "L'email a été pré-rempli avec le bon lien de signature.");
 
@@ -305,6 +415,57 @@ Cordialement,
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
+      {/* Modal Historique */}
+      {isHistoryOpen && selectedQuoteForHistory && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setIsHistoryOpen(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[80vh] overflow-hidden border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+               <div>
+                 <h3 className="text-xl font-black text-slate-800 dark:text-white">Historique détaillé</h3>
+                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{selectedQuoteForHistory.numero_devis}</p>
+               </div>
+               <button onClick={() => setIsHistoryOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
+             </div>
+             
+             <div className="p-6 overflow-y-auto">
+                {historyLoading ? (
+                  <div className="flex justify-center py-10"><div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>
+                ) : historyData.length === 0 ? (
+                  <p className="text-center text-slate-400 font-medium py-10">Aucun historique disponible.</p>
+                ) : (
+                  <div className="space-y-6 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
+                    {historyData.map((h, idx) => (
+                      <div key={idx} className="relative pl-8">
+                         <div className={`absolute left-0 top-1.5 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${
+                             h.action === 'creation' ? 'bg-blue-500' : 
+                             h.action === 'signed' ? 'bg-emerald-500' :
+                             h.action === 'email_sent' ? 'bg-indigo-500' :
+                             'bg-slate-400'
+                         }`}></div>
+                         
+                         <p className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-wider mb-1">
+                            {new Date(h.created_at).toLocaleDateString()} à {new Date(h.created_at).toLocaleTimeString().slice(0,5)}
+                         </p>
+                         
+                         {/* Affichage des détails ligne par ligne si séparés par | */}
+                         <div className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                            {h.details.split('|').map((line, i) => (
+                                <p key={i} className="mb-0.5 last:mb-0">
+                                    {line.trim().startsWith('+') ? <span className="text-emerald-600 dark:text-emerald-400 font-bold">{line.trim()}</span> :
+                                     line.trim().startsWith('-') ? <span className="text-rose-600 dark:text-rose-400 font-bold">{line.trim()}</span> :
+                                     line.trim()}
+                                </p>
+                            ))}
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+             </div>
+          </div>
+        </div>
+      )}
+
       {quoteToConvert && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => !conversionLoading && setQuoteToConvert(null)}>
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative animate-in zoom-in duration-300 flex flex-col items-center text-center border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
@@ -557,6 +718,14 @@ Cordialement,
                             </button>
                           )
                         )}
+
+                        <button 
+                            onClick={() => handleViewHistory(d)} 
+                            className="p-2 text-blue-500 hover:text-blue-700 bg-blue-50 dark:bg-blue-500/10 rounded-lg transition-all dark:hover:bg-blue-500/20" 
+                            title="Historique"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </button>
 
                         <button onClick={() => handleDownloadPDF(d)} className="p-2 text-slate-400 hover:text-slate-900 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:text-white dark:hover:bg-slate-700 transition-all" title="Télécharger"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
                         

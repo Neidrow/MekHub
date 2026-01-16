@@ -577,13 +577,24 @@ Cordialement,
                   const client = customers.find(c => c.id === inv.client_id);
                   const isSending = sendingEmail === inv.id;
                   const isAlreadySent = inv.statut === 'non_payee' || inv.statut === 'payee';
+                  const reste = inv.montant_ttc - (inv.acompte || 0);
+                  const hasAcompte = inv.acompte > 0 && inv.statut !== 'payee' && inv.statut !== 'annule';
 
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                       <td className="px-6 py-5 font-bold text-slate-700 dark:text-slate-200">{inv.numero_facture}</td>
                       <td className="px-6 py-5 font-bold text-slate-800 dark:text-white">{client ? `${client.nom} ${client.prenom}` : 'Client Inconnu'}</td>
                       <td className="px-6 py-5 text-sm text-slate-500 dark:text-slate-400">{inv.date_facture}</td>
-                      <td className="px-6 py-5 font-black text-slate-900 dark:text-white">{inv.montant_ttc.toFixed(2)} €</td>
+                      <td className="px-6 py-5">
+                         <div className="flex flex-col">
+                            <span className="font-black text-slate-900 dark:text-white">{inv.montant_ttc.toFixed(2)} €</span>
+                            {hasAcompte && (
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded w-fit mt-1">
+                                   Reste: {reste.toFixed(2)} €
+                                </span>
+                            )}
+                         </div>
+                      </td>
                       <td className="px-6 py-5">
                         <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase ${
                           inv.statut === 'payee' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 

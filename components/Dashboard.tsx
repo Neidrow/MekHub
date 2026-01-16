@@ -40,7 +40,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
   const todayStr = new Date().toISOString().split('T')[0];
   const todayAppointments = useMemo(() => appointments.filter(app => app.date === todayStr), [appointments, todayStr]);
 
-  // Calcul du Chiffre d'Affaires (CA)
+  // Calcul du Chiffre d'Affaires (CA) réel (Encaissement)
   const revenueStats = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -50,21 +50,32 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     const lastMonth = lastMonthDate.getMonth();
     const lastMonthYear = lastMonthDate.getFullYear();
 
-    const getAmount = (amount: any) => Number(amount) || 0;
+    // Fonction pour calculer l'argent réellement perçu sur une facture
+    const getRealRevenue = (inv: Facture) => {
+        if (inv.statut === 'annule') return 0;
+        
+        // Si payée, on prend le montant total (qui inclut l'acompte)
+        if (inv.statut === 'payee') return Number(inv.montant_ttc) || 0;
+        
+        // Si non payée mais qu'il y a un acompte, on compte l'acompte comme CA perçu
+        if (inv.statut === 'non_payee' && inv.acompte > 0) return Number(inv.acompte) || 0;
+        
+        return 0;
+    };
 
     const currentRevenue = invoices
       .filter(inv => {
         const d = new Date(inv.date_facture);
-        return inv.statut === 'payee' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       })
-      .reduce((sum, inv) => sum + getAmount(inv.montant_ttc), 0);
+      .reduce((sum, inv) => sum + getRealRevenue(inv), 0);
 
     const lastRevenue = invoices
       .filter(inv => {
         const d = new Date(inv.date_facture);
-        return inv.statut === 'payee' && d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+        return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
       })
-      .reduce((sum, inv) => sum + getAmount(inv.montant_ttc), 0);
+      .reduce((sum, inv) => sum + getRealRevenue(inv), 0);
 
     let percentChange = 0;
     if (lastRevenue > 0) {

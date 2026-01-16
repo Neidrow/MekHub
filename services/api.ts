@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory, SignatureMetadata } from '../types';
+import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory, SignatureMetadata, QuoteHistory } from '../types';
 import { sendInvitationEmail } from './emailService';
 
 const supabaseUrl = 'https://qvyqptiekeunidxdomne.supabase.co';
@@ -70,9 +70,6 @@ class ApiService {
 
   // --- PUBLIC METHODS FOR QUOTE SIGNING ---
   async fetchPublicQuote(id: string): Promise<{ devis: Devis, client: Client, vehicule: Vehicule, settings: GarageSettings } | null> {
-    // Note: Cela nécessite des politiques RLS 'public read' sur les tables concernées pour cet ID spécifique, ou un bypass serveur.
-    // Ici on suppose que la sécurité est gérée par l'ID unique (UUID) qui fait office de token.
-    
     const { data: devis, error: dErr } = await supabase.from('devis').select('*').eq('id', id).single();
     if (dErr || !devis) throw new Error("Devis introuvable ou expiré.");
 
@@ -89,7 +86,6 @@ class ApiService {
   }
 
   async signQuote(id: string, metadata: SignatureMetadata, status: 'accepte' | 'refuse') {
-    // Mise à jour du devis avec la signature et le statut
     const { error } = await supabase
       .from('devis')
       .update({ 
@@ -100,8 +96,6 @@ class ApiService {
 
     if (error) throw error;
 
-    // Notification pour le garagiste
-    // On récupère d'abord le user_id du propriétaire du devis
     const { data: devis } = await supabase.from('devis').select('user_id, numero_devis').eq('id', id).single();
     
     if (devis) {
@@ -117,6 +111,13 @@ class ApiService {
             message: msg,
             read: false
         }]);
+
+        await this.addQuoteHistory({
+            user_id: devis.user_id,
+            devis_id: id,
+            action: 'signed',
+            details: `Devis ${status === 'accepte' ? 'accepté et signé' : 'refusé'} par le client.`
+        });
     }
   }
   // ----------------------------------------
@@ -150,6 +151,7 @@ class ApiService {
   }
 
   async deleteData(table: string, id: string) {
+    // Gestion spécifique Suppression RDV (Google Calendar)
     if (table === 'rendez_vous') {
       const { data } = await supabase.from('rendez_vous').select('*').eq('id', id).single();
       const settings = await this.getSettings();
@@ -157,6 +159,16 @@ class ApiService {
         await this.syncWithGoogleCalendar(data, 'delete');
       }
     }
+
+    // Gestion suppression en cascade logicielle pour les Devis (au cas où la BDD n'a pas la contrainte)
+    if (table === 'devis') {
+       try {
+         await supabase.from('devis_history').delete().eq('devis_id', id);
+       } catch (e) {
+         console.warn("Cascade logicielle historique échouée (probablement gérée par la DB)", e);
+       }
+    }
+
     const { error } = await supabase.from(table).delete().eq('id', id);
     if (error) throw error;
   }
@@ -334,6 +346,43 @@ Géré via GaragePro SaaS
       .select();
     if (error) throw error;
     return data[0];
+  }
+
+  // --- Quote History (Avec Limitation automatique à 5) ---
+  async fetchQuoteHistory(devisId: string): Promise<QuoteHistory[]> {
+    const { data, error } = await supabase
+      .from('devis_history')
+      .select('*')
+      .eq('devis_id', devisId)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return data as QuoteHistory[];
+  }
+
+  async addQuoteHistory(history: Omit<QuoteHistory, 'id' | 'created_at'>) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // 1. D'abord insérer la nouvelle ligne pour être sûr qu'elle existe
+      await supabase.from('devis_history').insert([{ ...history, user_id: user.id }]);
+
+      // 2. Récupérer TOUT l'historique pour ce devis, du plus récent au plus vieux
+      const { data: allHistory } = await supabase
+        .from('devis_history')
+        .select('id')
+        .eq('devis_id', history.devis_id)
+        .order('created_at', { ascending: false }); // Le plus récent en premier (index 0)
+
+      // 3. Si on dépasse 5 lignes
+      if (allHistory && allHistory.length > 5) {
+         // On garde les index 0,1,2,3,4 (5 items). On supprime à partir de l'index 5.
+         const idsToDelete = allHistory.slice(5).map(h => h.id);
+         
+         if (idsToDelete.length > 0) {
+             const { error } = await supabase.from('devis_history').delete().in('id', idsToDelete);
+             if (error) console.error("Erreur nettoyage historique (RLS manquant ?):", error.message);
+         }
+      }
+    }
   }
 
   // --- Stock History ---
