@@ -111,15 +111,9 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
   const totals = useMemo(() => {
     const ht = items.reduce((acc, item) => acc + (item.total || 0), 0);
     
-    // Pour l'édition, on utilise la TVA historique si possible, sinon celle des paramètres
-    // Mais ici dans le modal, c'est pour l'affichage temps réel.
-    // Si c'est un NOUVEAU, on prend settings.tva
-    // Si c'est EDIT, idéalement on garde le taux d'origine.
-    
     let vatRate = (settings?.tva !== undefined ? settings.tva : 20) / 100;
     
     if (editingInvoice && editingInvoice.montant_ht > 0) {
-        // Tenter de retrouver le taux d'origine
         const historicalRate = editingInvoice.tva / editingInvoice.montant_ht;
         if (!isNaN(historicalRate)) {
             vatRate = historicalRate;
@@ -175,7 +169,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     const vehicule = vehicles.find(v => v.id === f.vehicule_id);
     const primaryColor: [number, number, number] = [16, 185, 129];
     
-    // Calcul TVA historique basé sur les montants stockés pour le PDF
+    // Calcul TVA historique
     let vatPercent = settings?.tva !== undefined ? settings.tva : 20;
     if (f.montant_ht > 0 && f.tva >= 0) {
         const calc = (f.tva / f.montant_ht) * 100;
@@ -196,7 +190,6 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     doc.text(`${settings?.email} | ${settings?.telephone}`, 15, 68);
     doc.text(`SIRET: ${settings?.siret}`, 15, 74);
     
-    // MENTIONS LEGALES HEADER (TVA INTRA)
     if (vatPercent > 0 && settings?.tva_intracom) {
        doc.text(`TVA Intracom : ${settings.tva_intracom}`, 15, 80);
     } else if (vatPercent === 0) {
@@ -297,14 +290,29 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     doc.setTextColor(100);
     doc.setFont("helvetica", "normal");
     
-    // Conditions de paiement
+    // Conditions de paiement et Calcul de l'échéance
     const paymentTerms = settings?.conditions_paiement || "Paiement à réception";
     doc.text(`Conditions de paiement : ${paymentTerms}`, 15, footerY);
-    footerY += 5;
+    
+    // Calcul Date Echéance
+    let dueDays = 0;
+    const match = paymentTerms.match(/\b(\d+)\s*jours?/i);
+    if (match && match[1]) {
+       dueDays = parseInt(match[1]);
+    }
+    // Si c'est "fin de mois", ce code simple ne le gère pas parfaitement mais fallback sur +0 ou +30
+    
+    const dueDate = new Date(f.date_facture);
+    dueDate.setDate(dueDate.getDate() + dueDays);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`Date limite de paiement (Échéance) : ${dueDate.toLocaleDateString('fr-FR')}`, 15, footerY + 5);
+    doc.setFont("helvetica", "normal");
+
+    footerY += 10;
 
     // Pénalités de retard
     if (settings?.penalites_retard) {
-       // Split long text
        const splitPenalties = doc.splitTextToSize(`Pénalités de retard : ${settings.penalites_retard}`, 180);
        doc.text(splitPenalties, 15, footerY);
     } else {
@@ -334,22 +342,15 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     setSendingEmail(f.id);
     
     try {
-      // 1. Génération du PDF
       const doc = createPDFDoc(f);
       const pdfBlob = doc.output('blob');
-      
-      // 2. Upload avec option téléchargement forcé (URL Longue)
       const fileName = `facture_${f.numero_facture}.pdf`;
       const longUrl = await api.uploadDocument(fileName, pdfBlob);
-
-      // 3. Raccourcissement de l'URL
       const shortUrl = await api.shortenUrl(longUrl);
 
-      // 4. Email propre
       const garageName = settings?.nom || 'Votre Garage';
       const subject = encodeURIComponent(`Facture ${f.numero_facture} - ${garageName}`);
       
-      // DESIGN EMAIL TEXTE AMÉLIORÉ
       const body = encodeURIComponent(
 `Bonjour ${client.prenom} ${client.nom},
 

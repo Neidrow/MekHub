@@ -135,9 +135,16 @@ export const generateQuotePDF = (d: Devis, client: Client | undefined, vehicule:
       
       doc.setFontSize(6);
       doc.setTextColor(100);
-      // Afficher IP si disponible, sinon masquer
-      const ipText = sig.ip_address && sig.ip_address !== 'IP_NOT_CAPTURED_CLIENT_SIDE' ? `IP: ${sig.ip_address}` : 'IP: Masquée';
-      const proofText = `Empreinte numérique : ${sig.user_agent.substring(0, 60)}... (${ipText})`;
+      
+      // Modification ici : Ne plus afficher "IP: Masquée" si pas d'IP.
+      // On affiche uniquement l'empreinte UserAgent.
+      let proofText = `Empreinte numérique : ${sig.user_agent.substring(0, 60)}...`;
+      
+      // Si on a vraiment une IP (cas futur), on l'affiche, sinon rien.
+      if (sig.ip_address && sig.ip_address !== 'IP_NOT_CAPTURED_CLIENT_SIDE') {
+          proofText += ` (IP: ${sig.ip_address})`;
+      }
+      
       doc.text(proofText, 20, finalY + 35);
       
       doc.setFontSize(8);

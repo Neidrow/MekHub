@@ -11,6 +11,7 @@ interface QuotesProps {
   vehicles: Vehicule[];
   settings: GarageSettings | null;
   userRole: UserRole;
+  invoices?: Facture[]; // Added optional invoices prop to check conversion status
   onAdd: (d: Omit<Devis, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
   onUpdate: (id: string, updates: Partial<Devis>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -19,7 +20,7 @@ interface QuotesProps {
   onNotify: (type: 'success' | 'error' | 'info', title: string, message: string) => void;
 }
 
-const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, userRole, onAdd, onUpdate, onDelete, onAddInvoice, onNavigate, onNotify }) => {
+const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, userRole, invoices = [], onAdd, onUpdate, onDelete, onAddInvoice, onNavigate, onNotify }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDevis, setEditingDevis] = useState<Devis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -189,8 +190,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
         notes: `Facture générée depuis le devis ${d.numero_devis}. ${d.notes || ''}`
       };
       await onAddInvoice(newInvoice);
-      // On ne change pas le statut ici car il est déjà "accepté", mais on peut imaginer un statut "converti" plus tard.
-      // Pour l'instant on garde accepté.
       setQuoteToConvert(null);
       
       onNotify("success", "Conversion réussie !", "Le devis a été transformé en facture brouillon.");
@@ -497,6 +496,17 @@ Cordialement,
                   const client = customers.find(c => c.id === d.client_id);
                   const isSending = sendingEmail === d.id;
                   
+                  // Vérification si le devis a déjà été converti en facture
+                  const isAlreadyConverted = invoices.some(inv => 
+                      // On cherche une facture pour le même véhicule, même client, avec le même montant HT
+                      // Ou mieux, si on stockait le devis_id dans la facture.
+                      // Faute de mieux, on check les notes générées automatiquement : "Facture générée depuis le devis [REF]"
+                      inv.notes?.includes(d.numero_devis)
+                  );
+
+                  // Verrouiller l'édition si Accepté ou Refusé
+                  const isLocked = d.statut === 'accepte' || d.statut === 'refuse';
+
                   return (
                     <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all group">
                       <td className="px-6 py-5 font-bold text-slate-700 dark:text-slate-200">{d.numero_devis}</td>
@@ -508,7 +518,7 @@ Cordialement,
                       </td>
                       <td className="px-6 py-5 text-right flex justify-end gap-2">
                         {/* BOUTON ENVOYER : Masqué si Accepté ou Refusé */}
-                        {d.statut !== 'accepte' && d.statut !== 'refuse' && (
+                        {!isLocked && (
                             <button 
                               onClick={() => handleSendEmail(d)} 
                               disabled={isSending || d.statut === 'en_attente'}
@@ -531,18 +541,34 @@ Cordialement,
 
                         {/* BOUTON CONVERTIR : Affiché UNIQUEMENT si Accepté */}
                         {d.statut === 'accepte' && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleConversionClick(d); }} 
-                            className="px-3 py-2 rounded-lg transition-all flex items-center gap-2 font-bold text-[10px] uppercase tracking-wider border text-white bg-emerald-600 hover:bg-emerald-700 border-emerald-600 shadow-sm shadow-emerald-200 dark:shadow-none" 
-                            title="Convertir en Facture"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                            Convertir
-                          </button>
+                          isAlreadyConverted ? (
+                             <div className="px-3 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider border text-emerald-700 bg-emerald-100 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 flex items-center gap-2 cursor-default">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                                Facturé
+                             </div>
+                          ) : (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleConversionClick(d); }} 
+                              className="px-3 py-2 rounded-lg transition-all flex items-center gap-2 font-bold text-[10px] uppercase tracking-wider border text-white bg-emerald-600 hover:bg-emerald-700 border-emerald-600 shadow-sm shadow-emerald-200 dark:shadow-none animate-pulse" 
+                              title="Convertir en Facture"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                              Convertir
+                            </button>
+                          )
                         )}
 
                         <button onClick={() => handleDownloadPDF(d)} className="p-2 text-slate-400 hover:text-slate-900 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:text-white dark:hover:bg-slate-700 transition-all" title="Télécharger"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
-                        <button onClick={() => { setEditingDevis(d); setIsModalOpen(true); }} className="p-2 text-blue-600 hover:text-blue-800 bg-blue-50 rounded-lg transition-all dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20" title="Modifier"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                        
+                        <button 
+                            onClick={() => { if(!isLocked) { setEditingDevis(d); setIsModalOpen(true); } }} 
+                            disabled={isLocked}
+                            className={`p-2 rounded-lg transition-all ${isLocked ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed bg-slate-50 dark:bg-slate-800' : 'text-blue-600 hover:text-blue-800 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20'}`} 
+                            title={isLocked ? "Modification impossible (Verrouillé)" : "Modifier"}
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                        
                         <button onClick={() => setQuoteToDelete(d)} className="p-2 text-rose-600 hover:text-rose-800 bg-rose-50 rounded-lg transition-all dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20" title="Supprimer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                       </td>
                     </tr>

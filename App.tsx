@@ -729,6 +729,7 @@ const App: React.FC = () => {
               vehicles={vehicules}
               settings={settings}
               userRole={userRole}
+              invoices={factures} /* Pass factures prop for checking conversion */
               onAdd={async (d) => { await api.postData('devis', d); loadAllData(); }}
               onUpdate={async (id, updates) => { await api.updateData('devis', id, updates); loadAllData(); }}
               onDelete={async (id) => { await api.deleteData('devis', id); loadAllData(); }}
