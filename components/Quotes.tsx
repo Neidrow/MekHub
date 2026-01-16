@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Devis, Client, Vehicule, GarageSettings, InvoiceItem, Facture, UserRole, ViewState } from '../types';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generateQuotePDF } from '../services/pdfService';
 import { api } from '../services/api';
 import DatePicker from './DatePicker';
 
@@ -204,178 +203,13 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     }
   };
 
-  const createPDFDoc = (d: Devis) => {
-    const doc = new jsPDF();
+  const handleDownloadPDF = (d: Devis) => {
+    if (!settings) { onNotify("error", "Configuration manquante", "Configurez les paramètres avant de télécharger."); return; }
     const client = customers.find(c => c.id === d.client_id);
     const vehicule = vehicles.find(v => v.id === d.vehicule_id);
     
-    let vatPercent = settings?.tva !== undefined ? settings.tva : 20;
-    if (d.montant_ht && d.montant_ht > 0) {
-        const calc = ((d.montant_ttc - d.montant_ht) / d.montant_ht) * 100;
-        vatPercent = Math.round(calc * 10) / 10;
-    }
-
-    if (settings?.logo_url) {
-      try { doc.addImage(settings.logo_url, 'JPEG', 15, 15, 30, 30); } catch (e) { console.warn("Logo error", e); }
-    }
-
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(settings?.nom || "Garage", 15, 55);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(settings?.adresse || "", 15, 62);
-    doc.text(`${settings?.email} | ${settings?.telephone}`, 15, 68);
-    doc.text(`SIRET: ${settings?.siret}`, 15, 74);
-    
-    if (vatPercent > 0 && settings?.tva_intracom) {
-       doc.text(`TVA Intracom : ${settings.tva_intracom}`, 15, 80);
-    } else if (vatPercent === 0) {
-       doc.setFontSize(9);
-       doc.setFont("helvetica", "italic");
-       doc.text("TVA non applicable, art. 293B du CGI", 15, 80);
-       doc.setFont("helvetica", "normal");
-       doc.setFontSize(10);
-    }
-
-    doc.setFontSize(22);
-    doc.setTextColor(37, 99, 235);
-    doc.text("DEVIS", 150, 25, { align: 'right' });
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`N° ${d.numero_devis}`, 150, 32, { align: 'right' });
-    doc.text(`Émis le : ${new Date(d.date_devis).toLocaleDateString('fr-FR')}`, 150, 38, { align: 'right' });
-    
-    const validityDays = settings?.validite_devis || 30;
-    const dateDevis = new Date(d.date_devis);
-    const dateValidite = new Date(dateDevis);
-    dateValidite.setDate(dateDevis.getDate() + validityDays);
-    
-    doc.setFontSize(9);
-    doc.text(`Valable jusqu'au : ${dateValidite.toLocaleDateString('fr-FR')}`, 150, 44, { align: 'right' });
-
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(120, 50, 80, 40, 2, 2, 'F');
-    doc.setTextColor(0);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Client", 125, 58);
-    doc.setFont("helvetica", "normal");
-    if (client) {
-      doc.text(`${client.nom} ${client.prenom}`, 125, 65);
-      doc.text(client.adresse || "", 125, 71);
-      doc.text(client.telephone || "", 125, 77);
-    }
-
-    if (vehicule) {
-      doc.setFontSize(9);
-      doc.setTextColor(50);
-      doc.text(`Véhicule : ${vehicule.marque} ${vehicule.modele} - ${vehicule.immatriculation} (${vehicule.kilometrage} km)`, 15, 95);
-    }
-
-    const tableBody = (d.items || []).map(item => [
-      item.description, item.quantity, `${item.unitPrice.toFixed(2)} €`, `${item.total.toFixed(2)} €`
-    ]);
-
-    autoTable(doc, {
-      startY: 105,
-      head: [['Description', 'Qté', 'Prix Unit.', 'Total HT']],
-      body: tableBody,
-      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-      styles: { fontSize: 10, cellPadding: 3 },
-      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 30, halign: 'right' }, 3: { cellWidth: 30, halign: 'right' } }
-    });
-
-    // @ts-ignore
-    let finalY = doc.lastAutoTable.finalY + 10;
-    
-    doc.setFont("helvetica", "bold");
-    doc.text(`Total HT :`, 140, finalY);
-    doc.text(`${d.montant_ht.toFixed(2)} €`, 190, finalY, { align: 'right' });
-    
-    if (vatPercent > 0) {
-      doc.text(`TVA (${vatPercent}%) :`, 140, finalY + 6);
-      doc.text(`${(d.montant_ttc - d.montant_ht).toFixed(2)} €`, 190, finalY + 6, { align: 'right' });
-    }
-    
-    doc.setFontSize(14);
-    doc.setTextColor(37, 99, 235);
-    doc.text(`Total TTC :`, 140, finalY + 14);
-    doc.text(`${d.montant_ttc.toFixed(2)} €`, 190, finalY + 14, { align: 'right' });
-
-    finalY += 30; 
-    
-    doc.setDrawColor(200);
-    doc.rect(15, finalY, 180, 40);
-
-    if (d.statut === 'accepte' && d.signature_metadata) {
-        doc.setFontSize(12);
-        doc.setTextColor(37, 99, 235);
-        doc.setFont("helvetica", "bold");
-        doc.text("DEVIS ACCEPTÉ ET SIGNÉ ÉLECTRONIQUEMENT", 20, finalY + 10);
-        
-        doc.setFontSize(9);
-        doc.setTextColor(50);
-        doc.setFont("helvetica", "normal");
-        
-        const sig = d.signature_metadata;
-        doc.text(`Signataire : ${sig.signed_by}`, 20, finalY + 18);
-        doc.text(`Date : ${new Date(sig.signed_at).toLocaleString('fr-FR')}`, 20, finalY + 23);
-        
-        doc.setFontSize(6);
-        doc.setTextColor(100);
-        const proofText = `Empreinte numérique : ${sig.user_agent.substring(0, 60)}... (IP Masquée)`;
-        doc.text(proofText, 20, finalY + 35);
-        
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.text(`" ${sig.consent_text} "`, 110, finalY + 18);
-
-    } else if (d.statut === 'accepte') {
-        doc.setFontSize(12);
-        doc.setTextColor(37, 99, 235);
-        doc.setFont("helvetica", "bold");
-        doc.text("DEVIS ACCEPTÉ (Validation Manuelle)", 20, finalY + 12);
-    } else {
-        doc.setFontSize(10);
-        doc.setTextColor(0);
-        doc.setFont("helvetica", "bold");
-        doc.text("Validation du devis", 20, finalY + 8);
-        
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text("Date et Signature du client :", 20, finalY + 15);
-        
-        doc.setFont("helvetica", "italic");
-        doc.setTextColor(100);
-        doc.text("(Précédée de la mention manuscrite 'Bon pour accord')", 20, finalY + 20);
-    }
-    
-    doc.setTextColor(0);
-
-    const pageHeight = doc.internal.pageSize.height;
-    let footerY = pageHeight - 35;
-
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.setFont("helvetica", "normal");
-    
-    const paymentTerms = settings?.conditions_paiement || "Paiement à réception";
-    doc.text(`Conditions de paiement : ${paymentTerms}`, 15, footerY);
-    footerY += 5;
-
-    doc.text("Devis Gratuit", 15, footerY); 
-    
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text("Document généré et signé via GaragePro SaaS", 105, pageHeight - 10, { align: 'center' });
-
-    return doc;
-  };
-
-  const handleDownloadPDF = (d: Devis) => {
-    if (!settings) { onNotify("error", "Configuration manquante", "Configurez les paramètres avant de télécharger."); return; }
-    const doc = createPDFDoc(d);
+    // Utilisation du service partagé
+    const doc = generateQuotePDF(d, client, vehicule, settings);
     doc.save(`Devis_${d.numero_devis}.pdf`);
   };
 
@@ -392,18 +226,12 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     try {
       // DÉTECTION ROBUSTE DE L'URL
       let appUrl = window.location.origin;
-      
-      // Si on est en local ou si l'origine est invalide, on force la prod
       if (!appUrl || appUrl === 'null' || appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
           appUrl = 'https://garage-pro-eight.vercel.app';
       }
-      
-      // Nettoyage du slash final si présent pour éviter le double slash
       if (appUrl.endsWith('/')) {
           appUrl = appUrl.slice(0, -1);
       }
-      
-      // Construction du lien ABSOLU avec slash avant le point d'interrogation
       const validationLink = `${appUrl}/?view=public_quote&id=${d.id}`;
       
       const garageName = settings?.nom || 'Votre Garage';

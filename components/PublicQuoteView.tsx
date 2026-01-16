@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { generateQuotePDF } from '../services/pdfService';
 import { Devis, Client, Vehicule, GarageSettings } from '../types';
 
 interface PublicQuoteViewProps {
@@ -47,14 +48,14 @@ const PublicQuoteView: React.FC<PublicQuoteViewProps> = ({ quoteId }) => {
       const metadata = {
         signed_by: action === 'accepte' ? signName : 'Refusé',
         signed_at: new Date().toISOString(),
-        ip_address: 'IP_NOT_CAPTURED_CLIENT_SIDE', // Idéalement, à capturer via une Edge Function
+        ip_address: 'IP_NOT_CAPTURED_CLIENT_SIDE',
         user_agent: navigator.userAgent,
         consent_text: action === 'accepte' ? "Lu et approuvé. Bon pour accord." : "Devis refusé."
       };
 
       await api.signQuote(quoteId, metadata, action);
       setSuccess(true);
-      // Mettre à jour l'état local pour refléter le changement immédiatement
+      // Mise à jour immédiate des données locales pour que le bouton de téléchargement inclue la signature
       if (data) {
           setData({ ...data, devis: { ...data.devis, statut: action, signature_metadata: metadata } });
       }
@@ -63,6 +64,12 @@ const PublicQuoteView: React.FC<PublicQuoteViewProps> = ({ quoteId }) => {
     } finally {
       setSignLoading(false);
     }
+  };
+
+  const downloadPDF = () => {
+    if (!data) return;
+    const doc = generateQuotePDF(data.devis, data.client, data.vehicule, data.settings);
+    doc.save(`Devis_${data.devis.numero_devis}.pdf`);
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div></div>;
@@ -86,13 +93,22 @@ const PublicQuoteView: React.FC<PublicQuoteViewProps> = ({ quoteId }) => {
                  <p className="text-slate-400 text-sm mt-1">{settings.telephone} | {settings.email}</p>
                  <p className="text-slate-500 text-xs mt-1">SIRET: {settings.siret}</p>
               </div>
-              <div className="text-right">
+              <div className="text-right flex flex-col items-end">
                  <div className="inline-block px-4 py-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 mb-4">
                     <span className="text-xs font-black uppercase tracking-widest text-blue-300">Devis N°</span>
                     <p className="text-2xl font-black">{devis.numero_devis}</p>
                  </div>
                  <p className="text-sm text-slate-400">Date d'émission : {new Date(devis.date_devis).toLocaleDateString()}</p>
                  <p className="text-sm text-slate-400 mt-1">Valable jusqu'au : {new Date(new Date(devis.date_devis).setDate(new Date(devis.date_devis).getDate() + (settings.validite_devis || 30))).toLocaleDateString()}</p>
+                 
+                 {/* Bouton Téléchargement Header */}
+                 <button 
+                    onClick={downloadPDF}
+                    className="mt-6 px-6 py-3 bg-white text-slate-900 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-2 shadow-lg"
+                 >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    Télécharger le PDF
+                 </button>
               </div>
            </div>
         </div>
@@ -171,6 +187,9 @@ const PublicQuoteView: React.FC<PublicQuoteViewProps> = ({ quoteId }) => {
                        <p>Preuve numérique : {devis.signature_metadata.user_agent.substring(0, 50)}...</p>
                     </div>
                  )}
+                 <button onClick={downloadPDF} className="mt-6 px-8 py-3 bg-white border border-black/10 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-transform text-slate-800">
+                    Télécharger la copie signée
+                 </button>
               </div>
            ) : (
               <div className="max-w-xl mx-auto bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-lg border border-slate-200 dark:border-slate-800">
