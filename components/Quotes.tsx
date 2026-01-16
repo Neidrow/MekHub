@@ -390,14 +390,21 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     setSendingEmail(d.id);
     
     try {
-      // DÉTECTION INTELLIGENTE DE L'URL
-      // Si on est en localhost, on force l'URL de prod pour que le lien fonctionne chez le client
+      // DÉTECTION ROBUSTE DE L'URL
       let appUrl = window.location.origin;
-      if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
+      
+      // Si on est en local ou si l'origine est invalide, on force la prod
+      if (!appUrl || appUrl === 'null' || appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
           appUrl = 'https://garage-pro-eight.vercel.app';
       }
       
-      const validationLink = `${appUrl}?view=public_quote&id=${d.id}`;
+      // Nettoyage du slash final si présent pour éviter le double slash
+      if (appUrl.endsWith('/')) {
+          appUrl = appUrl.slice(0, -1);
+      }
+      
+      // Construction du lien ABSOLU avec slash avant le point d'interrogation
+      const validationLink = `${appUrl}/?view=public_quote&id=${d.id}`;
       
       const garageName = settings?.nom || 'Votre Garage';
       const subject = encodeURIComponent(`Devis ${d.numero_devis} - ${garageName} - Action requise`);
