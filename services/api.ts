@@ -1,5 +1,6 @@
+
 import { createClient } from '@supabase/supabase-js';
-import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory } from '../types';
+import { Client, Vehicule, RendezVous, Mecanicien, StockItem, GarageSettings, Devis, Facture, UserRole, Notification, StockHistory, SignatureMetadata } from '../types';
 import { sendInvitationEmail } from './emailService';
 
 const supabaseUrl = 'https://qvyqptiekeunidxdomne.supabase.co';
@@ -67,6 +68,59 @@ class ApiService {
     return (data || []) as T[];
   }
 
+  // --- PUBLIC METHODS FOR QUOTE SIGNING ---
+  async fetchPublicQuote(id: string): Promise<{ devis: Devis, client: Client, vehicule: Vehicule, settings: GarageSettings } | null> {
+    // Note: Cela nécessite des politiques RLS 'public read' sur les tables concernées pour cet ID spécifique, ou un bypass serveur.
+    // Ici on suppose que la sécurité est gérée par l'ID unique (UUID) qui fait office de token.
+    
+    const { data: devis, error: dErr } = await supabase.from('devis').select('*').eq('id', id).single();
+    if (dErr || !devis) throw new Error("Devis introuvable ou expiré.");
+
+    const { data: client } = await supabase.from('clients').select('*').eq('id', devis.client_id).single();
+    const { data: vehicule } = await supabase.from('vehicules').select('*').eq('id', devis.vehicule_id).single();
+    const { data: settings } = await supabase.from('parametres').select('*').eq('user_id', devis.user_id).single();
+
+    return { 
+      devis: devis as Devis, 
+      client: client as Client, 
+      vehicule: vehicule as Vehicule, 
+      settings: settings as GarageSettings 
+    };
+  }
+
+  async signQuote(id: string, metadata: SignatureMetadata, status: 'accepte' | 'refuse') {
+    // Mise à jour du devis avec la signature et le statut
+    const { error } = await supabase
+      .from('devis')
+      .update({ 
+        statut: status, 
+        signature_metadata: metadata 
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Notification pour le garagiste
+    // On récupère d'abord le user_id du propriétaire du devis
+    const { data: devis } = await supabase.from('devis').select('user_id, numero_devis').eq('id', id).single();
+    
+    if (devis) {
+        const title = status === 'accepte' ? 'Devis Accepté ! 🎉' : 'Devis Refusé';
+        const msg = status === 'accepte' 
+            ? `Le client a validé et signé le devis ${devis.numero_devis}. Vous pouvez planifier l'intervention.`
+            : `Le client a refusé le devis ${devis.numero_devis}.`;
+
+        await supabase.from('notifications').insert([{
+            user_id: devis.user_id,
+            type: status === 'accepte' ? 'success' : 'error',
+            title: title,
+            message: msg,
+            read: false
+        }]);
+    }
+  }
+  // ----------------------------------------
+
   async postData<T>(table: string, item: any): Promise<T> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Session expirée.");
@@ -109,20 +163,12 @@ class ApiService {
 
   async shortenUrl(longUrl: string): Promise<string> {
     try {
-      // Utilisation de da.gd qui offre une redirection directe sans page de pub intermédiaire
-      // Cela permet de garder un lien court ET d'avoir le téléchargement direct
       const response = await fetch(`https://da.gd/s?url=${encodeURIComponent(longUrl)}`);
-      
       if (response.ok) {
         const text = await response.text();
         const shortUrl = text.trim();
-        // Vérification basique que c'est bien une URL
-        if (shortUrl.startsWith('http')) {
-          return shortUrl;
-        }
+        if (shortUrl.startsWith('http')) return shortUrl;
       }
-      // Si le service est down ou erreur, on retourne l'URL longue par sécurité
-      // pour garantir que le client puisse toujours télécharger son document
       return longUrl;
     } catch (e) {
       console.warn("Erreur raccourcisseur, fallback sur URL directe:", e);
@@ -338,21 +384,10 @@ Géré via GaragePro SaaS
     }
   }
 
-  // --- AI USAGE (PERSISTANT DB) ---
   async getAiUsageCount(userId: string): Promise<number> {
-    // Calcul de l'heure précédente
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    
-    const { count, error } = await supabase
-      .from('ai_usage_logs')
-      .select('*', { count: 'exact', head: true }) // count exact, pas de récupération de données lourdes
-      .eq('user_id', userId)
-      .gt('created_at', oneHourAgo);
-
-    if (error) {
-      console.error("Erreur récupération usage IA:", error);
-      return 0; // Fallback
-    }
+    const { count, error } = await supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', userId).gt('created_at', oneHourAgo);
+    if (error) return 0;
     return count || 0;
   }
 
@@ -382,32 +417,12 @@ Géré via GaragePro SaaS
     return data?.status || 'Inexistant';
   }
   
-  // Fonction centralisée qui gère tout le flux d'invitation (Auth + DB + Email)
   async inviteUser(email: string, role: UserRole) {
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + '!';
-    
-    const { data, error } = await inviteClient.auth.signUp({
-      email,
-      password: tempPassword,
-      options: {
-        data: { 
-          role: role,
-          needs_password_change: true,
-          garage_name: 'Nouveau Garage'
-        }
-      }
-    });
-
+    const { data, error } = await inviteClient.auth.signUp({ email, password: tempPassword, options: { data: { role: role, needs_password_change: true, garage_name: 'Nouveau Garage' } } });
     if (error) throw error;
-
     await supabase.from('invitations').insert([{ email, role, status: 'Actif' }]);
-
-    try {
-        await sendInvitationEmail(email, role, tempPassword);
-    } catch (e: any) {
-        throw new Error(`Compte créé (Mdp: ${tempPassword}), mais erreur email: ${e.message}`);
-    }
-
+    try { await sendInvitationEmail(email, role, tempPassword); } catch (e: any) { throw new Error(`Compte créé (Mdp: ${tempPassword}), mais erreur email: ${e.message}`); }
     return { user: data.user, tempPassword };
   }
 

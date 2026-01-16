@@ -18,6 +18,7 @@ import SuperAdmin from './components/SuperAdmin.tsx';
 import WelcomeOverlay from './components/WelcomeOverlay.tsx';
 import GoogleCalendarModal from './components/GoogleCalendarModal.tsx';
 import HelpModal from './components/HelpModal.tsx';
+import PublicQuoteView from './components/PublicQuoteView.tsx'; // IMPORT DU NOUVEAU COMPOSANT
 
 interface NavItemProps {
   view: ViewState;
@@ -67,6 +68,11 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   
+  // -- GESTION DE L'URL POUR LA VUE PUBLIQUE --
+  const urlParams = new URLSearchParams(window.location.search);
+  const publicQuoteId = urlParams.get('id');
+  const isPublicView = urlParams.get('view') === 'public_quote' && publicQuoteId;
+
   // Initialisation de la vue depuis le localStorage ou 'dashboard' par défaut
   const [currentView, setCurrentView] = useState<ViewState>(() => {
     const savedView = localStorage.getItem('garagepro_current_view');
@@ -124,13 +130,20 @@ const App: React.FC = () => {
   const [passLoading, setPassLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      handleSession(sess);
-    });
+    // Si vue publique, on ne check pas la session tout de suite pour éviter le flash
+    if (!isPublicView) {
+        supabase.auth.getSession().then(({ data: { session: sess } }) => {
+          handleSession(sess);
+        });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
-      handleSession(sess);
-    });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+          handleSession(sess);
+        });
+        
+        return () => subscription.unsubscribe();
+    } else {
+        setLoading(false); // On arrête le chargement global pour laisser PublicQuoteView gérer
+    }
 
     const handleClickOutside = (event: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
@@ -140,10 +153,9 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
-      subscription.unsubscribe();
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [isPublicView]);
 
   // --- AUTOMATISATION DES STATUTS RDV (CORRIGÉE) ---
   useEffect(() => {
@@ -416,6 +428,10 @@ const App: React.FC = () => {
     setToast({ type, title, message });
     setTimeout(() => setToast(null), 4000);
   };
+
+  if (isPublicView) {
+    return <PublicQuoteView quoteId={publicQuoteId!} />;
+  }
 
   if (isSuspended) {
     return (

@@ -25,6 +25,9 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
   const [editingDevis, setEditingDevis] = useState<Devis | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // Taux de TVA utilisé DANS LE MODAL (soit paramètre actuel, soit historique)
+  const [currentModalVat, setCurrentModalVat] = useState<number>(20);
+
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
   
   const [quoteToConvert, setQuoteToConvert] = useState<Devis | null>(null);
@@ -77,6 +80,16 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
   useEffect(() => {
     if (editingDevis) {
+      // MODE EDITION : On essaie de déduire le taux de TVA historique
+      // Taux = (TTC - HT) / HT
+      let historicalVat = settings?.tva || 20;
+      if (editingDevis.montant_ht > 0) {
+         const calculatedRate = ((editingDevis.montant_ttc - editingDevis.montant_ht) / editingDevis.montant_ht) * 100;
+         // On arrondit pour éviter les décimales flottantes (19.9999...)
+         historicalVat = Math.round(calculatedRate * 10) / 10;
+      }
+      setCurrentModalVat(historicalVat);
+
       setFormData({
         client_id: editingDevis.client_id,
         vehicule_id: editingDevis.vehicule_id || '', 
@@ -87,6 +100,9 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       });
       setItems(editingDevis.items && editingDevis.items.length > 0 ? editingDevis.items : [{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
     } else {
+      // MODE CREATION : On utilise le taux des paramètres actuels
+      setCurrentModalVat(settings?.tva !== undefined ? settings.tva : 20);
+
       setFormData({
         client_id: '',
         vehicule_id: '',
@@ -97,7 +113,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       });
       setItems([{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
     }
-  }, [editingDevis]);
+  }, [editingDevis, isModalOpen]); // Dépendance à isModalOpen pour rafraîchir à l'ouverture
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...items];
@@ -117,9 +133,10 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
   const totals = useMemo(() => {
     const ht = items.reduce((acc, item) => acc + (item.total || 0), 0);
-    const tva = ht * 0.20;
+    // Utilisation du taux de TVA fixé pour ce modal (historique ou nouveau)
+    const tva = ht * (currentModalVat / 100);
     return { ht, tva, ttc: ht + tva };
-  }, [items]);
+  }, [items, currentModalVat]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +156,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       if (editingDevis) {
         // @ts-ignore
         await onUpdate(editingDevis.id, payload);
-        onNotify("success", "Devis mis à jour", "Les modifications ont été enregistrées.");
+        onNotify("success", "Devis mis à jour", "Les modifications ont été enregistrées avec le taux de TVA d'origine.");
       } else {
         // @ts-ignore
         await onAdd(payload);
@@ -204,11 +221,19 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     const doc = new jsPDF();
     const client = customers.find(c => c.id === d.client_id);
     const vehicule = vehicles.find(v => v.id === d.vehicule_id);
+    
+    // Calcul de la TVA historique pour le PDF
+    let vatPercent = settings?.tva !== undefined ? settings.tva : 20;
+    if (d.montant_ht && d.montant_ht > 0) {
+        const calc = ((d.montant_ttc - d.montant_ht) / d.montant_ht) * 100;
+        vatPercent = Math.round(calc * 10) / 10;
+    }
 
     if (settings?.logo_url) {
       try { doc.addImage(settings.logo_url, 'JPEG', 15, 15, 30, 30); } catch (e) { console.warn("Logo error", e); }
     }
 
+    // HEADER
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text(settings?.nom || "Garage", 15, 55);
@@ -217,6 +242,17 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     doc.text(settings?.adresse || "", 15, 62);
     doc.text(`${settings?.email} | ${settings?.telephone}`, 15, 68);
     doc.text(`SIRET: ${settings?.siret}`, 15, 74);
+    
+    // MENTIONS LEGALES HEADER (TVA INTRA)
+    if (vatPercent > 0 && settings?.tva_intracom) {
+       doc.text(`TVA Intracom : ${settings.tva_intracom}`, 15, 80);
+    } else if (vatPercent === 0) {
+       doc.setFontSize(9);
+       doc.setFont("helvetica", "italic");
+       doc.text("TVA non applicable, art. 293B du CGI", 15, 80);
+       doc.setFont("helvetica", "normal");
+       doc.setFontSize(10);
+    }
 
     doc.setFontSize(22);
     doc.setTextColor(37, 99, 235);
@@ -224,11 +260,21 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`N° ${d.numero_devis}`, 150, 32, { align: 'right' });
-    doc.text(`Date : ${new Date(d.date_devis).toLocaleDateString('fr-FR')}`, 150, 38, { align: 'right' });
+    doc.text(`Émis le : ${new Date(d.date_devis).toLocaleDateString('fr-FR')}`, 150, 38, { align: 'right' });
+    
+    // Validité du devis
+    const validityDays = settings?.validite_devis || 30;
+    const dateDevis = new Date(d.date_devis);
+    const dateValidite = new Date(dateDevis);
+    dateValidite.setDate(dateDevis.getDate() + validityDays);
+    
+    doc.setFontSize(9);
+    doc.text(`Valable jusqu'au : ${dateValidite.toLocaleDateString('fr-FR')}`, 150, 44, { align: 'right' });
 
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(120, 50, 80, 40, 2, 2, 'F');
     doc.setTextColor(0);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.text("Client", 125, 58);
     doc.setFont("helvetica", "normal");
@@ -238,10 +284,11 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       doc.text(client.telephone || "", 125, 77);
     }
 
+    // Info Véhicule (décalée un peu plus bas si besoin)
     if (vehicule) {
       doc.setFontSize(9);
       doc.setTextColor(50);
-      doc.text(`Véhicule : ${vehicule.marque} ${vehicule.modele} - ${vehicule.immatriculation} (${vehicule.kilometrage} km)`, 15, 90);
+      doc.text(`Véhicule : ${vehicule.marque} ${vehicule.modele} - ${vehicule.immatriculation} (${vehicule.kilometrage} km)`, 15, 95);
     }
 
     const tableBody = (d.items || []).map(item => [
@@ -249,7 +296,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     ]);
 
     autoTable(doc, {
-      startY: 100,
+      startY: 105,
       head: [['Description', 'Qté', 'Prix Unit.', 'Total HT']],
       body: tableBody,
       headStyles: { fillColor: [37, 99, 235], textColor: 255 },
@@ -258,20 +305,99 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     });
 
     // @ts-ignore
-    const finalY = doc.lastAutoTable.finalY + 10;
+    let finalY = doc.lastAutoTable.finalY + 10;
+    
+    // Totaux
     doc.setFont("helvetica", "bold");
     doc.text(`Total HT :`, 140, finalY);
     doc.text(`${d.montant_ht.toFixed(2)} €`, 190, finalY, { align: 'right' });
-    doc.text(`TVA (20%) :`, 140, finalY + 6);
-    doc.text(`${(d.montant_ttc - d.montant_ht).toFixed(2)} €`, 190, finalY + 6, { align: 'right' });
+    
+    if (vatPercent > 0) {
+      doc.text(`TVA (${vatPercent}%) :`, 140, finalY + 6);
+      doc.text(`${(d.montant_ttc - d.montant_ht).toFixed(2)} €`, 190, finalY + 6, { align: 'right' });
+    }
+    
     doc.setFontSize(14);
     doc.setTextColor(37, 99, 235);
     doc.text(`Total TTC :`, 140, finalY + 14);
     doc.text(`${d.montant_ttc.toFixed(2)} €`, 190, finalY + 14, { align: 'right' });
 
+    // --- PIED DE PAGE : MENTIONS LÉGALES & SIGNATURE ---
+    finalY += 30; // Espace après les totaux
+    
+    // Cadre Signature
+    doc.setDrawColor(200);
+    doc.rect(15, finalY, 180, 40);
+
+    // LOGIQUE CONDITIONNELLE POUR LA SIGNATURE ET PREUVE TECHNIQUE
+    if (d.statut === 'accepte' && d.signature_metadata) {
+        // Mode Accepté : On affiche clairement que c'est validé AVEC la preuve technique
+        doc.setFontSize(12);
+        doc.setTextColor(37, 99, 235); // Couleur primaire
+        doc.setFont("helvetica", "bold");
+        doc.text("DEVIS ACCEPTÉ ET SIGNÉ ÉLECTRONIQUEMENT", 20, finalY + 10);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(50);
+        doc.setFont("helvetica", "normal");
+        
+        const sig = d.signature_metadata;
+        doc.text(`Signataire : ${sig.signed_by}`, 20, finalY + 18);
+        doc.text(`Date : ${new Date(sig.signed_at).toLocaleString('fr-FR')}`, 20, finalY + 23);
+        
+        doc.setFontSize(6);
+        doc.setTextColor(100);
+        const proofText = `Empreinte numérique : ${sig.user_agent.substring(0, 60)}... (IP Masquée)`;
+        doc.text(proofText, 20, finalY + 35);
+        
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.text(`" ${sig.consent_text} "`, 110, finalY + 18);
+
+    } else if (d.statut === 'accepte') {
+        // Cas ancien (Accepté manuellement sans signature numérique)
+        doc.setFontSize(12);
+        doc.setTextColor(37, 99, 235);
+        doc.setFont("helvetica", "bold");
+        doc.text("DEVIS ACCEPTÉ (Validation Manuelle)", 20, finalY + 12);
+    } else {
+        // Mode Brouillon / En Attente : Espace pour signature vierge
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Validation du devis", 20, finalY + 8);
+        
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text("Date et Signature du client :", 20, finalY + 15);
+        
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100);
+        doc.text("(Précédée de la mention manuscrite 'Bon pour accord')", 20, finalY + 20);
+    }
+    
+    // Reset couleur
+    doc.setTextColor(0);
+
+    // Mentions légales en bas de page
+    const pageHeight = doc.internal.pageSize.height;
+    let footerY = pageHeight - 35;
+
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.setFont("helvetica", "normal");
+    
+    // Conditions de paiement
+    const paymentTerms = settings?.conditions_paiement || "Paiement à réception";
+    doc.text(`Conditions de paiement : ${paymentTerms}`, 15, footerY);
+    footerY += 5;
+
+    // Mention Devis Gratuit/Payant
+    doc.text("Devis Gratuit", 15, footerY); // Pour l'instant on hardcode gratuit, à rendre dynamique si besoin
+    
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text("Document généré par GaragePro SaaS", 105, 290, { align: 'center' });
+    doc.text("Document généré et signé via GaragePro SaaS", 105, pageHeight - 10, { align: 'center' });
 
     return doc;
   };
@@ -293,39 +419,35 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     setSendingEmail(d.id);
     
     try {
-      // 1. Génération du PDF
-      const doc = createPDFDoc(d);
-      const pdfBlob = doc.output('blob');
+      // 1. Génération du lien de validation public
+      const appUrl = window.location.origin;
+      const validationLink = `${appUrl}?view=public_quote&id=${d.id}`;
       
-      // 2. Upload vers Supabase (URL longue)
-      const fileName = `devis_${d.numero_devis}.pdf`;
-      const longUrl = await api.uploadDocument(fileName, pdfBlob);
+      // On raccourcit ce lien si possible, sinon on utilise le long
+      const shortValidationLink = await api.shortenUrl(validationLink);
 
-      // 3. Raccourcissement de l'URL pour le mail
-      const shortUrl = await api.shortenUrl(longUrl);
-
-      // 4. Email propre
+      // 2. Email propre avec le lien de validation
       const garageName = settings?.nom || 'Votre Garage';
-      const subject = encodeURIComponent(`Devis ${d.numero_devis} - ${garageName}`);
+      const subject = encodeURIComponent(`Devis ${d.numero_devis} - ${garageName} - Action requise`);
       const vehiculeInfo = vehicule ? `${vehicule.marque} ${vehicule.modele}` : 'votre véhicule';
       
-      // DESIGN EMAIL TEXTE AMÉLIORÉ
+      // DESIGN EMAIL TEXTE AMÉLIORÉ AVEC LIEN DE SIGNATURE
       const body = encodeURIComponent(
 `Bonjour ${client.prenom} ${client.nom},
 
-Veuillez trouver ci-joint votre devis concernant le véhicule :
+Veuillez trouver ci-dessous le lien pour consulter et valider votre devis concernant le véhicule :
 🚗 ${vehiculeInfo}
 
 ------------------------------------------------------
-📄  TÉLÉCHARGER LE DEVIS :
-${shortUrl}
+✍️  CONSULTER ET SIGNER LE DEVIS EN LIGNE :
+${shortValidationLink}
 ------------------------------------------------------
 
 Détails du document :
 🔹 Référence : ${d.numero_devis}
 🔹 Montant   : ${d.montant_ttc.toFixed(2)} €
 
-Nous restons à votre disposition pour valider les travaux.
+Merci de valider ce devis directement via le lien ci-dessus pour lancer les travaux.
 
 Cordialement,
 
@@ -339,15 +461,11 @@ Cordialement,
       
       await onUpdate(d.id, { statut: 'en_attente' });
       
-      onNotify("success", "Messagerie ouverte", "Le brouillon de l'email a été généré. Veuillez cliquer sur 'Envoyer' dans votre logiciel de messagerie.");
+      onNotify("success", "Messagerie ouverte", "L'email a été pré-rempli avec le lien de signature électronique.");
 
     } catch (err: any) {
       console.error("Erreur:", err);
-      if (err.message.includes('bucket not found') || err.message.includes('new row violates row-level security policy')) {
-         onNotify("error", "Erreur Configuration", "Veuillez exécuter le script SQL fourni dans Supabase pour autoriser l'envoi.");
-      } else {
-         onNotify("error", "Erreur d'envoi", err.message);
-      }
+      onNotify("error", "Erreur d'envoi", err.message);
     } finally {
       setSendingEmail(null);
     }
@@ -502,7 +620,7 @@ Cordialement,
                 </div>
                 <div className="w-full md:w-72 bg-slate-50 dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 space-y-3 h-fit">
                   <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 font-medium"><span>Total HT</span><span>{totals.ht.toFixed(2)} €</span></div>
-                  <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 font-medium"><span>TVA (20%)</span><span>{totals.tva.toFixed(2)} €</span></div>
+                  <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400 font-medium"><span>TVA ({currentModalVat}%)</span><span>{totals.tva.toFixed(2)} €</span></div>
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-between text-lg font-black text-slate-800 dark:text-white"><span>Total TTC</span><span>{totals.ttc.toFixed(2)} €</span></div>
                 </div>
               </div>

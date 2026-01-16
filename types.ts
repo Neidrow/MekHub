@@ -18,6 +18,10 @@ export interface GarageSettings {
   email: string;
   siret: string;
   tva: number;
+  tva_intracom?: string;
+  conditions_paiement?: string;
+  penalites_retard?: string;
+  validite_devis?: number;
   logo_url?: string;
   google_calendar_enabled?: boolean;
   google_prompt_dismissed?: boolean;
@@ -84,6 +88,14 @@ export interface InvoiceItem {
   total: number;
 }
 
+export interface SignatureMetadata {
+  signed_by: string;
+  signed_at: string;
+  ip_address: string;
+  user_agent: string;
+  consent_text: string;
+}
+
 export interface Devis {
   id: string;
   user_id: string;
@@ -96,6 +108,7 @@ export interface Devis {
   montant_ttc: number;
   statut: 'brouillon' | 'en_attente' | 'accepte' | 'refuse';
   notes?: string;
+  signature_metadata?: SignatureMetadata; // Nouveau champ pour la preuve technique
   created_at?: string;
 }
 
@@ -149,8 +162,8 @@ export interface Notification {
   message: string;
   read: boolean;
   created_at?: string;
-  isLocal?: boolean; // Pour les notifs générées à la volée
+  isLocal?: boolean;
   link?: ViewState;
 }
 
-export type ViewState = 'dashboard' | 'appointments' | 'customers' | 'vehicles' | 'mechanics' | 'quotes' | 'invoices' | 'inventory' | 'ai-assistant' | 'settings' | 'super-admin';
+export type ViewState = 'dashboard' | 'appointments' | 'customers' | 'vehicles' | 'mechanics' | 'quotes' | 'invoices' | 'inventory' | 'ai-assistant' | 'settings' | 'super-admin' | 'public_quote';

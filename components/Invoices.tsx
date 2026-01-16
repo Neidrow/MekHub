@@ -110,11 +110,27 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
 
   const totals = useMemo(() => {
     const ht = items.reduce((acc, item) => acc + (item.total || 0), 0);
-    const tva = ht * 0.20;
+    
+    // Pour l'édition, on utilise la TVA historique si possible, sinon celle des paramètres
+    // Mais ici dans le modal, c'est pour l'affichage temps réel.
+    // Si c'est un NOUVEAU, on prend settings.tva
+    // Si c'est EDIT, idéalement on garde le taux d'origine.
+    
+    let vatRate = (settings?.tva !== undefined ? settings.tva : 20) / 100;
+    
+    if (editingInvoice && editingInvoice.montant_ht > 0) {
+        // Tenter de retrouver le taux d'origine
+        const historicalRate = editingInvoice.tva / editingInvoice.montant_ht;
+        if (!isNaN(historicalRate)) {
+            vatRate = historicalRate;
+        }
+    }
+
+    const tva = ht * vatRate;
     const ttc = ht + tva;
     const acompte = formData.acompte || 0;
     return { ht, tva, ttc, acompte, rest: Math.max(0, ttc - acompte) };
-  }, [items, formData.acompte]);
+  }, [items, formData.acompte, settings, editingInvoice]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,11 +174,19 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     const client = customers.find(c => c.id === f.client_id);
     const vehicule = vehicles.find(v => v.id === f.vehicule_id);
     const primaryColor: [number, number, number] = [16, 185, 129];
+    
+    // Calcul TVA historique basé sur les montants stockés pour le PDF
+    let vatPercent = settings?.tva !== undefined ? settings.tva : 20;
+    if (f.montant_ht > 0 && f.tva >= 0) {
+        const calc = (f.tva / f.montant_ht) * 100;
+        vatPercent = Math.round(calc * 10) / 10;
+    }
 
     if (settings?.logo_url) {
       try { doc.addImage(settings.logo_url, 'JPEG', 15, 15, 30, 30); } catch (e) { console.warn("Logo error", e); }
     }
 
+    // HEADER
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text(settings?.nom || "Garage", 15, 55);
@@ -171,6 +195,17 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     doc.text(settings?.adresse || "", 15, 62);
     doc.text(`${settings?.email} | ${settings?.telephone}`, 15, 68);
     doc.text(`SIRET: ${settings?.siret}`, 15, 74);
+    
+    // MENTIONS LEGALES HEADER (TVA INTRA)
+    if (vatPercent > 0 && settings?.tva_intracom) {
+       doc.text(`TVA Intracom : ${settings.tva_intracom}`, 15, 80);
+    } else if (vatPercent === 0) {
+       doc.setFontSize(9);
+       doc.setFont("helvetica", "italic");
+       doc.text("TVA non applicable, art. 293B du CGI", 15, 80);
+       doc.setFont("helvetica", "normal");
+       doc.setFontSize(10);
+    }
 
     doc.setFontSize(22);
     // @ts-ignore
@@ -218,8 +253,11 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     doc.setFont("helvetica", "bold");
     doc.text(`Total HT :`, 140, finalY);
     doc.text(`${f.montant_ht.toFixed(2)} €`, 190, finalY, { align: 'right' });
-    doc.text(`TVA (20%) :`, 140, finalY + 6);
-    doc.text(`${f.tva.toFixed(2)} €`, 190, finalY + 6, { align: 'right' });
+    
+    if (vatPercent > 0) {
+      doc.text(`TVA (${vatPercent}%) :`, 140, finalY + 6);
+      doc.text(`${f.tva.toFixed(2)} €`, 190, finalY + 6, { align: 'right' });
+    }
     
     let currentY = finalY + 14;
     doc.setFontSize(14);
@@ -251,9 +289,31 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
       doc.text(f.notes, 15, currentY, { maxWidth: 100 });
     }
 
+    // --- PIED DE PAGE : MENTIONS LÉGALES ---
+    const pageHeight = doc.internal.pageSize.height;
+    let footerY = pageHeight - 35;
+
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.setFont("helvetica", "normal");
+    
+    // Conditions de paiement
+    const paymentTerms = settings?.conditions_paiement || "Paiement à réception";
+    doc.text(`Conditions de paiement : ${paymentTerms}`, 15, footerY);
+    footerY += 5;
+
+    // Pénalités de retard
+    if (settings?.penalites_retard) {
+       // Split long text
+       const splitPenalties = doc.splitTextToSize(`Pénalités de retard : ${settings.penalites_retard}`, 180);
+       doc.text(splitPenalties, 15, footerY);
+    } else {
+       doc.text(`Pénalités de retard : Taux légal en vigueur.`, 15, footerY);
+    }
+
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text("Document généré par GaragePro SaaS", 105, 290, { align: 'center' });
+    doc.text("Document généré par GaragePro SaaS", 105, pageHeight - 10, { align: 'center' });
 
     return doc;
   };
@@ -348,6 +408,11 @@ Cordialement,
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    if (status === 'non_payee') return 'En attente de paiement';
+    return status.replace('_', ' ');
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Modal Suppression */}
@@ -401,7 +466,7 @@ Cordialement,
                     onChange={e => setFormData({...formData, statut: e.target.value as Facture['statut']})}
                   >
                     <option value="brouillon">Brouillon</option>
-                    <option value="non_payee">Envoyée / En attente</option>
+                    <option value="non_payee">En attente de paiement</option>
                     <option value="payee">Payée</option>
                     <option value="annule">Annulée</option>
                   </select>
@@ -435,7 +500,7 @@ Cordialement,
                 </div>
                 <div className="w-full md:w-72 bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-[2rem] border border-emerald-100 dark:border-emerald-500/20 space-y-3 h-fit">
                   <div className="flex justify-between text-sm text-emerald-800/60 dark:text-emerald-400/60 font-medium"><span>Total HT</span><span>{totals.ht.toFixed(2)} €</span></div>
-                  <div className="flex justify-between text-sm text-emerald-800/60 dark:text-emerald-400/60 font-medium"><span>TVA (20%)</span><span>{totals.tva.toFixed(2)} €</span></div>
+                  <div className="flex justify-between text-sm text-emerald-800/60 dark:text-emerald-400/60 font-medium"><span>TVA ({(editingInvoice && editingInvoice.montant_ht > 0 ? Math.round((editingInvoice.tva / editingInvoice.montant_ht) * 1000) / 10 : (settings?.tva || 20))}%)</span><span>{totals.tva.toFixed(2)} €</span></div>
                   <div className="flex justify-between text-sm text-emerald-800/60 dark:text-emerald-400/60 font-medium"><span>Total TTC</span><span>{totals.ttc.toFixed(2)} €</span></div>
                   {totals.acompte > 0 && <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-bold border-t border-emerald-200 dark:border-emerald-500/20 pt-2"><span>Acompte</span><span>- {totals.acompte.toFixed(2)} €</span></div>}
                   <div className="pt-3 border-t-2 border-emerald-200 dark:border-emerald-500/20 flex justify-between text-xl font-black text-emerald-900 dark:text-emerald-300"><span>À Payer</span><span>{totals.rest.toFixed(2)} €</span></div>
@@ -523,7 +588,7 @@ Cordialement,
                           inv.statut === 'payee' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 
                           inv.statut === 'non_payee' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 
                           inv.statut === 'brouillon' ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'
-                        }`}>{inv.statut.replace('_', ' ')}</span>
+                        }`}>{getStatusLabel(inv.statut)}</span>
                       </td>
                       <td className="px-6 py-5 text-right flex justify-end gap-2">
                         <button 
