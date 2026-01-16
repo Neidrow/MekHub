@@ -25,18 +25,13 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
   const [editingDevis, setEditingDevis] = useState<Devis | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // Taux de TVA utilisé DANS LE MODAL (soit paramètre actuel, soit historique)
   const [currentModalVat, setCurrentModalVat] = useState<number>(20);
-
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
-  
   const [quoteToConvert, setQuoteToConvert] = useState<Devis | null>(null);
   const [conversionLoading, setConversionLoading] = useState(false);
-
   const [quoteToDelete, setQuoteToDelete] = useState<Devis | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // --- FILTRES ---
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   
@@ -62,7 +57,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     { description: 'Main d\'oeuvre', quantity: 1, unitPrice: 50, total: 50 }
   ]);
 
-  // Logique de filtrage
   const filteredDevis = useMemo(() => {
     return devis.filter(d => {
       const client = customers.find(c => c.id === d.client_id);
@@ -80,12 +74,9 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
   useEffect(() => {
     if (editingDevis) {
-      // MODE EDITION : On essaie de déduire le taux de TVA historique
-      // Taux = (TTC - HT) / HT
       let historicalVat = settings?.tva || 20;
       if (editingDevis.montant_ht > 0) {
          const calculatedRate = ((editingDevis.montant_ttc - editingDevis.montant_ht) / editingDevis.montant_ht) * 100;
-         // On arrondit pour éviter les décimales flottantes (19.9999...)
          historicalVat = Math.round(calculatedRate * 10) / 10;
       }
       setCurrentModalVat(historicalVat);
@@ -100,9 +91,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       });
       setItems(editingDevis.items && editingDevis.items.length > 0 ? editingDevis.items : [{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
     } else {
-      // MODE CREATION : On utilise le taux des paramètres actuels
       setCurrentModalVat(settings?.tva !== undefined ? settings.tva : 20);
-
       setFormData({
         client_id: '',
         vehicule_id: '',
@@ -113,7 +102,7 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       });
       setItems([{ description: '', quantity: 1, unitPrice: 0, total: 0 }]);
     }
-  }, [editingDevis, isModalOpen]); // Dépendance à isModalOpen pour rafraîchir à l'ouverture
+  }, [editingDevis, isModalOpen]); 
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...items];
@@ -133,7 +122,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
 
   const totals = useMemo(() => {
     const ht = items.reduce((acc, item) => acc + (item.total || 0), 0);
-    // Utilisation du taux de TVA fixé pour ce modal (historique ou nouveau)
     const tva = ht * (currentModalVat / 100);
     return { ht, tva, ttc: ht + tva };
   }, [items, currentModalVat]);
@@ -216,13 +204,11 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     }
   };
 
-  // --- PDF Logic ---
   const createPDFDoc = (d: Devis) => {
     const doc = new jsPDF();
     const client = customers.find(c => c.id === d.client_id);
     const vehicule = vehicles.find(v => v.id === d.vehicule_id);
     
-    // Calcul de la TVA historique pour le PDF
     let vatPercent = settings?.tva !== undefined ? settings.tva : 20;
     if (d.montant_ht && d.montant_ht > 0) {
         const calc = ((d.montant_ttc - d.montant_ht) / d.montant_ht) * 100;
@@ -233,7 +219,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       try { doc.addImage(settings.logo_url, 'JPEG', 15, 15, 30, 30); } catch (e) { console.warn("Logo error", e); }
     }
 
-    // HEADER
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text(settings?.nom || "Garage", 15, 55);
@@ -243,7 +228,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     doc.text(`${settings?.email} | ${settings?.telephone}`, 15, 68);
     doc.text(`SIRET: ${settings?.siret}`, 15, 74);
     
-    // MENTIONS LEGALES HEADER (TVA INTRA)
     if (vatPercent > 0 && settings?.tva_intracom) {
        doc.text(`TVA Intracom : ${settings.tva_intracom}`, 15, 80);
     } else if (vatPercent === 0) {
@@ -262,7 +246,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     doc.text(`N° ${d.numero_devis}`, 150, 32, { align: 'right' });
     doc.text(`Émis le : ${new Date(d.date_devis).toLocaleDateString('fr-FR')}`, 150, 38, { align: 'right' });
     
-    // Validité du devis
     const validityDays = settings?.validite_devis || 30;
     const dateDevis = new Date(d.date_devis);
     const dateValidite = new Date(dateDevis);
@@ -284,7 +267,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
       doc.text(client.telephone || "", 125, 77);
     }
 
-    // Info Véhicule (décalée un peu plus bas si besoin)
     if (vehicule) {
       doc.setFontSize(9);
       doc.setTextColor(50);
@@ -307,7 +289,6 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     // @ts-ignore
     let finalY = doc.lastAutoTable.finalY + 10;
     
-    // Totaux
     doc.setFont("helvetica", "bold");
     doc.text(`Total HT :`, 140, finalY);
     doc.text(`${d.montant_ht.toFixed(2)} €`, 190, finalY, { align: 'right' });
@@ -322,18 +303,14 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     doc.text(`Total TTC :`, 140, finalY + 14);
     doc.text(`${d.montant_ttc.toFixed(2)} €`, 190, finalY + 14, { align: 'right' });
 
-    // --- PIED DE PAGE : MENTIONS LÉGALES & SIGNATURE ---
-    finalY += 30; // Espace après les totaux
+    finalY += 30; 
     
-    // Cadre Signature
     doc.setDrawColor(200);
     doc.rect(15, finalY, 180, 40);
 
-    // LOGIQUE CONDITIONNELLE POUR LA SIGNATURE ET PREUVE TECHNIQUE
     if (d.statut === 'accepte' && d.signature_metadata) {
-        // Mode Accepté : On affiche clairement que c'est validé AVEC la preuve technique
         doc.setFontSize(12);
-        doc.setTextColor(37, 99, 235); // Couleur primaire
+        doc.setTextColor(37, 99, 235);
         doc.setFont("helvetica", "bold");
         doc.text("DEVIS ACCEPTÉ ET SIGNÉ ÉLECTRONIQUEMENT", 20, finalY + 10);
         
@@ -355,13 +332,11 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
         doc.text(`" ${sig.consent_text} "`, 110, finalY + 18);
 
     } else if (d.statut === 'accepte') {
-        // Cas ancien (Accepté manuellement sans signature numérique)
         doc.setFontSize(12);
         doc.setTextColor(37, 99, 235);
         doc.setFont("helvetica", "bold");
         doc.text("DEVIS ACCEPTÉ (Validation Manuelle)", 20, finalY + 12);
     } else {
-        // Mode Brouillon / En Attente : Espace pour signature vierge
         doc.setFontSize(10);
         doc.setTextColor(0);
         doc.setFont("helvetica", "bold");
@@ -376,10 +351,8 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
         doc.text("(Précédée de la mention manuscrite 'Bon pour accord')", 20, finalY + 20);
     }
     
-    // Reset couleur
     doc.setTextColor(0);
 
-    // Mentions légales en bas de page
     const pageHeight = doc.internal.pageSize.height;
     let footerY = pageHeight - 35;
 
@@ -387,13 +360,11 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     doc.setTextColor(100);
     doc.setFont("helvetica", "normal");
     
-    // Conditions de paiement
     const paymentTerms = settings?.conditions_paiement || "Paiement à réception";
     doc.text(`Conditions de paiement : ${paymentTerms}`, 15, footerY);
     footerY += 5;
 
-    // Mention Devis Gratuit/Payant
-    doc.text("Devis Gratuit", 15, footerY); // Pour l'instant on hardcode gratuit, à rendre dynamique si besoin
+    doc.text("Devis Gratuit", 15, footerY); 
     
     doc.setFontSize(8);
     doc.setTextColor(150);
@@ -419,19 +390,19 @@ const Quotes: React.FC<QuotesProps> = ({ devis, customers, vehicles, settings, u
     setSendingEmail(d.id);
     
     try {
-      // 1. Génération du lien de validation public
-      const appUrl = window.location.origin;
+      // DÉTECTION INTELLIGENTE DE L'URL
+      // Si on est en localhost, on force l'URL de prod pour que le lien fonctionne chez le client
+      let appUrl = window.location.origin;
+      if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
+          appUrl = 'https://garage-pro-eight.vercel.app';
+      }
+      
       const validationLink = `${appUrl}?view=public_quote&id=${d.id}`;
       
-      // On raccourcit ce lien si possible, sinon on utilise le long
-      const shortValidationLink = await api.shortenUrl(validationLink);
-
-      // 2. Email propre avec le lien de validation
       const garageName = settings?.nom || 'Votre Garage';
       const subject = encodeURIComponent(`Devis ${d.numero_devis} - ${garageName} - Action requise`);
       const vehiculeInfo = vehicule ? `${vehicule.marque} ${vehicule.modele}` : 'votre véhicule';
       
-      // DESIGN EMAIL TEXTE AMÉLIORÉ AVEC LIEN DE SIGNATURE
       const body = encodeURIComponent(
 `Bonjour ${client.prenom} ${client.nom},
 
@@ -440,7 +411,7 @@ Veuillez trouver ci-dessous le lien pour consulter et valider votre devis concer
 
 ------------------------------------------------------
 ✍️  CONSULTER ET SIGNER LE DEVIS EN LIGNE :
-${shortValidationLink}
+${validationLink}
 ------------------------------------------------------
 
 Détails du document :
@@ -461,7 +432,7 @@ Cordialement,
       
       await onUpdate(d.id, { statut: 'en_attente' });
       
-      onNotify("success", "Messagerie ouverte", "L'email a été pré-rempli avec le lien de signature électronique.");
+      onNotify("success", "Messagerie ouverte", "L'email a été pré-rempli avec le bon lien de signature.");
 
     } catch (err: any) {
       console.error("Erreur:", err);
@@ -499,7 +470,6 @@ Cordialement,
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
-      {/* Modals existantes conservées (Conversion, Delete, Editor) */}
       {quoteToConvert && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => !conversionLoading && setQuoteToConvert(null)}>
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative animate-in zoom-in duration-300 flex flex-col items-center text-center border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
@@ -549,7 +519,6 @@ Cordialement,
               </button>
             </div>
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Form Content... */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client *</label>
@@ -634,7 +603,6 @@ Cordialement,
         </div>
       )}
 
-      {/* Header avec Barre d'Action et Filtres */}
       <div className="space-y-6">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
@@ -647,7 +615,6 @@ Cordialement,
           </button>
         </div>
 
-        {/* Barre de Filtres */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4">
            <div className="relative flex-1">
               <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -695,8 +662,6 @@ Cordialement,
                   const isConverted = d.statut === 'accepte';
                   const isSending = sendingEmail === d.id;
                   
-                  // Logique de verrouillage basée sur le statut du document
-                  // Si 'en_attente' ou 'accepte', le document est considéré comme envoyé/validé
                   const isAlreadySent = d.statut === 'en_attente' || d.statut === 'accepte';
 
                   return (
