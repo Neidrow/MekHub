@@ -19,6 +19,14 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface PasswordResetRequest {
+  id: string;
+  email: string;
+  user_agent: string;
+  created_at: string;
+  status: string;
+}
+
 export interface SystemMaintenance {
   enabled: boolean;
   message: string;

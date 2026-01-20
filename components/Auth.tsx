@@ -6,13 +6,12 @@ interface AuthProps {
   onLogin: (session: any) => void;
 }
 
-type AuthStep = 'login' | 'signup';
+type AuthStep = 'login' | 'forgot-password';
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [step, setStep] = useState<AuthStep>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [garage, setGarage] = useState('');
   const [stayConnected, setStayConnected] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | React.ReactNode>('');
@@ -39,28 +38,25 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           </div>
         );
       } else {
-        setError(err.message || "Erreur lors de la connexion.");
+        setError(err.message || "Email ou mot de passe incorrect.");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
-      const data = await api.signup(email, password, garage);
-      if (data && data.session) {
-        onLogin(data.session);
-      } else if (data && data.user) {
-        setSuccess("Compte créé ! Vous pouvez maintenant vous connecter.");
-        setStep('login');
-      }
+      await api.requestPasswordReset(email);
+      setSuccess("Une demande de réinitialisation a été enregistrée. Un mot de passe temporaire vous a été envoyé si le compte existe.");
+      setTimeout(() => setStep('login'), 5000);
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la création du compte.");
+      setError(err.message || "Une erreur est survenue lors de la réinitialisation.");
     } finally {
       setLoading(false);
     }
@@ -84,25 +80,21 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             <p className="text-slate-400 text-sm font-medium">Gestion d'atelier nouvelle génération</p>
           </div>
 
-          <form onSubmit={step === 'login' ? handleLogin : handleSignup} className="space-y-4 text-left">
-            {step === 'signup' && (
-              <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Nom de l'atelier</label>
-                <input required type="text" placeholder="ex: Garage du Centre" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={garage} onChange={e => setGarage(e.target.value)} />
+          {step === 'login' ? (
+            <form onSubmit={handleLogin} className="space-y-4 text-left">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Email professionnel</label>
+                <input required type="email" placeholder="chef@atelier.pro" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
-            )}
-            
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Email professionnel</label>
-              <input required type="email" placeholder="chef@atelier.pro" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={email} onChange={e => setEmail(e.target.value)} />
-            </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Mot de passe</label>
-              <input required type="password" placeholder="••••••••" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={password} onChange={e => setPassword(e.target.value)} />
-            </div>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center pr-4">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Mot de passe</label>
+                    <button type="button" onClick={() => setStep('forgot-password')} className="text-[10px] font-bold text-blue-400 hover:text-blue-300">Mot de passe oublié ?</button>
+                </div>
+                <input required type="password" placeholder="••••••••" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={password} onChange={e => setPassword(e.target.value)} />
+              </div>
 
-            {step === 'login' && (
               <div className="flex items-center gap-2 ml-4 mt-2">
                 <button 
                   type="button"
@@ -113,20 +105,42 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 </button>
                 <span className="text-xs font-bold text-slate-400 cursor-pointer select-none" onClick={() => setStayConnected(!stayConnected)}>Rester connecté</span>
               </div>
-            )}
 
-            {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-bold text-center animate-shake">{error}</div>}
-            {success && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-bold text-center">{success}</div>}
+              {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-bold text-center animate-shake">{error}</div>}
+              {success && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-bold text-center">{success}</div>}
 
-            <button disabled={loading} type="submit" className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 mt-6 uppercase tracking-widest text-xs">
-              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : (step === 'login' ? "Se connecter" : "Créer mon garage")}
-            </button>
-          </form>
+              <button disabled={loading} type="submit" className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 mt-6 uppercase tracking-widest text-xs">
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Se connecter"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleResetPassword} className="space-y-4 text-left animate-in slide-in-from-right duration-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Email de votre compte</label>
+                <input required type="email" placeholder="Entrez votre email" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
 
-          <div className="mt-8 text-center">
-            <button onClick={() => { setStep(step === 'login' ? 'signup' : 'login'); setError(''); setSuccess(''); }} className="text-slate-400 text-sm font-bold hover:text-white transition-colors">
-              {step === 'login' ? "Pas encore de compte ? S'inscrire" : "Déjà inscrit ? Se connecter"}
-            </button>
+              {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-bold text-center">{error}</div>}
+              {success && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-bold text-center leading-relaxed">{success}</div>}
+
+              <button disabled={loading} type="submit" className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 mt-6 uppercase tracking-widest text-xs">
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Envoyer mot de passe temporaire"}
+              </button>
+
+              <button type="button" onClick={() => { setStep('login'); setError(''); setSuccess(''); }} className="w-full text-center text-slate-400 text-xs font-bold hover:text-white transition-colors mt-2">
+                Retour à la connexion
+              </button>
+            </form>
+          )}
+
+          <div className="mt-10 pt-8 border-t border-white/5 text-center space-y-4">
+             <p className="text-slate-500 text-[11px] font-bold uppercase tracking-widest">Nouveau sur GaragePro ?</p>
+             <p className="text-slate-400 text-xs leading-relaxed px-4">
+                L'accès à la plateforme est réservé aux professionnels habilités. Pour obtenir vos accès, veuillez contacter l'administration :
+             </p>
+             <a href="mailto:contact.ishlempro@gmail.com" className="inline-block px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-blue-400 font-black text-xs uppercase tracking-widest transition-all">
+                contact.ishlempro@gmail.com
+             </a>
           </div>
         </div>
       </div>

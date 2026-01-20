@@ -6,6 +6,10 @@ const SERVICE_ID = 'service_3mh4mah';
 const TEMPLATE_ID = 'template_8ksf2hg';
 const PUBLIC_KEY = 'SERB24v_WSISCjApy';
 
+// Configuration Brevo (pour la réinitialisation)
+// Note: La clé API Brevo devrait idéalement être dans process.env.BREVO_API_KEY
+const BREVO_API_KEY = 'xkeysib-965380517523091937965153579227092419011116248386-your_actual_key_here'; 
+
 /**
  * Envoie un email d'invitation au nouveau garage via EmailJS
  */
@@ -15,29 +19,21 @@ export const sendInvitationEmail = async (email: string, role: string, tempPassw
   }
 
   try {
-    const inviteLink = window.location.origin; // Lien vers la page d'accueil de ton SaaS
+    const inviteLink = window.location.origin;
     const cleanEmail = email.trim();
 
-    // On passe l'email sous plusieurs clés courantes pour s'adapter à la config du template EmailJS
-    // Variable user_password EXPLICITEMENT passée ici comme demandé
     const templateParams = {
-      to_email: cleanEmail,        // Convention standard
-      email: cleanEmail,           // Souvent utilisé par défaut dans les templates
-      user_email: cleanEmail,      // Autre variante fréquente
-      recipient: cleanEmail,       // Autre variante
-      
+      to_email: cleanEmail,
+      email: cleanEmail,
+      user_email: cleanEmail,
+      recipient: cleanEmail,
       role: role === 'user_premium' ? 'Premium' : 'Standard',
       invite_link: inviteLink,
-      
-      // Variables pour le mot de passe (correspondance avec le template {{user_password}})
       user_password: tempPassword,
       password: tempPassword,
       temp_password: tempPassword,
-      
-      message: `Vous avez été invité à rejoindre GaragePro en tant que membre ${role === 'user_premium' ? 'Premium' : 'Standard'}. Cliquez sur le lien pour vous connecter. Votre mot de passe temporaire est : ${tempPassword}`
+      message: `Vous avez été invité à rejoindre GaragePro en tant que membre ${role === 'user_premium' ? 'Premium' : 'Standard'}. Votre mot de passe temporaire est : ${tempPassword}`
     };
-
-    console.log("Tentative d'envoi EmailJS vers:", cleanEmail);
 
     const response = await emailjs.send(
       SERVICE_ID,
@@ -53,25 +49,52 @@ export const sendInvitationEmail = async (email: string, role: string, tempPassw
     return true;
   } catch (error: any) {
     console.error("Détails erreur EmailJS:", error);
-    
-    // Extraction propre du message d'erreur pour l'afficher dans l'UI
-    let errorMessage = "Impossible d'envoyer l'email.";
-    
-    if (typeof error === 'string') {
-        errorMessage = error;
-    } else if (error?.text) {
-        // Erreur typique renvoyée par l'API EmailJS (ex: "The recipients address is empty")
-        errorMessage = error.text;
-    } else if (error?.message) {
-        errorMessage = error.message;
-    } else {
-        try {
-            errorMessage = JSON.stringify(error);
-        } catch (e) {
-            errorMessage = "Erreur inconnue (objet non lisible)";
-        }
+    let errorMessage = error?.text || error?.message || "Impossible d'envoyer l'email.";
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * Envoie un email de réinitialisation via Brevo
+ */
+export const sendResetPasswordEmail = async (email: string, tempPassword: string) => {
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': BREVO_API_KEY,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: "GaragePro Support", email: "support@garagepro.saas" },
+        to: [{ email: email }],
+        subject: "Réinitialisation de votre mot de passe GaragePro",
+        htmlContent: `
+          <div style="font-family: sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #2563eb;">Réinitialisation de compte</h2>
+            <p>Bonjour,</p>
+            <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+            <p style="background: #f3f4f6; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; text-align: center; color: #1e293b;">
+              Nouveau mot de passe temporaire : <br/>
+              <span style="color: #2563eb;">${tempPassword}</span>
+            </p>
+            <p>Lors de votre prochaine connexion, il vous sera demandé de définir un mot de passe définitif.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #94a3b8;">Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+          </div>
+        `
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Erreur lors de l'envoi de l'email via Brevo");
     }
 
-    throw new Error(errorMessage);
+    return true;
+  } catch (error: any) {
+    console.error("Erreur Brevo:", error);
+    throw new Error("Échec de l'envoi du mail de réinitialisation.");
   }
 };
