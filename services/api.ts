@@ -51,15 +51,37 @@ class ApiService {
   }
 
   /**
-   * LOGGING OPTIMISÉ POUR LE STOCKAGE
-   * Enregistre uniquement les actions essentielles pour limiter le volume de données.
+   * NETTOYAGE DES LOGS
+   * Supprime tous les logs sauf les 20 plus récents pour optimiser le stockage.
    */
+  private async cleanupLogs() {
+    try {
+      // 1. Récupérer les IDs des 20 plus récents
+      const { data: recentLogs } = await supabase
+        .from('activity_logs')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (!recentLogs || recentLogs.length < 20) return;
+
+      const idsToKeep = recentLogs.map(log => log.id);
+
+      // 2. Supprimer tout ce qui n'est pas dans cette liste
+      await supabase
+        .from('activity_logs')
+        .delete()
+        .not('id', 'in', `(${idsToKeep.join(',')})`);
+    } catch (e) {
+      console.warn("Cleanup logs failed", e);
+    }
+  }
+
   async logActivity(action_type: ActivityLog['action_type'], target: string, details: string = '') {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // On limite la taille du détail pour économiser de la place
       const simplifiedDetails = details.length > 100 ? details.substring(0, 97) + '...' : details;
 
       await supabase.from('activity_logs').insert([{
@@ -69,6 +91,9 @@ class ApiService {
         target,
         details: simplifiedDetails
       }]);
+
+      // Nettoyage après insertion
+      await this.cleanupLogs();
     } catch (e) {
       console.warn("Silent failure on logging to preserve UX", e);
     }
@@ -79,7 +104,7 @@ class ApiService {
       .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(1000); // Protection contre le dépassement de mémoire/stockage
+      .limit(20); // On ne récupère que les 20 derniers
     
     if (error) return [];
     return data as ActivityLog[];
@@ -125,7 +150,6 @@ class ApiService {
     const { data, error } = await supabase.from(table).insert([{ ...item, user_id: user.id }]).select();
     if (error) throw error;
     
-    // Log automatique de l'action métier
     this.logActivity('create', table.replace('_', ''), `ID: ${data[0].id}`);
     
     if (table === 'rendez_vous') {
@@ -139,7 +163,6 @@ class ApiService {
     const { error } = await supabase.from(table).update(updates).eq('id', id);
     if (error) throw error;
 
-    // Log automatique de la mise à jour
     this.logActivity('update', table.replace('_', ''), `ID: ${id}`);
 
     if (table === 'rendez_vous') {
@@ -156,7 +179,6 @@ class ApiService {
       if (data && data.google_event_id && settings?.google_calendar_enabled) await this.syncWithGoogleCalendar(data, 'delete');
     }
 
-    // Log automatique de la suppression
     this.logActivity('delete', table.replace('_', ''), `ID: ${id}`);
 
     const { error } = await supabase.from(table).delete().eq('id', id);

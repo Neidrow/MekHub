@@ -300,7 +300,6 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     if (match && match[1]) {
        dueDays = parseInt(match[1]);
     }
-    // Si c'est "fin de mois", ce code simple ne le gère pas parfaitement mais fallback sur +0 ou +30
     
     const dueDate = new Date(f.date_facture);
     dueDate.setDate(dueDate.getDate() + dueDays);
@@ -332,7 +331,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     doc.save(`Facture_${f.numero_facture}.pdf`);
   };
 
-  const handleSendEmail = async (f: Facture) => {
+  const handleSendEmail = async (f: Facture, isRelance = false) => {
     const client = customers.find(c => c.id === f.client_id);
     if (!client || !client.email) {
       onNotify("error", "Email manquant", "Le client n'a pas d'adresse email renseignée.");
@@ -349,9 +348,24 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
       const shortUrl = await api.shortenUrl(longUrl);
 
       const garageName = settings?.nom || 'Votre Garage';
-      const subject = encodeURIComponent(`Facture ${f.numero_facture} - ${garageName}`);
+      const subject = encodeURIComponent(`${isRelance ? 'RAPPEL : ' : ''}Facture ${f.numero_facture} - ${garageName}`);
       
       const body = encodeURIComponent(
+isRelance ? 
+`Bonjour ${client.prenom} ${client.nom},
+
+Sauf erreur de notre part, nous n'avons pas encore reçu le règlement de votre facture ${f.numero_facture} émise le ${new Date(f.date_facture).toLocaleDateString('fr-FR')}.
+
+Vous trouverez ci-dessous le lien pour la consulter à nouveau :
+📄 LIEN : ${shortUrl}
+
+Montant en attente : ${f.montant_ttc.toFixed(2)} €
+
+Merci de régulariser cette situation dès que possible.
+
+Cordialement,
+🔧 ${garageName}`
+:
 `Bonjour ${client.prenom} ${client.nom},
 
 Merci de votre confiance pour l'entretien de votre véhicule.
@@ -378,17 +392,15 @@ Cordialement,
 
       window.location.href = mailtoLink;
       
-      await onUpdate(f.id, { statut: 'non_payee' });
+      if (!isRelance) {
+          await onUpdate(f.id, { statut: 'non_payee' });
+      }
       
-      onNotify("success", "Messagerie ouverte", "Le brouillon de l'email a été généré. Veuillez cliquer sur 'Envoyer' dans votre logiciel de messagerie.");
+      onNotify("success", "Messagerie ouverte", isRelance ? "Le mail de relance a été préparé." : "Le brouillon de l'email a été généré.");
 
     } catch (err: any) {
       console.error("Erreur:", err);
-      if (err.message.includes('bucket not found')) {
-         onNotify("error", "Erreur Configuration", "Veuillez exécuter le script SQL fourni dans Supabase pour autoriser l'envoi.");
-      } else {
-         onNotify("error", "Erreur d'envoi", err.message);
-      }
+      onNotify("error", "Erreur d'envoi", err.message);
     } finally {
       setSendingEmail(null);
     }
@@ -412,6 +424,15 @@ Cordialement,
   const getStatusLabel = (status: string) => {
     if (status === 'non_payee') return 'En attente de paiement';
     return status.replace('_', ' ');
+  };
+
+  const calculateDelay = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const invDate = new Date(dateStr);
+    invDate.setHours(0, 0, 0, 0);
+    const diffTime = today.getTime() - invDate.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   return (
@@ -580,6 +601,9 @@ Cordialement,
                   const reste = inv.montant_ttc - (inv.acompte || 0);
                   const hasAcompte = inv.acompte > 0 && inv.statut !== 'payee' && inv.statut !== 'annule';
 
+                  const delayDays = calculateDelay(inv.date_facture);
+                  const isOverdue = inv.statut === 'non_payee' && delayDays > 7;
+
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                       <td className="px-6 py-5 font-bold text-slate-700 dark:text-slate-200">{inv.numero_facture}</td>
@@ -596,31 +620,55 @@ Cordialement,
                          </div>
                       </td>
                       <td className="px-6 py-5">
-                        <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase ${
-                          inv.statut === 'payee' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 
-                          inv.statut === 'non_payee' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 
-                          inv.statut === 'brouillon' ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'
-                        }`}>{getStatusLabel(inv.statut)}</span>
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase w-fit ${
+                            inv.statut === 'payee' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 
+                            inv.statut === 'non_payee' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 
+                            inv.statut === 'brouillon' ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'
+                          }`}>{getStatusLabel(inv.statut)}</span>
+                          
+                          {isOverdue && (
+                             <span className="px-2 py-0.5 bg-rose-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest animate-pulse flex items-center gap-1 w-fit shadow-lg shadow-rose-500/20">
+                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                               RETARD {delayDays}j
+                             </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-5 text-right flex justify-end gap-2">
-                        <button 
-                          onClick={() => handleSendEmail(inv)} 
-                          disabled={isSending || isAlreadySent}
-                          className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 font-bold text-[10px] uppercase tracking-wider border ${
-                            isAlreadySent 
-                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 cursor-default' 
-                              : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 dark:hover:bg-indigo-600 dark:hover:text-white'
-                          }`}
-                          title="Envoyer par Email" 
-                        >
-                          {isSending ? (
-                            <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin"></div>
-                          ) : isAlreadySent ? (
-                            <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> Envoyé</>
-                          ) : (
-                            <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> Envoyer</>
-                          )}
-                        </button>
+                        {isOverdue ? (
+                           <button 
+                             onClick={() => handleSendEmail(inv, true)} 
+                             disabled={isSending}
+                             className="px-3 py-2 rounded-lg transition-all flex items-center gap-2 font-bold text-[10px] uppercase tracking-wider border text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 dark:hover:bg-rose-600 dark:hover:text-white shadow-sm"
+                             title="Envoyer un rappel (Relance)" 
+                           >
+                             {isSending ? (
+                               <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin"></div>
+                             ) : (
+                               <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg> Relancer</>
+                             )}
+                           </button>
+                        ) : (
+                          <button 
+                            onClick={() => handleSendEmail(inv, false)} 
+                            disabled={isSending || isAlreadySent}
+                            className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 font-bold text-[10px] uppercase tracking-wider border ${
+                              isAlreadySent 
+                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 cursor-default' 
+                                : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 dark:hover:bg-indigo-600 dark:hover:text-white'
+                            }`}
+                            title="Envoyer par Email" 
+                          >
+                            {isSending ? (
+                              <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin"></div>
+                            ) : isAlreadySent ? (
+                              <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> Envoyé</>
+                            ) : (
+                              <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> Envoyer</>
+                            )}
+                          </button>
+                        )}
                         <button onClick={() => handleDownloadPDF(inv)} className="p-2 text-slate-400 hover:text-slate-900 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:hover:text-white dark:hover:bg-slate-700 transition-all" title="Télécharger"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
                         <button onClick={() => { setEditingInvoice(inv); setIsModalOpen(true); }} className="p-2 text-emerald-600 hover:text-emerald-800 bg-emerald-50 rounded-lg transition-all dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20" title="Modifier"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
                         <button onClick={() => setInvoiceToDelete(inv)} className="p-2 text-rose-600 hover:text-rose-800 bg-rose-50 rounded-lg transition-all dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20" title="Supprimer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>

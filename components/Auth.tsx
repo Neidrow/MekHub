@@ -23,11 +23,16 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      const data = await api.login(email, password);
+      const { data, error: authError } = await api.login(email, password);
+      
+      if (authError) throw authError;
+
       if (data && data.session) {
         onLogin(data.session);
       }
     } catch (err: any) {
+      console.error("Auth error:", err);
+      
       if (err.message === 'Email not confirmed') {
         setError(
           <div className="text-left space-y-2">
@@ -37,8 +42,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             </p>
           </div>
         );
+      } else if (err.message.includes('Invalid login credentials') || err.status === 400) {
+        setError("Identifiant ou mot de passe incorrect.");
       } else {
-        setError(err.message || "Email ou mot de passe incorrect.");
+        setError(err.message || "Une erreur est survenue lors de la connexion.");
       }
     } finally {
       setLoading(false);

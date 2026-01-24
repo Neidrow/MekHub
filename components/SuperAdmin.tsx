@@ -13,7 +13,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
   const [stats, setStats] = useState({ totalGarages: 0, revenue: 0 });
   const [loading, setLoading] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', role: 'user_basic' as UserRole });
-  const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
   const [invitedUsers, setInvitedUsers] = useState<any[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [resetRequests, setResetRequests] = useState<PasswordResetRequest[]>([]);
@@ -26,6 +25,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
   const [broadcast, setBroadcast] = useState({ title: '', message: '', type: 'info' as 'info' | 'warning' | 'success' });
   const [broadcastLoading, setBroadcastLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => { if(data.user?.email) setAdminEmail(data.user.email); });
@@ -65,7 +65,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
     return res;
   }, [logs, adminEmail, filterUser, filterPeriod]);
 
-  // ANALYSE DÉTAILLÉE DES USAGES (POUR RÉPONDRE À : "QUELLES FONCTIONNALITÉS IL UTILISE ?")
   const featureAnalysis = useMemo(() => {
     const labels: Record<string, string> = {
       'dashboard': 'Dashboard', 'appointments': 'RDV', 'customers': 'Clients',
@@ -90,9 +89,76 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
     return Object.entries(counts).map(([email, count]) => ({ email, count })).sort((a, b) => b.count - a.count).slice(0, 5);
   }, [logs, adminEmail]);
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.email) return;
+    setLoading(true);
+    try {
+      const res = await api.inviteUser(newUser.email, newUser.role);
+      onNotify('success', 'Invitation envoyée', `Mdp temporaire: ${res.tempPassword}`);
+      setNewUser({ email: '', role: 'user_basic' });
+      await loadData();
+    } catch (err: any) { onNotify('error', 'Erreur', err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleSuspend = async (user: any) => {
+    const next = user.status === 'Suspendu' ? 'Actif' : 'Suspendu';
+    try {
+      await api.updateInvitationStatus(user.id, next);
+      onNotify('success', 'Statut mis à jour', `Le compte est désormais ${next}`);
+      await loadData();
+    } catch (e: any) {
+      onNotify('error', 'Erreur', e.message);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!showDeleteModal || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      // Suppression physique de l'invitation
+      await api.deleteGarageAccount(showDeleteModal.id);
+      
+      // On retire immédiatement de la liste locale pour éviter le délai visuel
+      setInvitedUsers(prev => prev.filter(u => u.id !== showDeleteModal.id));
+      
+      onNotify('success', 'Suppression réussie', `Le compte ${showDeleteModal.email} a été définitivement supprimé.`);
+      setShowDeleteModal(null);
+      
+      // Rafraîchissement global des stats en arrière-plan
+      await loadData();
+    } catch (err: any) {
+      onNotify('error', 'Erreur de suppression', err.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleMaintenanceToggle = async () => {
+    const next = { ...maintenance, enabled: !maintenance.enabled };
+    try {
+      await api.setMaintenanceStatus(next);
+      setMaintenance(next);
+      onNotify('success', 'Maintenance', next.enabled ? 'Activée globalement' : 'Désactivée');
+    } catch (e: any) {
+      onNotify('error', 'Erreur', e.message);
+    }
+  };
+
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBroadcastLoading(true);
+    try {
+      await api.sendGlobalNotification(broadcast.title, broadcast.message, broadcast.type);
+      setBroadcast({ title: '', message: '', type: 'info' });
+      onNotify('success', 'Diffusion terminée', 'La notification a été envoyée à tous les garages.');
+    } catch (err: any) { onNotify('error', 'Erreur', err.message); }
+    finally { setBroadcastLoading(false); }
+  };
+
   const renderOverview = () => (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* FILTRES D'ANALYSE */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-center">
         <div className="flex-1 w-full relative">
           <select value={filterUser} onChange={e => setFilterUser(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 appearance-none">
@@ -116,11 +182,10 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* KPI CARDS */}
         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] shadow-2xl text-white relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-1000"></div>
-              <p className="text-xs font-black uppercase tracking-widest opacity-70 mb-2">Revenus SaaS</p>
+              <p className="text-xs font-black uppercase tracking-widest opacity-70 mb-2">Revenus SaaS Estimés</p>
               <h3 className="text-4xl font-black">{stats.revenue} €</h3>
               <p className="text-[10px] font-medium opacity-60 mt-4 uppercase">Sur {stats.totalGarages} comptes</p>
            </div>
@@ -138,7 +203,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
            </div>
         </div>
 
-        {/* TOP USERS RANKING */}
         <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col">
            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Top Engagement</p>
            <div className="space-y-4 flex-1">
@@ -155,7 +219,6 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
         </div>
       </div>
 
-      {/* DÉTAIL DES FONCTIONNALITÉS UTILISÉES */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm min-h-[450px]">
            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
@@ -205,61 +268,27 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
     </div>
   );
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUser.email) return;
-    setLoading(true);
-    try {
-      const res = await api.inviteUser(newUser.email, newUser.role);
-      onNotify('success', 'Invitation envoyée', `Mdp temporaire: ${res.tempPassword}`);
-      setNewUser({ email: '', role: 'user_basic' });
-      await loadData();
-    } catch (err: any) { onNotify('error', 'Erreur', err.message); }
-    finally { setLoading(false); }
-  };
-
-  const handleSuspend = async (user: any) => {
-    const next = user.status === 'Suspendu' ? 'Actif' : 'Suspendu';
-    await api.updateInvitationStatus(user.id, next);
-    onNotify('success', 'Statut mis à jour', next);
-    await loadData();
-  };
-
-  const confirmDelete = async () => {
-    if (!showDeleteModal) return;
-    await api.deleteGarageAccount(showDeleteModal.id);
-    onNotify('success', 'Supprimé', 'Compte retiré.');
-    setShowDeleteModal(null);
-    await loadData();
-  };
-
-  const handleMaintenanceToggle = async () => {
-    const next = { ...maintenance, enabled: !maintenance.enabled };
-    await api.setMaintenanceStatus(next);
-    setMaintenance(next);
-    onNotify('success', 'Maintenance', next.enabled ? 'ON' : 'OFF');
-  };
-
-  const handleBroadcast = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBroadcastLoading(true);
-    try {
-      await api.sendGlobalNotification(broadcast.title, broadcast.message, broadcast.type);
-      setBroadcast({ title: '', message: '', type: 'info' });
-      onNotify('success', 'Envoyé', 'Notification diffusée.');
-    } catch (err: any) { onNotify('error', 'Erreur', err.message); }
-    finally { setBroadcastLoading(false); }
-  };
-
   return (
     <div className="pb-20">
       {showDeleteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setShowDeleteModal(null)}>
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative flex flex-col border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-6">Supprimer {showDeleteModal.email} ?</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => !isDeleting && setShowDeleteModal(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm p-10 shadow-2xl relative flex flex-col border dark:border-slate-800 animate-in zoom-in duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">Supprimer le garage ?</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-8">
+              Êtes-vous sûr de vouloir supprimer définitivement <span className="font-bold text-slate-900 dark:text-white">{showDeleteModal.email}</span> ? Tous ses accès seront révoqués immédiatement.
+            </p>
             <div className="flex flex-col gap-3">
-              <button onClick={confirmDelete} className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs tracking-widest">Confirmer</button>
-              <button onClick={() => setShowDeleteModal(null)} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-xs tracking-widest">Annuler</button>
+              <button 
+                onClick={confirmDelete} 
+                disabled={isDeleting}
+                className="w-full py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-600/20 uppercase text-xs tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2"
+              >
+                {isDeleting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Supprimer définitivement"}
+              </button>
+              <button onClick={() => setShowDeleteModal(null)} disabled={isDeleting} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Annuler</button>
             </div>
           </div>
         </div>
@@ -269,7 +298,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
             {currentTab === 'super-admin-overview' ? "Tableau de Bord Analytique" : 
              currentTab === 'super-admin-garages' ? "Gestion des Partenaires" : 
-             currentTab === 'super-admin-communication' ? "Centre de Contrôle" : "Sécurité & Logs"}
+             currentTab === 'super-admin-communication' ? "Centre de Contrôle" : "Sécurité & 20 Derniers Logs"}
          </h2>
          <p className="text-slate-500 dark:text-slate-400 font-medium">Administration Master SaaS • {adminEmail}</p>
       </div>
@@ -277,33 +306,51 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
       {currentTab === 'super-admin-overview' && renderOverview()}
       {currentTab === 'super-admin-garages' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
-           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm h-fit">
+           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm h-fit sticky top-24">
               <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6">Nouveau Garage</h3>
               <form onSubmit={handleCreateUser} className="space-y-4">
-                <input required type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email:e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl outline-none font-bold" placeholder="Email" />
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setNewUser({...newUser, role:'user_basic'})} className={`py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest ${newUser.role==='user_basic' ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-100'}`}>Standard</button>
-                  <button type="button" onClick={() => setNewUser({...newUser, role:'user_premium'})} className={`py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest ${newUser.role==='user_premium' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-100'}`}>Premium</button>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email du gérant</label>
+                   <input required type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email:e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white focus:ring-4 focus:ring-blue-500/10" placeholder="ex: chef@garage.pro" />
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg mt-4 uppercase text-xs tracking-widest">Inviter</button>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plan SaaS</label>
+                   <div className="grid grid-cols-2 gap-2">
+                     <button type="button" onClick={() => setNewUser({...newUser, role:'user_basic'})} className={`py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${newUser.role==='user_basic' ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}>Standard</button>
+                     <button type="button" onClick={() => setNewUser({...newUser, role:'user_premium'})} className={`py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${newUser.role==='user_premium' ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}>Premium</button>
+                   </div>
+                </div>
+                <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 mt-4 uppercase text-xs tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                   {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Inviter le partenaire"}
+                </button>
               </form>
            </div>
            <div className="lg:col-span-2 space-y-4">
-              {invitedUsers.map(u => (
-                <div key={u.id} className="p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white ${u.role==='user_premium' ? 'bg-indigo-600' : 'bg-blue-600'}`}>{u.email[0].toUpperCase()}</div>
-                    <div>
-                      <p className="font-black text-slate-800 dark:text-white">{u.email}</p>
-                      <p className="text-[10px] font-black uppercase text-slate-400">{u.status} • {u.role.split('_')[1]}</p>
+              {invitedUsers.length === 0 ? (
+                <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800">
+                   <p className="text-slate-400 font-bold italic">Aucun partenaire enregistré.</p>
+                </div>
+              ) : (
+                invitedUsers.map(u => (
+                  <div key={u.id} className="p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] flex items-center justify-between shadow-sm hover:shadow-md transition-shadow group">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-xl shadow-inner ${u.role==='user_premium' ? 'bg-indigo-600' : 'bg-blue-600'}`}>{u.email[0].toUpperCase()}</div>
+                      <div>
+                        <p className="font-black text-slate-800 dark:text-white text-lg leading-tight">{u.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                           <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${u.status === 'Actif' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/30'}`}>{u.status}</span>
+                           <span className="text-slate-300 dark:text-slate-700">•</span>
+                           <span className="text-[10px] font-black uppercase text-slate-400 tracking-tighter">{u.role.split('_')[1]} Edition</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleSuspend(u)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${u.status==='Suspendu' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-rose-50 hover:text-rose-600'}`}>{u.status==='Suspendu' ? 'Activer' : 'Suspendre'}</button>
+                      <button onClick={() => setShowDeleteModal(u)} className="p-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleSuspend(u)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest">{u.status==='Suspendu' ? 'Activer' : 'Suspendre'}</button>
-                    <button onClick={() => setShowDeleteModal(u)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
            </div>
         </div>
       )}
@@ -330,7 +377,10 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
       )}
       {currentTab === 'super-admin-logs' && (
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm animate-in fade-in duration-500 overflow-hidden">
-           <h3 className="text-xl font-black text-slate-800 dark:text-white mb-8">Journal d'Audit de Sécurité</h3>
+           <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black text-slate-800 dark:text-white">Journal d'Audit de Sécurité</h3>
+              <span className="text-[10px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">20 derniers éléments</span>
+           </div>
            <div className="overflow-x-auto">
               <table className="w-full text-left">
                  <thead className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-100 dark:border-slate-800">

@@ -40,7 +40,7 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
     if (color === 'purple') return "bg-purple-600 text-white shadow-lg shadow-purple-900/20";
     if (color === 'indigo') return "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20";
     if (color === 'rose') return "bg-rose-600 text-white shadow-lg shadow-rose-900/20";
-    if (color === 'amber') return "bg-amber-500 text-white shadow-lg shadow-amber-900/20";
+    if (color === 'amber') return "bg-amber-50 text-white shadow-lg shadow-amber-900/20";
     return "bg-blue-600 text-white shadow-lg shadow-blue-900/20";
   };
 
@@ -72,18 +72,15 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [maintenance, setMaintenance] = useState<SystemMaintenance>({ enabled: false, message: '' });
   
-  // -- GESTION DE L'URL POUR LA VUE PUBLIQUE --
   const urlParams = new URLSearchParams(window.location.search);
   const publicQuoteId = urlParams.get('id');
   const isPublicView = urlParams.get('view') === 'public_quote' && publicQuoteId;
 
-  // Initialisation de la vue depuis le localStorage ou 'dashboard' par défaut
   const [currentView, setCurrentView] = useState<ViewState>(() => {
     const savedView = localStorage.getItem('garagepro_current_view');
     return (savedView as ViewState) || 'dashboard';
   });
 
-  // --- GESTION DU THÈME SOMBRE (LOCAL ONLY) ---
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('garagepro_theme');
@@ -111,7 +108,6 @@ const App: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
   
-  // Toast Notification State
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', title: string, message: string } | null>(null);
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -123,7 +119,6 @@ const App: React.FC = () => {
   const [factures, setFactures] = useState<Facture[]>([]);
   const [settings, setSettings] = useState<GarageSettings | null>(null);
   
-  // Notification Center State
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -134,7 +129,6 @@ const App: React.FC = () => {
   const [passLoading, setPassLoading] = useState(false);
 
   useEffect(() => {
-    // Check maintenance status first
     const checkSys = async () => {
        try {
          const m = await api.getMaintenanceStatus();
@@ -172,7 +166,7 @@ const App: React.FC = () => {
   }, [isPublicView]);
 
   useEffect(() => {
-    if (!session || rendezVous.length === 0) return;
+    if (!session || isSuspended || rendezVous.length === 0) return;
 
     const checkAndAutoUpdateStatus = async () => {
       const now = new Date();
@@ -189,7 +183,7 @@ const App: React.FC = () => {
         if (rdv.duree) {
           const val = parseInt(rdv.duree);
           if (rdv.duree.includes('m')) durationMs = val * 60 * 1000;
-          else if (rdv.duree.includes('h')) durationMs = val * 60 * 60 * 1000;
+          else if (rdv.duree.includes('h')) durationMs = val * 60 * 1000;
         }
 
         const endDateTime = new Date(startDateTime.getTime() + durationMs);
@@ -214,10 +208,9 @@ const App: React.FC = () => {
     checkAndAutoUpdateStatus();
     const intervalId = setInterval(checkAndAutoUpdateStatus, 15000);
     return () => clearInterval(intervalId);
-  }, [rendezVous, session]);
+  }, [rendezVous, session, isSuspended]);
 
   const handleSession = async (sess: any) => {
-    setLoading(true);
     if (sess) {
       const email = sess.user?.email;
       const metadata = sess.user?.user_metadata || {};
@@ -226,8 +219,7 @@ const App: React.FC = () => {
         const status = await api.checkStatus(email);
         if (status === 'Suspendu') {
           setIsSuspended(true);
-          setSession(null);
-          await api.logout();
+          // On ne logout pas tout de suite pour garder l'écran de suspension visible
           setLoading(false);
           return;
         }
@@ -281,6 +273,7 @@ const App: React.FC = () => {
     setShowWelcome(false);
     setShowGooglePrompt(false);
     setIsSuspended(false);
+    sessionStorage.removeItem('gp_google_dismiss_session');
   };
 
   const handleLogout = async () => {
@@ -366,9 +359,10 @@ const App: React.FC = () => {
       setNotifications(allNotifs);
 
       const isGoogleConnected = sett?.google_calendar_enabled || false;
-      const isDismissed = sett?.google_prompt_dismissed || false;
+      const isDismissedForever = sett?.google_prompt_dismissed || false;
+      const isDismissedForSession = sessionStorage.getItem('gp_google_dismiss_session') === 'true';
 
-      if (!isGoogleConnected && !isDismissed) {
+      if (!isGoogleConnected && !isDismissedForever && !isDismissedForSession) {
         setShowGooglePrompt(true);
       }
     } catch (err) {
@@ -408,6 +402,7 @@ const App: React.FC = () => {
       await api.updatePassword(newPass);
       setMustChangePassword(false);
       setShowWelcome(true);
+      const isSuperAdmin = session?.user?.user_metadata?.role === 'super_admin';
       if (!isSuperAdmin) await loadAllData();
     } catch (err: any) {
       setPassError(err.message);
@@ -429,6 +424,7 @@ const App: React.FC = () => {
   };
 
   const handleGoogleRemindLater = () => {
+    sessionStorage.setItem('gp_google_dismiss_session', 'true');
     setShowGooglePrompt(false);
   };
 
@@ -442,14 +438,44 @@ const App: React.FC = () => {
     }
   };
 
-  // --- FONCTION TOAST ---
   const showToast = (type: 'success' | 'error' | 'info', title: string, message: string) => {
     setToast({ type, title, message });
     setTimeout(() => setToast(null), 4000);
   };
 
-  // --- BLOCK MAINTENANCE ---
-  if (maintenance.enabled && session?.user?.user_metadata?.role !== 'super_admin' && !isPublicView) {
+  if (isPublicView) {
+    return <PublicQuoteView quoteId={publicQuoteId!} />;
+  }
+
+  if (isSuspended) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-10 text-center relative overflow-hidden">
+        <div className="absolute top-0 -left-20 w-[500px] h-[500px] bg-rose-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-0 -right-20 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-[120px]"></div>
+        
+        <div className="relative z-10 bg-white/5 backdrop-blur-xl p-10 lg:p-16 rounded-[4rem] border border-white/10 shadow-2xl max-w-xl animate-in zoom-in duration-500">
+           <div className="w-24 h-24 bg-rose-600 text-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-rose-600/40">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+           </div>
+           <h1 className="text-4xl font-black text-white tracking-tighter mb-4">Accès Suspendu</h1>
+           <p className="text-slate-300 font-medium leading-relaxed mb-10 text-lg">
+             Votre compte partenaire a été désactivé par l'administration. Veuillez contacter votre gestionnaire SaaS pour plus d'informations sur votre abonnement.
+           </p>
+           <button 
+             onClick={async () => {
+               await api.logout();
+               window.location.reload();
+             }} 
+             className="px-10 py-5 bg-white text-slate-900 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-slate-200 transition-all shadow-xl"
+           >
+             Retour à la connexion
+           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (maintenance.enabled && session?.user?.user_metadata?.role !== 'super_admin') {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-10 text-center relative overflow-hidden">
          <div className="absolute top-0 -left-20 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-[120px]"></div>
@@ -463,22 +489,6 @@ const App: React.FC = () => {
             <p className="text-slate-300 font-medium leading-relaxed text-sm mb-8">{maintenance.message || "Nous effectuons une mise à jour importante. Le service sera rétabli très rapidement."}</p>
             <button onClick={() => window.location.reload()} className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">Actualiser</button>
          </div>
-      </div>
-    );
-  }
-
-  if (isPublicView) {
-    return <PublicQuoteView quoteId={publicQuoteId!} />;
-  }
-
-  if (isSuspended) {
-    return (
-      <div className="min-h-screen bg-rose-50 dark:bg-slate-900 flex flex-col items-center justify-center p-10 text-center">
-        <div className="w-24 h-24 bg-rose-600 text-white rounded-[2rem] flex items-center justify-center shadow-2xl mb-8">
-           <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        </div>
-        <h1 className="text-4xl font-black text-rose-900 dark:text-white mb-4 tracking-tighter">Accès Révoqué</h1>
-        <button onClick={() => window.location.reload()} className="px-10 py-4 bg-rose-600 text-white font-black rounded-2xl">Retour</button>
       </div>
     );
   }
@@ -560,7 +570,7 @@ const App: React.FC = () => {
 
       {mustChangePassword && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-[3rem] w-full max-w-md p-10 shadow-2xl border border-slate-100 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-[3rem] w-full max-md p-10 shadow-2xl border border-slate-100 dark:border-slate-700">
             <h2 className="text-2xl font-black text-slate-800 dark:text-white text-center mb-6">Initialisation du compte</h2>
             <form onSubmit={handleUpdatePassword} className="space-y-4">
                <input required type="password" placeholder="Nouveau mot de passe" className="w-full p-4 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-2xl outline-none dark:text-white focus:ring-2 focus:ring-blue-500/20" value={newPass} onChange={e => setNewPass(e.target.value)} />
@@ -594,7 +604,6 @@ const App: React.FC = () => {
         </div>
         <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto scrollbar-hide">
           {isSuperAdmin ? (
-            // ONGLETS ADMIN AVEC NOUVELLE STRUCTURE
             <>
               <NavItem view="super-admin-overview" label="Vue d'ensemble" icon={ICONS.Dashboard} color="purple" currentView={currentView} onClick={navigateTo} />
               <NavItem view="super-admin-garages" label="Garages" icon={ICONS.AdminGarages} color="indigo" currentView={currentView} onClick={navigateTo} />
@@ -602,7 +611,6 @@ const App: React.FC = () => {
               <NavItem view="super-admin-logs" label="Sécurité & Logs" icon={ICONS.AdminLogs} color="rose" currentView={currentView} onClick={navigateTo} />
             </>
           ) : (
-            // ONGLETS GARAGE CLASSIQUE
             <>
               <NavItem view="dashboard" label="Dashboard" icon={ICONS.Dashboard} currentView={currentView} onClick={navigateTo} />
               <NavItem view="appointments" label="Rendez-vous" icon={ICONS.Appointments} currentView={currentView} onClick={navigateTo} />
@@ -641,7 +649,6 @@ const App: React.FC = () => {
               )}
             </button>
 
-            {/* Notification Center */}
             <div className="relative" ref={notifRef}>
               <button 
                 onClick={() => setIsNotifOpen(!isNotifOpen)} 
@@ -673,7 +680,6 @@ const App: React.FC = () => {
                           onClick={() => markAsRead(notif)}
                           className={`p-4 border-b border-slate-50 dark:border-slate-700/50 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/30 flex gap-3 group relative ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
                         >
-                          {/* (Le contenu de la notif reste identique) */}
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                             notif.type === 'error' ? 'bg-rose-100 text-rose-500 dark:bg-rose-500/10 dark:text-rose-400' :
                             notif.type === 'warning' ? 'bg-amber-100 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400' :
@@ -707,12 +713,11 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate max-w-[150px] hidden sm:block">{session.user?.email}</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate max-w-[150px] hidden sm:block">{session?.user?.email}</span>
           </div>
         </header>
 
         <div className="p-4 sm:p-6 lg:p-10 flex-1 overflow-y-auto scrollbar-hide">
-          {/* VUES SPECIFIQUES ADMIN */}
           {currentView.startsWith('super-admin') && isSuperAdmin && (
              <SuperAdmin currentTab={currentView} onNotify={showToast} />
           )}
@@ -820,7 +825,6 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* --- Floating Help Button --- */}
         {!isSuperAdmin && (
           <button 
             onClick={() => setShowHelp(true)}
