@@ -17,8 +17,8 @@ import Mechanics from './components/Mechanics.tsx';
 import SuperAdmin from './components/SuperAdmin.tsx';
 import WelcomeOverlay from './components/WelcomeOverlay.tsx';
 import GoogleCalendarModal from './components/GoogleCalendarModal.tsx';
-import HelpModal from './components/HelpModal.tsx';
 import PublicQuoteView from './components/PublicQuoteView.tsx';
+import Tutorial from './components/Tutorial.tsx';
 
 interface NavItemProps {
   view: ViewState;
@@ -105,7 +105,7 @@ const App: React.FC = () => {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showGooglePrompt, setShowGooglePrompt] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
   
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', title: string, message: string } | null>(null);
@@ -165,6 +165,18 @@ const App: React.FC = () => {
     };
   }, [isPublicView]);
 
+  // Logique de déclenchement automatique du tutoriel
+  useEffect(() => {
+    if (session && !loading && !mustChangePassword && !showWelcome && !isPublicView) {
+      const tutorialsSeen = JSON.parse(localStorage.getItem('gp_tutorials_seen') || '[]');
+      if (!tutorialsSeen.includes(currentView)) {
+        setShowTutorial(true);
+      } else {
+        setShowTutorial(false);
+      }
+    }
+  }, [currentView, session, loading, mustChangePassword, showWelcome]);
+
   useEffect(() => {
     if (!session || isSuspended || rendezVous.length === 0) return;
 
@@ -219,7 +231,6 @@ const App: React.FC = () => {
         const status = await api.checkStatus(email);
         if (status === 'Suspendu') {
           setIsSuspended(true);
-          // On ne logout pas tout de suite pour garder l'écran de suspension visible
           setLoading(false);
           return;
         }
@@ -234,10 +245,14 @@ const App: React.FC = () => {
            setCurrentView('super-admin-overview');
         }
       } else {
-        const savedView = localStorage.getItem('garagepro_current_view');
-        if (savedView && savedView.startsWith('super-admin')) {
-          setCurrentView('dashboard');
-          localStorage.setItem('garagepro_current_view', 'dashboard');
+        // Pour les utilisateurs normaux, on garde la vue sauvegardée, 
+        // sauf s'ils ont besoin de changer le mot de passe (on gère ça dans handleUpdatePassword)
+        const savedView = localStorage.getItem('garagepro_current_view') as ViewState;
+        if (savedView && !savedView.startsWith('super-admin')) {
+           setCurrentView(savedView);
+        } else {
+           setCurrentView('dashboard');
+           localStorage.setItem('garagepro_current_view', 'dashboard');
         }
       }
 
@@ -272,6 +287,7 @@ const App: React.FC = () => {
     setMustChangePassword(false);
     setShowWelcome(false);
     setShowGooglePrompt(false);
+    setShowTutorial(false);
     setIsSuspended(false);
     sessionStorage.removeItem('gp_google_dismiss_session');
   };
@@ -316,10 +332,10 @@ const App: React.FC = () => {
       f.forEach(inv => {
         if (inv.statut === 'non_payee') {
           const invDate = new Date(inv.date_facture);
-          const diffTime = Math.abs(today.getTime() - invDate.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const diffTime = today.getTime() - invDate.getTime();
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
           
-          if (diffDays > 7) {
+          if (diffDays >= 7) {
              const client = c.find(cl => cl.id === inv.client_id);
              generatedNotifs.push({
                id: `gen_inv_${inv.id}`,
@@ -402,6 +418,11 @@ const App: React.FC = () => {
       await api.updatePassword(newPass);
       setMustChangePassword(false);
       setShowWelcome(true);
+      
+      // Nouveau compte -> Direction Paramètres
+      setCurrentView('settings');
+      localStorage.setItem('garagepro_current_view', 'settings');
+      
       const isSuperAdmin = session?.user?.user_metadata?.role === 'super_admin';
       if (!isSuperAdmin) await loadAllData();
     } catch (err: any) {
@@ -443,6 +464,15 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const markTutorialAsSeen = () => {
+    const tutorialsSeen = JSON.parse(localStorage.getItem('gp_tutorials_seen') || '[]');
+    if (!tutorialsSeen.includes(currentView)) {
+      tutorialsSeen.push(currentView);
+      localStorage.setItem('gp_tutorials_seen', JSON.stringify(tutorialsSeen));
+    }
+    setShowTutorial(false);
+  };
+
   if (isPublicView) {
     return <PublicQuoteView quoteId={publicQuoteId!} />;
   }
@@ -452,24 +482,13 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-10 text-center relative overflow-hidden">
         <div className="absolute top-0 -left-20 w-[500px] h-[500px] bg-rose-600/10 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-0 -right-20 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-[120px]"></div>
-        
         <div className="relative z-10 bg-white/5 backdrop-blur-xl p-10 lg:p-16 rounded-[4rem] border border-white/10 shadow-2xl max-w-xl animate-in zoom-in duration-500">
            <div className="w-24 h-24 bg-rose-600 text-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-rose-600/40">
               <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
            </div>
            <h1 className="text-4xl font-black text-white tracking-tighter mb-4">Accès Suspendu</h1>
-           <p className="text-slate-300 font-medium leading-relaxed mb-10 text-lg">
-             Votre compte partenaire a été désactivé par l'administration. Veuillez contacter votre gestionnaire SaaS pour plus d'informations sur votre abonnement.
-           </p>
-           <button 
-             onClick={async () => {
-               await api.logout();
-               window.location.reload();
-             }} 
-             className="px-10 py-5 bg-white text-slate-900 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-slate-200 transition-all shadow-xl"
-           >
-             Retour à la connexion
-           </button>
+           <p className="text-slate-300 font-medium leading-relaxed mb-10 text-lg">Votre compte partenaire a été désactivé. Veuillez contacter l'administration.</p>
+           <button onClick={async () => { await api.logout(); window.location.reload(); }} className="px-10 py-5 bg-white text-slate-900 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-slate-200 transition-all shadow-xl">Retour à la connexion</button>
         </div>
       </div>
     );
@@ -480,13 +499,12 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-10 text-center relative overflow-hidden">
          <div className="absolute top-0 -left-20 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-[120px]"></div>
          <div className="absolute bottom-0 -right-20 w-[500px] h-[500px] bg-rose-600/10 rounded-full blur-[120px]"></div>
-         
          <div className="relative z-10 bg-white/5 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 shadow-2xl max-w-lg">
             <div className="w-24 h-24 bg-amber-500/20 text-amber-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-xl animate-pulse">
                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
             </div>
             <h1 className="text-3xl font-black text-white tracking-tight mb-4">Maintenance en cours</h1>
-            <p className="text-slate-300 font-medium leading-relaxed text-sm mb-8">{maintenance.message || "Nous effectuons une mise à jour importante. Le service sera rétabli très rapidement."}</p>
+            <p className="text-slate-300 font-medium leading-relaxed text-sm mb-8">{maintenance.message || "Nous effectuons une mise à jour importante."}</p>
             <button onClick={() => window.location.reload()} className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">Actualiser</button>
          </div>
       </div>
@@ -556,7 +574,14 @@ const App: React.FC = () => {
         />
       )}
 
-      {showGooglePrompt && !showWelcome && !isSuperAdmin && (
+      {showTutorial && !showWelcome && !isSuperAdmin && (
+        <Tutorial 
+          view={currentView} 
+          onClose={markTutorialAsSeen} 
+        />
+      )}
+
+      {showGooglePrompt && !showWelcome && !isSuperAdmin && !showTutorial && (
         <GoogleCalendarModal 
           onConnect={handleGoogleConnect}
           onRemindLater={handleGoogleRemindLater}
@@ -564,13 +589,9 @@ const App: React.FC = () => {
         />
       )}
 
-      {showHelp && (
-        <HelpModal onClose={() => setShowHelp(false)} />
-      )}
-
       {mustChangePassword && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-[3rem] w-full max-md p-10 shadow-2xl border border-slate-100 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-[3rem] w-full max-w-md p-10 shadow-2xl border border-slate-100 dark:border-slate-700">
             <h2 className="text-2xl font-black text-slate-800 dark:text-white text-center mb-6">Initialisation du compte</h2>
             <form onSubmit={handleUpdatePassword} className="space-y-4">
                <input required type="password" placeholder="Nouveau mot de passe" className="w-full p-4 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-2xl outline-none dark:text-white focus:ring-2 focus:ring-blue-500/20" value={newPass} onChange={e => setNewPass(e.target.value)} />
@@ -650,42 +671,22 @@ const App: React.FC = () => {
             </button>
 
             <div className="relative" ref={notifRef}>
-              <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)} 
-                className="p-2.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors relative rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
+              <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="p-2.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors relative rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
-                )}
+                {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>}
               </button>
 
               {isNotifOpen && (
                 <div className="absolute right-0 mt-4 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200 origin-top-right z-50">
                   <div className="p-4 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                     <h3 className="font-black text-slate-800 dark:text-white">Notifications</h3>
-                    {unreadCount > 0 && (
-                      <button onClick={async () => { await api.markAllNotificationsAsRead(); loadAllData(); }} className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:underline">Tout lire</button>
-                    )}
+                    {unreadCount > 0 && <button onClick={async () => { await api.markAllNotificationsAsRead(); loadAllData(); }} className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:underline">Tout lire</button>}
                   </div>
                   <div className="max-h-[400px] overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Aucune notification</p>
-                      </div>
-                    ) : (
+                    {notifications.length === 0 ? <div className="p-8 text-center"><p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Aucune notification</p></div> : 
                       notifications.map((notif, idx) => (
-                        <div 
-                          key={idx} 
-                          onClick={() => markAsRead(notif)}
-                          className={`p-4 border-b border-slate-50 dark:border-slate-700/50 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/30 flex gap-3 group relative ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
-                        >
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                            notif.type === 'error' ? 'bg-rose-100 text-rose-500 dark:bg-rose-500/10 dark:text-rose-400' :
-                            notif.type === 'warning' ? 'bg-amber-100 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400' :
-                            notif.type === 'success' ? 'bg-emerald-100 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400' :
-                            'bg-blue-100 text-blue-500 dark:bg-blue-500/10 dark:text-blue-400'
-                          }`}>
+                        <div key={idx} onClick={() => markAsRead(notif)} className={`p-4 border-b border-slate-50 dark:border-slate-700/50 cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/30 flex gap-3 group relative ${!notif.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}>
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${notif.type === 'error' ? 'bg-rose-100 text-rose-500 dark:bg-rose-500/10 dark:text-rose-400' : notif.type === 'warning' ? 'bg-amber-100 text-amber-500 dark:bg-amber-500/10 dark:text-amber-400' : notif.type === 'success' ? 'bg-emerald-100 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-blue-100 text-blue-500 dark:bg-blue-500/10 dark:text-blue-400'}`}>
                             {notif.type === 'warning' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> : 
                              notif.type === 'success' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg> :
                              notif.type === 'error' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> :
@@ -694,20 +695,10 @@ const App: React.FC = () => {
                           <div className="flex-1 pr-6">
                             <p className={`text-sm ${!notif.read ? 'font-black text-slate-800 dark:text-slate-100' : 'font-bold text-slate-600 dark:text-slate-400'}`}>{notif.title}</p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{notif.message}</p>
-                            {notif.created_at && <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1.5 font-medium uppercase tracking-wider">{new Date(notif.created_at).toLocaleDateString()}</p>}
                           </div>
                           {!notif.read && <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0"></div>}
-                          
-                          <button 
-                            onClick={(e) => deleteNotification(e, notif)}
-                            className="absolute top-2 right-2 p-1.5 text-slate-300 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                            title="Supprimer"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
                         </div>
-                      ))
-                    )}
+                      ))}
                   </div>
                 </div>
               )}
@@ -718,123 +709,28 @@ const App: React.FC = () => {
         </header>
 
         <div className="p-4 sm:p-6 lg:p-10 flex-1 overflow-y-auto scrollbar-hide">
-          {currentView.startsWith('super-admin') && isSuperAdmin && (
-             <SuperAdmin currentTab={currentView} onNotify={showToast} />
-          )}
-
-          {currentView === 'dashboard' && (
-            <Dashboard 
-              customers={clients} 
-              vehicles={vehicules} 
-              mecaniciens={mecaniciens}
-              appointments={rendezVous}
-              invoices={factures}
-              onAddAppointment={async (app) => { await api.postData('rendez_vous', app); loadAllData(); }} 
-              onNavigate={navigateTo} 
-            />
-          )}
-          {currentView === 'customers' && (
-            <Customers 
-              customers={clients} 
-              onAddCustomer={async (c) => { await api.postData('clients', c); loadAllData(); }}
-              onUpdateCustomer={async (id, updates) => { await api.updateData('clients', id, updates); loadAllData(); }}
-              onDeleteCustomer={async (id) => { await api.deleteData('clients', id); loadAllData(); }}
-            />
-          )}
-          {currentView === 'inventory' && (
-            <Inventory 
-              inventory={stock} 
-              userRole={userRole} 
-              onAddItem={async (item) => { await api.postData('stock', item); loadAllData(); }} 
-              onUpdateItem={async (id, updates) => { await api.updateData('stock', id, updates); loadAllData(); }}
-              onDeleteItem={async (id) => { await api.deleteData('stock', id); loadAllData(); }} 
-            />
-          )}
-          {currentView === 'appointments' && (
-            <Appointments 
-              appointments={rendezVous} 
-              customers={clients} 
-              vehicles={vehicules} 
-              mecaniciens={mecaniciens}
-              onAddAppointment={async (app) => { await api.postData('rendez_vous', app); loadAllData(); }}
-              onUpdateStatus={async (id, status) => { await api.updateData('rendez_vous', id, { statut: status }); loadAllData(); }}
-              onUpdateAppointment={async (id, updates) => { await api.updateData('rendez_vous', id, updates); loadAllData(); }}
-              onDelete={async (id) => { await api.deleteData('rendez_vous', id); loadAllData(); }}
-              onNavigate={navigateTo}
-            />
-          )}
-          {currentView === 'vehicles' && (
-            <Vehicles 
-              vehicles={vehicules} 
-              customers={clients}
-              appointments={rendezVous}
-              invoices={factures}
-              onAdd={async (v) => { await api.postData('vehicules', v); loadAllData(); }}
-              onUpdate={async (id, updates) => { await api.updateData('vehicules', id, updates); loadAllData(); }}
-              onDelete={async (id) => { await api.deleteData('vehicules', id); loadAllData(); }}
-            />
-          )}
-          {currentView === 'mechanics' && (
-            <Mechanics 
-              mechanics={mecaniciens} 
-              onAdd={async (m) => { await api.postData('mecaniciens', m); loadAllData(); }}
-              onUpdate={async (id, updates) => { await api.updateData('mecaniciens', id, updates); loadAllData(); }}
-              onDelete={async (id) => { await api.deleteData('mecaniciens', id); loadAllData(); }}
-            />
-          )}
-          {currentView === 'quotes' && (
-            <Quotes 
-              devis={devis} 
-              customers={clients}
-              vehicles={vehicules}
-              settings={settings}
-              userRole={userRole}
-              invoices={factures}
-              onAdd={async (d) => { await api.postData('devis', d); loadAllData(); }}
-              onUpdate={async (id, updates) => { await api.updateData('devis', id, updates); loadAllData(); }}
-              onDelete={async (id) => { await api.deleteData('devis', id); loadAllData(); }}
-              onAddInvoice={async (f) => { await api.postData('factures', f); loadAllData(); }}
-              onNavigate={navigateTo}
-              onNotify={showToast}
-            />
-          )}
-          {currentView === 'invoices' && (
-            <Invoices 
-              invoices={factures} 
-              customers={clients}
-              vehicles={vehicules}
-              settings={settings}
-              onAdd={async (f) => { await api.postData('factures', f); loadAllData(); }}
-              onUpdate={async (id, updates) => { await api.updateData('factures', id, updates); loadAllData(); }}
-              onDelete={async (id) => { await api.deleteData('factures', id); loadAllData(); }}
-              onNotify={showToast}
-            />
-          )}
-          {currentView === 'ai-assistant' && (
-            <AIAssistant 
-              userId={userId}
-              userRole={userRole}
-            />
-          )}
-          {currentView === 'settings' && (
-            <Settings 
-              initialSettings={settings} 
-              onSave={async (s) => { await api.saveSettings(s); loadAllData(); }}
-              onRefresh={loadAllData}
-            />
-          )}
+          {currentView.startsWith('super-admin') && isSuperAdmin && <SuperAdmin currentTab={currentView} onNotify={showToast} />}
+          {currentView === 'dashboard' && <Dashboard customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} appointments={rendezVous} invoices={factures} onAddAppointment={async (app) => { await api.postData('rendez_vous', app); loadAllData(); }} onNavigate={navigateTo} />}
+          {currentView === 'customers' && <Customers customers={clients} onAddCustomer={async (c) => { await api.postData('clients', c); loadAllData(); }} onUpdateCustomer={async (id, updates) => { await api.updateData('clients', id, updates); loadAllData(); }} onDeleteCustomer={async (id) => { await api.deleteData('clients', id); loadAllData(); }} />}
+          {currentView === 'inventory' && <Inventory inventory={stock} userRole={userRole} onAddItem={async (item) => { await api.postData('stock', item); loadAllData(); }} onUpdateItem={async (id, updates) => { await api.updateData('stock', id, updates); loadAllData(); }} onDeleteItem={async (id) => { await api.deleteData('stock', id); loadAllData(); }} />}
+          {currentView === 'appointments' && <Appointments appointments={rendezVous} customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} onAddAppointment={async (app) => { await api.postData('rendez_vous', app); loadAllData(); }} onUpdateStatus={async (id, status) => { await api.updateData('rendez_vous', id, { statut: status }); loadAllData(); }} onUpdateAppointment={async (id, updates) => { await api.updateData('rendez_vous', id, updates); loadAllData(); }} onDelete={async (id) => { await api.deleteData('rendez_vous', id); loadAllData(); }} onNavigate={navigateTo} />}
+          {currentView === 'vehicles' && <Vehicles vehicles={vehicules} customers={clients} appointments={rendezVous} invoices={factures} onAdd={async (v) => { await api.postData('vehicules', v); loadAllData(); }} onUpdate={async (id, updates) => { await api.updateData('vehicules', id, updates); loadAllData(); }} onDelete={async (id) => { await api.deleteData('vehicules', id); loadAllData(); }} />}
+          {currentView === 'mechanics' && <Mechanics mechanics={mecaniciens} onAdd={async (m) => { await api.postData('mecaniciens', m); loadAllData(); }} onUpdate={async (id, updates) => { await api.updateData('mecaniciens', id, updates); loadAllData(); }} onDelete={async (id) => { await api.deleteData('mecaniciens', id); loadAllData(); }} />}
+          {currentView === 'quotes' && <Quotes devis={devis} customers={clients} vehicles={vehicules} settings={settings} userRole={userRole} invoices={factures} onAdd={async (d) => { await api.postData('devis', d); loadAllData(); }} onUpdate={async (id, updates) => { await api.updateData('devis', id, updates); loadAllData(); }} onDelete={async (id) => { await api.deleteData('devis', id); loadAllData(); }} onAddInvoice={async (f) => { await api.postData('factures', f); loadAllData(); }} onNavigate={navigateTo} onNotify={showToast} />}
+          {currentView === 'invoices' && <Invoices invoices={factures} customers={clients} vehicles={vehicules} settings={settings} onAdd={async (f) => { await api.postData('factures', f); loadAllData(); }} onUpdate={async (id, updates) => { await api.updateData('factures', id, updates); loadAllData(); }} onDelete={async (id) => { await api.deleteData('factures', id); loadAllData(); }} onNotify={showToast} />}
+          {currentView === 'ai-assistant' && <AIAssistant userId={userId} userRole={userRole} />}
+          {currentView === 'settings' && <Settings initialSettings={settings} onSave={async (s) => { await api.saveSettings(s); loadAllData(); }} onRefresh={loadAllData} />}
         </div>
 
         {!isSuperAdmin && (
           <button 
-            onClick={() => setShowHelp(true)}
+            onClick={() => setShowTutorial(true)}
             className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-slate-900 dark:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-black dark:hover:bg-blue-700 transition-all hover:scale-110 active:scale-95 group"
-            title="Aide & Documentation"
+            title="Aide & Tutoriel"
           >
             <span className="text-2xl font-black group-hover:rotate-12 transition-transform">?</span>
           </button>
         )}
-
       </main>
     </div>
   );
