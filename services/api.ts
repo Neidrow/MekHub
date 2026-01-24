@@ -50,13 +50,8 @@ class ApiService {
     await supabase.auth.signOut(); 
   }
 
-  /**
-   * NETTOYAGE DES LOGS
-   * Supprime tous les logs sauf les 20 plus récents pour optimiser le stockage.
-   */
   private async cleanupLogs() {
     try {
-      // 1. Récupérer les IDs des 20 plus récents
       const { data: recentLogs } = await supabase
         .from('activity_logs')
         .select('id')
@@ -67,7 +62,6 @@ class ApiService {
 
       const idsToKeep = recentLogs.map(log => log.id);
 
-      // 2. Supprimer tout ce qui n'est pas dans cette liste
       await supabase
         .from('activity_logs')
         .delete()
@@ -92,7 +86,6 @@ class ApiService {
         details: simplifiedDetails
       }]);
 
-      // Nettoyage après insertion
       await this.cleanupLogs();
     } catch (e) {
       console.warn("Silent failure on logging to preserve UX", e);
@@ -104,7 +97,7 @@ class ApiService {
       .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(20); // On ne récupère que les 20 derniers
+      .limit(20);
     
     if (error) return [];
     return data as ActivityLog[];
@@ -316,7 +309,7 @@ class ApiService {
   }
 
   async requestPasswordReset(email: string) {
-    const { data } = await supabase.from('invitations').select('*').eq('email', email).maybeSingle();
+    const { data } = await supabase.from('garages_accounts').select('*').eq('email', email).maybeSingle();
     if (!data) throw new Error("Compte inconnu.");
     await supabase.from('password_reset_requests').insert([{ email, user_agent: navigator.userAgent }]);
     const temp = Math.random().toString(36).slice(-8) + '!A1';
@@ -325,23 +318,61 @@ class ApiService {
   }
 
   async updatePassword(newPassword: string) { await supabase.auth.updateUser({ password: newPassword, data: { needs_password_change: false } }); }
+  
+  async fetchSuspendedEmails(): Promise<string[]> {
+    const { data, error } = await supabase.from('system_settings').select('value').eq('key', 'suspended_users').single();
+    if (error || !data) return [];
+    return data.value as string[];
+  }
+
   async checkStatus(email: string) {
-    const { data } = await supabase.from('invitations').select('status').eq('email', email).maybeSingle();
-    return data?.status || 'Inexistant';
+    const suspended = await this.fetchSuspendedEmails();
+    if (suspended.includes(email)) return 'Suspendu';
+    return 'Actif';
   }
 
   async inviteUser(email: string, role: UserRole) {
     const temp = Math.random().toString(36).slice(-8) + '!A1';
     const { data, error } = await inviteClient.auth.signUp({ email, password: temp, options: { data: { role, needs_password_change: true, garage_name: 'Nouveau Garage' } } });
     if (error) throw error;
-    await supabase.from('invitations').insert([{ email, role, status: 'Actif' }]);
     await sendInvitationEmail(email, role, temp);
     return { user: data.user, tempPassword: temp };
   }
 
-  async fetchInvitations() { const { data } = await supabase.from('invitations').select('*').order('created_at', { ascending: false }); return data || []; }
-  async updateInvitationStatus(id: string, newStatus: string) { await supabase.from('invitations').update({ status: newStatus }).eq('id', id); }
-  async deleteGarageAccount(id: string) { await supabase.from('invitations').delete().eq('id', id); }
+  async fetchInvitations() { 
+    const { data, error } = await supabase.from('garages_accounts').select('*').order('created_at', { ascending: false }); 
+    if (error) throw error;
+    return data || []; 
+  }
+  
+  async updateInvitationStatus(email: string, isSuspending: boolean) { 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Accès refusé");
+    
+    const suspended = await this.fetchSuspendedEmails();
+    let nextList: string[];
+    
+    if (isSuspending) {
+        if (suspended.includes(email)) return;
+        nextList = [...suspended, email];
+    } else {
+        nextList = suspended.filter(e => e !== email);
+    }
+
+    const { error } = await supabase
+        .from('system_settings')
+        .update({ value: nextList, updated_at: new Date().toISOString(), updated_by: user.id })
+        .eq('key', 'suspended_users');
+    
+    if (error) throw error;
+    this.logActivity('update', 'system', `Statut ${isSuspending ? 'Suspendu' : 'Actif'}: ${email}`);
+  }
+  
+  async deleteGarageAccount(email: string) { 
+    const { error } = await supabase.rpc('admin_delete_user_by_email', { target_email: email });
+    if (error) throw error;
+    this.logActivity('delete', 'system', `Garage supprimé: ${email}`);
+  }
 }
 
 export const api = new ApiService();
