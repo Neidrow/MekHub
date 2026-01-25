@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 
 interface HelpModalProps {
   onClose: () => void;
+  onRestartTutorial: () => void;
+  currentViewName?: string;
 }
 
 const HELP_SECTIONS = [
@@ -147,12 +149,25 @@ const HELP_SECTIONS = [
   }
 ];
 
-const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
+const HelpModal: React.FC<HelpModalProps> = ({ onClose, onRestartTutorial, currentViewName }) => {
   const [openSection, setOpenSection] = useState<string | null>('dashboard');
 
   const toggleSection = (id: string) => {
     setOpenSection(openSection === id ? null : id);
   };
+
+  const currentViewLabel = {
+    'dashboard': 'Tableau de Bord',
+    'appointments': 'Agenda',
+    'customers': 'Clients',
+    'vehicles': 'Véhicules',
+    'mechanics': 'Équipe',
+    'quotes': 'Devis',
+    'invoices': 'Factures',
+    'inventory': 'Stock',
+    'ai-assistant': 'Assistant IA',
+    'settings': 'Paramètres'
+  }[currentViewName || ''] || 'cette page';
 
   return (
     <div 
@@ -184,6 +199,23 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50 dark:bg-slate-950 scrollbar-hide">
+          
+          {/* Action Rapide : Relancer Tuto */}
+          <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] border border-blue-100 dark:border-blue-900/30 flex items-center justify-between gap-4">
+             <div>
+                <h4 className="text-sm font-black text-blue-900 dark:text-blue-300">Tutoriel Interactif</h4>
+                <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">Besoin d'un rappel sur les fonctionnalités de {currentViewLabel} ?</p>
+             </div>
+             <button 
+               onClick={onRestartTutorial}
+               className="px-6 py-3 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 whitespace-nowrap active:scale-95"
+             >
+                Relancer le guide
+             </button>
+          </div>
+
+          <h3 className="px-2 text-xs font-black text-slate-400 uppercase tracking-widest mt-6 mb-2">Documentation par module</h3>
+
           {HELP_SECTIONS.map((section) => {
             const isOpen = openSection === section.id;
             return (

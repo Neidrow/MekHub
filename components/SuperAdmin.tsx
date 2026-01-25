@@ -40,23 +40,17 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
   const loadData = async (currentAdminEmail?: string) => {
     setLoading(true);
     try {
-      const [history, activityLogs, sysMaint, pwResets, suspendedEmails] = await Promise.all([
+      const [history, activityLogs, sysMaint, pwResets] = await Promise.all([
         api.fetchInvitations(),
         api.fetchGlobalActivityLogs(),
         api.getMaintenanceStatus(),
-        api.fetchPasswordResetRequests(),
-        api.fetchSuspendedEmails()
+        api.fetchPasswordResetRequests()
       ]);
       
       const targetEmail = currentAdminEmail || adminEmail;
       
-      // On enrichit la liste des comptes avec le statut "Suspendu" s'ils sont dans la liste noire
-      const filteredPartners = history
-        .filter((u: any) => u.email !== targetEmail)
-        .map((u: any) => ({
-          ...u,
-          status: suspendedEmails.includes(u.email) ? 'Suspendu' : 'Actif'
-        }));
+      // On filtre l'admin courant de la liste
+      const filteredPartners = history.filter((u: any) => u.email !== targetEmail);
       
       setInvitedUsers(filteredPartners);
       setLogs(activityLogs);
@@ -126,7 +120,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
     const isSuspending = user.status === 'Actif';
     setLoading(true);
     try {
-      await api.updateInvitationStatus(user.email, isSuspending);
+      await api.toggleUserSuspension(user.id, isSuspending);
       onNotify('success', 'Statut mis à jour', `Le compte de ${user.email} est désormais ${isSuspending ? 'Suspendu' : 'Réactivé'}.`);
       await loadData();
     } catch (err: any) {
@@ -395,9 +389,26 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
       )}
       {currentTab === 'super-admin-logs' && (
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm animate-in fade-in duration-500 overflow-hidden">
-           <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-slate-800 dark:text-white">Journal d'Audit de Sécurité</h3>
-              <span className="text-[10px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">Dernières activités</span>
+           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+              <div>
+                  <h3 className="text-xl font-black text-slate-800 dark:text-white">Journal d'Audit de Sécurité</h3>
+                  <span className="text-[10px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">Dernières activités</span>
+              </div>
+              <div className="flex gap-2">
+                  <div className="relative">
+                      <select 
+                          value={filterUser} 
+                          onChange={e => setFilterUser(e.target.value)} 
+                          className="pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-xs text-slate-700 dark:text-slate-200 appearance-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                          <option value="all">Tous les utilisateurs</option>
+                          {invitedUsers.map(u => (
+                              <option key={u.id} value={u.email}>{u.garage_name || u.email}</option>
+                          ))}
+                      </select>
+                      <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+              </div>
            </div>
            <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -418,7 +429,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
                           <td className="px-6 py-4 text-right text-[10px] font-medium text-slate-400">{new Date(log.created_at).toLocaleString()}</td>
                        </tr>
                     ))}
-                    {filteredLogs.length === 0 && <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-bold italic">Aucun log récent d'activité partenaire.</td></tr>}
+                    {filteredLogs.length === 0 && <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-bold italic">Aucun log récent pour cette sélection.</td></tr>}
                  </tbody>
               </table>
            </div>

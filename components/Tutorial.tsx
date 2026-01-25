@@ -12,26 +12,48 @@ interface Step {
 
 const TOUR_DATA: Record<string, Step[]> = {
   dashboard: [
-    { targetId: 'tour-stats', emoji: '📊', title: 'Indicateurs clés', description: 'Suivez votre CA et vos statistiques de croissance ici.', position: 'bottom' },
-    { targetId: 'tour-quick-rdv', emoji: '🚀', title: 'Action Rapide', description: 'Créez un nouveau rendez-vous sans quitter le tableau de bord.', position: 'left' },
-    { targetId: 'tour-today-rdv', emoji: '📅', title: 'Planning du jour', description: 'Vos interventions prévues aujourd\'hui s\'affichent ici.', position: 'top' }
+    { targetId: 'app-sidebar', emoji: '🧭', title: 'Navigation', description: 'Utilisez ce menu pour basculer entre vos clients, factures, stock et paramètres.', position: 'right' },
+    { targetId: 'app-notifications', emoji: '🔔', title: 'Centre de notifications', description: 'Alertes de stock bas, rappels de RDV et messages système apparaîtront ici.', position: 'left' },
+    { targetId: 'dash-stats', emoji: '📊', title: 'Vue d\'ensemble', description: 'Suivez votre Chiffre d\'Affaires en temps réel et l\'évolution de votre activité mensuelle.', position: 'bottom' },
+    { targetId: 'dash-quick-add', emoji: '⚡', title: 'Action Rapide', description: 'Un client appelle ? Créez un rendez-vous immédiatement sans changer de page.', position: 'left' },
+    { targetId: 'dash-today-list', emoji: '📅', title: 'Planning du jour', description: 'Ne ratez rien : voici la liste prioritaire des interventions prévues aujourd\'hui.', position: 'top' }
   ],
   appointments: [
-    { targetId: 'tour-calendar-nav', emoji: '🗓️', title: 'Navigation temporelle', description: 'Changez de mois ou revenez à aujourd\'hui rapidement.', position: 'bottom' },
-    { targetId: 'tour-timeline', emoji: '⏳', title: 'Frise chronologique', description: 'Sélectionnez un jour précis pour voir les détails des interventions.', position: 'bottom' },
-    { targetId: 'tour-add-rdv', emoji: '➕', title: 'Planification', description: 'Ajoutez une nouvelle intervention technique ici.', position: 'left' }
+    { targetId: 'agenda-add-btn', emoji: '➕', title: 'Nouveau Rendez-vous', description: 'Cliquez ici pour planifier une intervention. Vous pourrez l\'assigner à un mécanicien et un véhicule.', position: 'left' },
+    { targetId: 'agenda-filters', emoji: '🔍', title: 'Filtres Puissants', description: 'Retrouvez un RDV par client, ou filtrez pour voir le planning d\'un mécanicien spécifique.', position: 'bottom' },
+    { targetId: 'agenda-nav', emoji: '🗓️', title: 'Navigation', description: 'Changez de mois ou revenez à la date d\'aujourd\'hui en un clic.', position: 'bottom' },
+    { targetId: 'agenda-timeline', emoji: '⏳', title: 'Frise Chronologique', description: 'Sélectionnez un jour précis dans la liste pour voir le détail des créneaux horaires.', position: 'bottom' }
+  ],
+  customers: [
+    { targetId: 'cust-add-btn', emoji: '👤', title: 'Créer un Client', description: 'Ajoutez une nouvelle fiche client. Vous pourrez ensuite y lier plusieurs véhicules.', position: 'left' },
+    { targetId: 'cust-search', emoji: '🔎', title: 'Recherche Instantanée', description: 'Tapez un nom, un téléphone ou un email pour retrouver un dossier instantanément.', position: 'bottom' },
+    { targetId: 'cust-list', emoji: '🗂️', title: 'Annuaire', description: 'Cliquez sur les boutons d\'action à droite d\'une ligne pour modifier ou contacter le client.', position: 'top' }
+  ],
+  vehicles: [
+    { targetId: 'veh-add-btn', emoji: '🚗', title: 'Ajout Véhicule', description: 'Enregistrez un véhicule avec sa plaque et son VIN. Il doit être lié à un client existant.', position: 'left' },
+    { targetId: 'veh-filters', emoji: '🔬', title: 'Filtres', description: 'Cherchez par immatriculation ou filtrez par propriétaire pour voir son parc automobile.', position: 'bottom' },
+    { targetId: 'veh-list', emoji: '📜', title: 'Cartes Véhicules', description: 'Chaque carte contient les infos techniques. Utilisez le bouton "Historique" pour voir les travaux passés.', position: 'top' }
   ],
   quotes: [
-    { targetId: 'tour-add-quote', emoji: '📝', title: 'Création de Devis', description: 'Générez des devis professionnels en quelques clics.', position: 'left' },
-    { targetId: 'tour-quote-filters', emoji: '🔍', title: 'Filtres de recherche', description: 'Retrouvez vos devis par statut ou par nom de client.', position: 'bottom' }
+    { targetId: 'quote-add-btn', emoji: '📝', title: 'Éditeur de Devis', description: 'Créez des devis professionnels. Calcule la TVA et les totaux automatiquement.', position: 'left' },
+    { targetId: 'quote-filters', emoji: '🚦', title: 'Suivi des Statuts', description: 'Filtrez par "En attente" ou "Accepté" pour savoir qui relancer.', position: 'bottom' },
+    { targetId: 'quote-list', emoji: '⚡', title: 'Actions Rapides', description: 'Depuis cette liste : envoyez le devis par email, téléchargez le PDF ou convertissez-le en facture.', position: 'top' }
+  ],
+  invoices: [
+    { targetId: 'inv-add-btn', emoji: '💰', title: 'Facturation', description: 'Créez une facture libre ou issue d\'un devis. Gérez les acomptes ici.', position: 'left' },
+    { targetId: 'inv-filters', emoji: '📉', title: 'Suivi Trésorerie', description: 'Utilisez les filtres pour voir les factures "Non payées" et gérer les relances.', position: 'bottom' },
+    { targetId: 'inv-list', emoji: '📩', title: 'Gestion', description: 'Envoyez vos factures par email au client en un clic. Le statut passera automatiquement à "Envoyée".', position: 'top' }
   ],
   inventory: [
-    { targetId: 'tour-stock-add', emoji: '📦', title: 'Gestion de Stock', description: 'Ajoutez vos pièces et consommables dans votre inventaire.', position: 'left' },
-    { targetId: 'tour-stock-cats', emoji: '🏷️', title: 'Catégories', description: 'Vos articles sont triés automatiquement pour une meilleure visibilité.', position: 'bottom' }
+    { targetId: 'stock-stats', emoji: '📊', title: 'Vue d\'ensemble', description: 'Surveillez la valeur de votre stock et le nombre d\'articles en rupture (alertes rouges).', position: 'bottom' },
+    { targetId: 'stock-add-btn', emoji: '📦', title: 'Réception de Stock', description: 'Ajoutez une nouvelle référence. Définissez un seuil d\'alerte pour être prévenu avant la rupture.', position: 'left' },
+    { targetId: 'stock-cats', emoji: '🏷️', title: 'Organisation', description: 'Filtrez par catégorie (Pièce, Consommable...) ou utilisez la recherche par référence.', position: 'bottom' },
+    { targetId: 'stock-list', emoji: '🔢', title: 'Gestion Unitaire', description: 'Sur chaque carte : Ajustez le stock (+/-), consultez l\'historique des mouvements ou modifiez la fiche.', position: 'top' }
   ],
   'ai-assistant': [
-    { targetId: 'tour-ai-quota', emoji: '⚡', title: 'Quota IA', description: 'Surveillez votre consommation d\'intelligence artificielle ici.', position: 'bottom' },
-    { targetId: 'tour-ai-input', emoji: '🤖', title: 'Expertise Technique', description: 'Décrivez les symptômes pour obtenir une analyse complète de l\'IA.', position: 'top' }
+    { targetId: 'ai-quota', emoji: '⚡', title: 'Quota IA', description: 'Surveillez votre consommation de requêtes intelligentes (renouvelée chaque heure).', position: 'bottom' },
+    { targetId: 'ai-tabs', emoji: '🧠', title: 'Modes IA', description: 'Basculez entre le "Diagnostic" pour les pannes et "Assistant Message" pour rédiger vos SMS.', position: 'bottom' },
+    { targetId: 'ai-input', emoji: '💬', title: 'Zone de Saisie', description: 'Décrivez le problème (bruit, fumée...) ou le contexte du message ici. L\'IA fera le reste.', position: 'top' }
   ]
 };
 
@@ -44,6 +66,7 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [coords, setCoords] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0, opacity: 0 });
+  
   const steps = TOUR_DATA[view] || [];
   const tooltipRef = useRef<HTMLDivElement>(null);
 
@@ -53,8 +76,9 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
       if (el) {
         const rect = el.getBoundingClientRect();
         setCoords({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
       } else {
+        console.warn(`Tutorial target not found: ${steps[currentStep].targetId}`);
         setCoords(null);
       }
     }
@@ -64,7 +88,11 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
     updateCoords();
     const handleResize = () => updateCoords();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleResize);
+    };
   }, [currentStep, view]);
 
   useEffect(() => {
@@ -78,7 +106,7 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
     let targetTop = 0;
     let targetLeft = 0;
 
-    // Calcul initial basé sur la position demandée
+    // Calcul de position de base
     switch (step.position) {
       case 'bottom':
         targetTop = coords.y + coords.h + gap;
@@ -96,19 +124,29 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
         targetTop = coords.y + coords.h / 2 - tooltipRect.height / 2;
         targetLeft = coords.x + coords.w + gap;
         break;
-      default:
+      default: // center
         targetTop = window.innerHeight / 2 - tooltipRect.height / 2;
         targetLeft = window.innerWidth / 2 - tooltipRect.width / 2;
     }
 
-    // Sécurité anti-débordement (Collision Detection)
+    // --- Logique Anti-Débordement ---
+
+    // Horizontal
     if (targetLeft < padding) targetLeft = padding;
     if (targetLeft + tooltipRect.width > window.innerWidth - padding) {
       targetLeft = window.innerWidth - tooltipRect.width - padding;
     }
+
+    // Vertical
+    // Si déborde en haut, on le force au min padding (quitte à couvrir l'élément, l'utilisateur peut scroller)
+    // Idéalement on changerait la position (top -> bottom) mais restons simple pour la stabilité.
     if (targetTop < padding) targetTop = padding;
+    
+    // Si déborde en bas
     if (targetTop + tooltipRect.height > window.innerHeight - padding) {
       targetTop = window.innerHeight - tooltipRect.height - padding;
+      // Si après correction bas, ça déborde en haut (écran trop petit), on force le haut à padding
+      if (targetTop < padding) targetTop = padding;
     }
 
     setTooltipPos({ top: targetTop, left: targetLeft, opacity: 1 });
@@ -166,7 +204,7 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
       {/* Floating Tooltip */}
       <div 
         ref={tooltipRef}
-        className="absolute w-80 bg-[#0b1120] border border-slate-700 p-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out pointer-events-auto"
+        className="absolute w-[90vw] max-w-sm bg-[#0b1120] border border-slate-700 p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out pointer-events-auto"
         style={{
           top: tooltipPos.top,
           left: tooltipPos.left,
@@ -174,24 +212,28 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
           transform: tooltipPos.opacity === 0 ? 'scale(0.95)' : 'scale(1)'
         }}
       >
-        {/* Bouton Ignorer intégré directement en haut pour visibilité maximale */}
         <button 
           onClick={onClose}
           className="absolute -top-12 right-0 bg-slate-800/80 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all border border-slate-700/50 shadow-lg"
         >
-          Ignorer le tutoriel
+          Passer
         </button>
 
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-blue-900/20">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-xl shadow-lg shadow-blue-900/20 shrink-0">
             {step.emoji}
           </div>
-          <h3 className="text-lg font-black text-white tracking-tight leading-none">{step.title}</h3>
+          <div>
+             <h3 className="text-lg font-black text-white tracking-tight leading-none">{step.title}</h3>
+             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Étape {currentStep + 1} / {steps.length}</p>
+          </div>
         </div>
         
-        <p className="text-slate-400 text-sm leading-relaxed mb-6 font-medium">
-          {step.description}
-        </p>
+        <div className="max-h-[20vh] overflow-y-auto mb-6 pr-2 scrollbar-hide">
+          <p className="text-slate-400 text-sm leading-relaxed font-medium">
+            {step.description}
+          </p>
+        </div>
         
         <div className="flex items-center justify-between gap-4">
           <div className="flex gap-1">

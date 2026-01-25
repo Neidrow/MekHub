@@ -198,7 +198,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
         
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
           {/* Barre de recherche */}
-          <div className="relative flex-1 sm:w-80">
+          <div id="cust-search" className="relative flex-1 sm:w-80">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input 
               type="text" 
@@ -209,7 +209,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
             />
           </div>
 
-          <button onClick={() => { setEditingCustomer(null); setIsModalOpen(true); }} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-2">
+          <button id="cust-add-btn" onClick={() => { setEditingCustomer(null); setIsModalOpen(true); }} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
             Nouveau Client
           </button>
@@ -217,7 +217,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
       </div>
 
       {/* Liste des clients */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-h-[400px]">
+      <div id="cust-list" className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden min-h-[400px]">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">

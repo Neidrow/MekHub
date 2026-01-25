@@ -137,10 +137,10 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div><h1 className="text-2xl lg:text-4xl font-extrabold text-[#1e293b] dark:text-white">Tableau de bord</h1><p className="text-slate-500 dark:text-slate-400 mt-1">{currentDate}</p></div>
-        <button id="tour-quick-rdv" onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95">Nouveau RDV</button>
+        <button id="dash-quick-add" onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95">Nouveau RDV</button>
       </div>
 
-      <div id="tour-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div id="dash-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
           <div key={i} onClick={() => onNavigate(stat.target)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
             {stat.isCurrency && (<div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10"><svg className="w-20 h-20 text-blue-900 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>)}
@@ -152,7 +152,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div id="tour-today-rdv" className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8">
+        <div id="dash-today-list" className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8">
           <h2 className="text-xl font-black text-[#1e293b] dark:text-white mb-6">RDV du jour</h2>
           <div className="space-y-4">
             {todayAppointments.length === 0 ? (

@@ -338,15 +338,15 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
              <h3 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Parc Automobile</h3>
              <p className="text-slate-500 dark:text-slate-400 font-medium">Gestion technique et historique des véhicules.</p>
            </div>
-           <button onClick={() => { setEditingVehicle(null); setIsModalOpen(true); }} className="w-full lg:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95">
+           <button id="veh-add-btn" onClick={() => { setEditingVehicle(null); setIsModalOpen(true); }} className="w-full lg:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95">
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
              Nouveau Véhicule
            </button>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4">
+        <div id="veh-filters" className="flex flex-col md:flex-row gap-4">
            {/* Recherche */}
-           <div className="relative flex-1">
+           <div id="veh-search" className="relative flex-1">
              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
              <input 
                type="text" 
@@ -372,7 +372,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div id="veh-list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredVehicles.length === 0 ? (
           <div className="col-span-full py-24 bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
             <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-200 dark:text-slate-700 mb-6">

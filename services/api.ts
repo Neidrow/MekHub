@@ -50,27 +50,6 @@ class ApiService {
     await supabase.auth.signOut(); 
   }
 
-  private async cleanupLogs() {
-    try {
-      const { data: recentLogs } = await supabase
-        .from('activity_logs')
-        .select('id')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (!recentLogs || recentLogs.length < 20) return;
-
-      const idsToKeep = recentLogs.map(log => log.id);
-
-      await supabase
-        .from('activity_logs')
-        .delete()
-        .not('id', 'in', `(${idsToKeep.join(',')})`);
-    } catch (e) {
-      console.warn("Cleanup logs failed", e);
-    }
-  }
-
   async logActivity(action_type: ActivityLog['action_type'], target: string, details: string = '') {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -78,6 +57,7 @@ class ApiService {
 
       const simplifiedDetails = details.length > 100 ? details.substring(0, 97) + '...' : details;
 
+      // 1. Insérer le nouveau log
       await supabase.from('activity_logs').insert([{
         user_id: user.id,
         email: user.email,
@@ -86,18 +66,31 @@ class ApiService {
         details: simplifiedDetails
       }]);
 
-      await this.cleanupLogs();
+      // 2. Nettoyage strict : Ne garder que les 5 derniers logs pour CET utilisateur
+      const { data: logsToDelete } = await supabase
+        .from('activity_logs')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .range(5, 1000); // On récupère tout ce qui dépasse le 5ème élément
+
+      if (logsToDelete && logsToDelete.length > 0) {
+        const ids = logsToDelete.map(l => l.id);
+        await supabase.from('activity_logs').delete().in('id', ids);
+      }
+
     } catch (e) {
-      console.warn("Silent failure on logging to preserve UX", e);
+      console.warn("Silent failure on logging", e);
     }
   }
 
   async fetchGlobalActivityLogs(): Promise<ActivityLog[]> {
+    // Augmentation de la limite pour voir les 5 derniers de plusieurs utilisateurs
     const { data, error } = await supabase
       .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(200);
     
     if (error) return [];
     return data as ActivityLog[];
@@ -110,25 +103,20 @@ class ApiService {
   }
 
   async getMaintenanceStatus(): Promise<SystemMaintenance> {
-    const { data, error } = await supabase.from('system_settings').select('value').eq('key', 'maintenance').single();
-    if (error || !data) return { enabled: false, message: '' };
-    return data.value as SystemMaintenance;
+    const { data } = await supabase.from('activity_logs').select('details').eq('target', 'system_maintenance').order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (!data) return { enabled: false, message: '' };
+    try { return JSON.parse(data.details); } catch { return { enabled: false, message: '' }; }
   }
 
   async setMaintenanceStatus(status: SystemMaintenance) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Accès refusé");
-    const { error } = await supabase.from('system_settings').update({ value: status, updated_at: new Date().toISOString(), updated_by: user.id }).eq('key', 'maintenance');
-    if (error) throw error;
-    this.logActivity('update', 'system', `Maintenance ${status.enabled ? 'ON' : 'OFF'}`);
+    await this.logActivity('update', 'system_maintenance', JSON.stringify(status));
   }
 
   async sendGlobalNotification(title: string, message: string, type: 'info' | 'warning' | 'error' | 'success') {
-    const { data: users, error } = await supabase.from('parametres').select('user_id');
-    if (error || !users) return;
+    const { data: users } = await supabase.from('parametres').select('user_id');
+    if (!users) return;
     const notifications = users.map(u => ({ user_id: u.user_id, title, message, type, read: false }));
     await supabase.from('notifications').insert(notifications);
-    this.logActivity('create', 'broadcast', `Notif groupée: ${title}`);
   }
 
   async fetchData<T>(table: string): Promise<T[]> {
@@ -143,7 +131,10 @@ class ApiService {
     const { data, error } = await supabase.from(table).insert([{ ...item, user_id: user.id }]).select();
     if (error) throw error;
     
-    this.logActivity('create', table.replace('_', ''), `ID: ${data[0].id}`);
+    // Log seulement si ce n'est pas un log interne pour éviter la récursion infinie
+    if (table !== 'activity_logs') {
+        this.logActivity('create', table.replace('_', ''), `ID: ${data[0].id}`);
+    }
     
     if (table === 'rendez_vous') {
       const settings = await this.getSettings();
@@ -279,7 +270,11 @@ class ApiService {
   }
 
   async fetchNotifications(): Promise<Notification[]> {
-    const { data } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(20);
+    const { data } = await supabase.from('notifications')
+      .select('*')
+      .neq('title', 'SYSTEM_ACCOUNT_SUSPENDED')
+      .order('created_at', { ascending: false })
+      .limit(20);
     return (data || []) as Notification[];
   }
 
@@ -304,8 +299,31 @@ class ApiService {
     return res;
   }
 
-  async signup(email: string, pass: string, garage: string) {
-    return await supabase.auth.signUp({ email, password: pass, options: { data: { garage_name: garage, role: 'user_basic' } } });
+  async checkSuspensionStatus(userId: string): Promise<boolean> {
+    const { data } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('title', 'SYSTEM_ACCOUNT_SUSPENDED')
+      .maybeSingle();
+    return !!data;
+  }
+
+  async toggleUserSuspension(userId: string, shouldSuspend: boolean) {
+    if (shouldSuspend) {
+      await supabase.from('notifications').insert([{
+        user_id: userId,
+        title: 'SYSTEM_ACCOUNT_SUSPENDED',
+        message: 'Accès restreint par l\'administration.',
+        type: 'error',
+        read: false
+      }]);
+    } else {
+      await supabase.from('notifications')
+        .delete()
+        .eq('user_id', userId)
+        .eq('title', 'SYSTEM_ACCOUNT_SUSPENDED');
+    }
   }
 
   async requestPasswordReset(email: string) {
@@ -319,15 +337,8 @@ class ApiService {
 
   async updatePassword(newPassword: string) { await supabase.auth.updateUser({ password: newPassword, data: { needs_password_change: false } }); }
   
-  async fetchSuspendedEmails(): Promise<string[]> {
-    const { data, error } = await supabase.from('system_settings').select('value').eq('key', 'suspended_users').single();
-    if (error || !data) return [];
-    return data.value as string[];
-  }
-
   async checkStatus(email: string) {
-    const suspended = await this.fetchSuspendedEmails();
-    if (suspended.includes(email)) return 'Suspendu';
+    // Legacy support, now using checkSuspensionStatus via ID in App.tsx
     return 'Actif';
   }
 
@@ -340,32 +351,17 @@ class ApiService {
   }
 
   async fetchInvitations() { 
-    const { data, error } = await supabase.from('garages_accounts').select('*').order('created_at', { ascending: false }); 
+    const { data: accounts, error } = await supabase.from('garages_accounts').select('*').order('created_at', { ascending: false }); 
     if (error) throw error;
-    return data || []; 
-  }
-  
-  async updateInvitationStatus(email: string, isSuspending: boolean) { 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Accès refusé");
     
-    const suspended = await this.fetchSuspendedEmails();
-    let nextList: string[];
-    
-    if (isSuspending) {
-        if (suspended.includes(email)) return;
-        nextList = [...suspended, email];
-    } else {
-        nextList = suspended.filter(e => e !== email);
-    }
+    // On récupère tous les IDs suspendus pour marquer la liste
+    const { data: suspendedNotifs } = await supabase.from('notifications').select('user_id').eq('title', 'SYSTEM_ACCOUNT_SUSPENDED');
+    const suspendedIds = new Set(suspendedNotifs?.map(n => n.user_id) || []);
 
-    const { error } = await supabase
-        .from('system_settings')
-        .update({ value: nextList, updated_at: new Date().toISOString(), updated_by: user.id })
-        .eq('key', 'suspended_users');
-    
-    if (error) throw error;
-    this.logActivity('update', 'system', `Statut ${isSuspending ? 'Suspendu' : 'Actif'}: ${email}`);
+    return (accounts || []).map(acc => ({
+      ...acc,
+      status: suspendedIds.has(acc.id) ? 'Suspendu' : 'Actif'
+    }));
   }
   
   async deleteGarageAccount(email: string) { 
