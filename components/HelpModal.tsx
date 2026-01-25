@@ -150,7 +150,25 @@ const HELP_SECTIONS = [
 ];
 
 const HelpModal: React.FC<HelpModalProps> = ({ onClose, onRestartTutorial, currentViewName }) => {
-  const [openSection, setOpenSection] = useState<string | null>('dashboard');
+  // Mapping de la vue actuelle vers la section d'aide
+  const VIEW_TO_SECTION: Record<string, string> = {
+    'dashboard': 'dashboard',
+    'appointments': 'agenda',
+    'customers': 'clients_vehicules',
+    'vehicles': 'clients_vehicules',
+    'mechanics': 'dashboard',
+    'quotes': 'facturation',
+    'invoices': 'facturation',
+    'inventory': 'stock',
+    'ai-assistant': 'ia',
+    'settings': 'dashboard'
+  };
+
+  const [openSection, setOpenSection] = useState<string | null>(() => {
+    return currentViewName && VIEW_TO_SECTION[currentViewName] 
+      ? VIEW_TO_SECTION[currentViewName] 
+      : 'dashboard';
+  });
 
   const toggleSection = (id: string) => {
     setOpenSection(openSection === id ? null : id);

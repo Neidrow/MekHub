@@ -177,7 +177,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Notes internes</label>
-                <textarea placeholder="Observations particulières..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200 h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+                <textarea placeholder="Observations particulières (ex: Client VIP, Appeler avant 12h...)" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200 h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
               </div>
               <div className="pt-4">
                  <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
@@ -258,7 +258,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
                           <span className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 00-2-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                           </span>
                           <p className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate max-w-[200px]">{c.email}</p>
                         </div>

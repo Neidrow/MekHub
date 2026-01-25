@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Client, Vehicule, RendezVous, Mecanicien, ViewState, Facture } from '../types';
+import { Client, Vehicule, RendezVous, Mecanicien, ViewState, Facture, Notification } from '../types';
 
 interface DashboardProps {
   customers: Client[];
@@ -8,11 +8,13 @@ interface DashboardProps {
   mecaniciens: Mecanicien[];
   appointments: RendezVous[];
   invoices: Facture[];
+  notifications?: Notification[];
+  onMarkAsRead?: (id: string) => void;
   onAddAppointment: (app: Omit<RendezVous, 'id' | 'user_id'>) => void;
   onNavigate: (view: ViewState) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens, appointments, invoices, onAddAppointment, onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens, appointments, invoices, notifications = [], onMarkAsRead, onAddAppointment, onNavigate }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -175,6 +177,32 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
               })
             )}
           </div>
+        </div>
+
+        <div className="xl:col-span-1 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8 flex flex-col max-h-[500px]">
+           <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black text-[#1e293b] dark:text-white">Notifications</h2>
+              <span className="bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">{notifications.filter(n => !n.read).length} Nouvelles</span>
+           </div>
+           
+           <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3">
+              {notifications.length === 0 ? (
+                 <div className="py-10 text-center text-slate-300 dark:text-slate-600 italic font-bold text-sm">Tout est calme</div>
+              ) : (
+                 notifications.map(n => (
+                    <div key={n.id} className={`p-4 rounded-2xl border transition-all ${!n.read ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-70'}`}>
+                       <div className="flex items-start justify-between gap-2">
+                          <h4 className={`text-xs font-black ${!n.read ? 'text-blue-900 dark:text-blue-200' : 'text-slate-600 dark:text-slate-400'}`}>{n.title}</h4>
+                          {!n.read && onMarkAsRead && (
+                             <button onClick={() => onMarkAsRead(n.id)} className="text-[9px] font-bold text-blue-500 hover:underline">Lu</button>
+                          )}
+                       </div>
+                       <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{n.message}</p>
+                       <p className="text-[8px] font-bold text-slate-300 dark:text-slate-500 uppercase mt-2 text-right">{new Date(n.created_at || '').toLocaleDateString()}</p>
+                    </div>
+                 ))
+              )}
+           </div>
         </div>
       </div>
     </div>

@@ -371,17 +371,17 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
               <h3 className="text-xl font-black text-slate-800 dark:text-white">Maintenance Système</h3>
               <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
-                 <span className="font-bold">Accès global</span>
+                 <span className="font-bold text-slate-800 dark:text-white">Accès global</span>
                  <button onClick={handleMaintenanceToggle} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${maintenance.enabled ? 'bg-rose-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>{maintenance.enabled ? 'STOP MAINT.' : 'ACTIVER'}</button>
               </div>
-              <textarea value={maintenance.message} onChange={e => setMaintenance({...maintenance, message: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-32 outline-none font-medium" placeholder="Message aux utilisateurs..." />
+              <textarea value={maintenance.message} onChange={e => setMaintenance({...maintenance, message: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-32 outline-none font-medium text-slate-800 dark:text-white" placeholder="Message aux utilisateurs..." />
               <button onClick={() => api.setMaintenanceStatus(maintenance)} className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest">Sauvegarder le message</button>
            </div>
            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
               <h3 className="text-xl font-black text-slate-800 dark:text-white">Diffusion Globale</h3>
               <form onSubmit={handleBroadcast} className="space-y-4">
-                <input required value={broadcast.title} onChange={e => setBroadcast({...broadcast, title: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl outline-none font-bold" placeholder="Titre" />
-                <textarea required value={broadcast.message} onChange={e => setBroadcast({...broadcast, message: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-32 outline-none font-medium" placeholder="Message..." />
+                <input required value={broadcast.title} onChange={e => setBroadcast({...broadcast, title: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" placeholder="Titre" />
+                <textarea required value={broadcast.message} onChange={e => setBroadcast({...broadcast, message: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-32 outline-none font-medium text-slate-900 dark:text-white" placeholder="Message..." />
                 <button type="submit" disabled={broadcastLoading} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs tracking-widest">Diffuser aux {stats.totalGarages} partenaires</button>
               </form>
            </div>
@@ -423,9 +423,9 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredLogs.map(log => (
                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                          <td className="px-6 py-4 font-bold text-xs">{log.email}</td>
+                          <td className="px-6 py-4 font-bold text-xs text-slate-800 dark:text-white">{log.email}</td>
                           <td className="px-6 py-4"><span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${log.action_type === 'create' ? 'bg-emerald-100 text-emerald-700' : log.action_type === 'delete' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'}`}>{log.action_type}</span></td>
-                          <td className="px-6 py-4 font-bold text-xs uppercase tracking-tighter opacity-60">{log.target}</td>
+                          <td className="px-6 py-4 font-bold text-xs uppercase tracking-tighter opacity-60 text-slate-600 dark:text-slate-400">{log.target}</td>
                           <td className="px-6 py-4 text-right text-[10px] font-medium text-slate-400">{new Date(log.created_at).toLocaleString()}</td>
                        </tr>
                     ))}
