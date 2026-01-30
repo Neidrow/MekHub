@@ -20,6 +20,8 @@ import GoogleCalendarModal from './components/GoogleCalendarModal.tsx';
 import PublicQuoteView from './components/PublicQuoteView.tsx';
 import Tutorial from './components/Tutorial.tsx';
 import HelpModal from './components/HelpModal.tsx';
+import PrivacyPolicy from './components/PrivacyPolicy.tsx';
+import TermsOfService from './components/TermsOfService.tsx';
 
 interface NavItemProps {
   view: ViewState;
@@ -70,6 +72,18 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
 };
 
 const App: React.FC = () => {
+  // ROUTING MANUEL POUR LES PAGES STATIQUES
+  // Ceci doit être fait avant toute logique d'authentification
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  
+  if (path === '/privacy') {
+    return <PrivacyPolicy />;
+  }
+  
+  if (path === '/terms') {
+    return <TermsOfService />;
+  }
+
   const [session, setSession] = useState<any>(null);
   const [maintenance, setMaintenance] = useState<SystemMaintenance>({ enabled: false, message: '' });
   

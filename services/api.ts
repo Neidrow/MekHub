@@ -12,7 +12,9 @@ const inviteClient = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
 });
 
-const GOOGLE_CLIENT_ID = "575548398550-vlghdffigbstdqmfqeq3grbdbleid0j2.apps.googleusercontent.com";
+// --- CONFIGURATION GOOGLE CALENDAR ---
+// Nouveau Client ID (Projet Production ishlem.pro)
+const GOOGLE_CLIENT_ID = "118094673906-ucro4dqaprre8s4h1kjv6d58sog9f8eh.apps.googleusercontent.com";
 
 class ApiService {
   private googleToken: string | null = null;
@@ -22,23 +24,42 @@ class ApiService {
     return new Promise((resolve, reject) => {
       try {
         if (!(window as any).google) {
-          reject(new Error("Le script Google n'est pas chargé."));
+          reject(new Error("Le service Google n'est pas disponible. Vérifiez votre connexion ou bloqueur de pub."));
           return;
         }
-        this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/calendar.events',
-          callback: (response: any) => {
-            if (response.error) reject(new Error(`Erreur Google: ${response.error}`));
-            else {
-              this.googleToken = response.access_token;
-              sessionStorage.setItem('google_access_token', response.access_token);
-              resolve(response.access_token);
-            }
-          },
-        });
+
+        // Initialisation du client si pas encore fait
+        if (!this.tokenClient) {
+          this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            // Scope strict pour gérer les événements
+            scope: 'https://www.googleapis.com/auth/calendar.events',
+            callback: (response: any) => {
+              if (response.error) {
+                console.error("Erreur OAuth Google:", response);
+                // Gestion spécifique de l'erreur "popup_closed_by_user" ou erreurs de configuration
+                if (response.error === 'popup_closed_by_user') {
+                    reject(new Error("La connexion a été annulée."));
+                } else {
+                    reject(new Error(`Accès refusé par Google (${response.error}). Vérifiez que l'app est bien publiée.`));
+                }
+              } else {
+                this.googleToken = response.access_token;
+                sessionStorage.setItem('google_access_token', response.access_token);
+                resolve(response.access_token);
+              }
+            },
+          });
+        }
+
+        // Demande du token avec 'consent' pour forcer le choix du compte si besoin
+        // Cela permet de changer d'utilisateur Google si on s'est trompé
         this.tokenClient.requestAccessToken({ prompt: 'consent' });
-      } catch (err: any) { reject(err); }
+
+      } catch (err: any) { 
+        console.error("Erreur initialisation Google:", err);
+        reject(err); 
+      }
     });
   }
 
@@ -47,6 +68,18 @@ class ApiService {
   async logout() { 
     sessionStorage.removeItem('google_access_token');
     this.googleToken = null;
+    
+    // Révocation du token Google si existant pour sécurité
+    if ((window as any).google && this.googleToken) {
+        try {
+            (window as any).google.accounts.oauth2.revoke(this.googleToken, () => {
+                console.log('Token Google révoqué');
+            });
+        } catch (e) {
+            console.warn("Impossible de révoquer le token Google", e);
+        }
+    }
+
     await supabase.auth.signOut(); 
   }
 
