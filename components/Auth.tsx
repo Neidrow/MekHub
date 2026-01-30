@@ -70,11 +70,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 relative overflow-hidden text-white">
+    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4 relative overflow-hidden text-white">
       <div className="absolute top-0 -left-20 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px]"></div>
       <div className="absolute bottom-0 -right-20 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px]"></div>
 
-      <div className="w-full max-w-md relative animate-in fade-in zoom-in duration-500">
+      <div className="w-full max-w-md relative animate-in fade-in zoom-in duration-500 z-10 mb-8">
         <div className="bg-slate-900/50 backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 lg:p-12 shadow-2xl">
           
           <div className="text-center mb-10">
@@ -150,6 +150,17 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
              </a>
           </div>
         </div>
+      </div>
+
+      {/* --- LEGAL LINKS FOOTER --- */}
+      <div className="flex gap-6 mt-4 z-10">
+        <a href="/privacy" className="text-xs font-bold text-slate-500 hover:text-white transition-colors uppercase tracking-widest opacity-60 hover:opacity-100">
+          Politique de confidentialité
+        </a>
+        <span className="text-slate-700 font-bold">•</span>
+        <a href="/terms" className="text-xs font-bold text-slate-500 hover:text-white transition-colors uppercase tracking-widest opacity-60 hover:opacity-100">
+          Conditions d'utilisation
+        </a>
       </div>
 
       <style>{`
