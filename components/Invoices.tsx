@@ -26,6 +26,9 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  
+  // Nouveau state pour la modification de statut manuelle
+  const [statusUpdateInvoice, setStatusUpdateInvoice] = useState<Facture | null>(null);
 
   const generateRef = () => { const now = new Date(); const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); const timeStr = now.toTimeString().slice(0, 5).replace(/:/g, ''); return `F-${now.getFullYear()}-${dateStr.slice(4)}-${timeStr}`; };
   const [formData, setFormData] = useState({ client_id: '', vehicule_id: '', numero_facture: generateRef(), date_facture: new Date().toISOString().split('T')[0], statut: 'brouillon' as Facture['statut'], acompte: 0, notes: '' });
@@ -78,6 +81,17 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     finally { setLoading(false); }
   };
 
+  const handleChangeStatus = async (newStatus: Facture['statut']) => {
+    if (!statusUpdateInvoice) return;
+    try {
+        await onUpdate(statusUpdateInvoice.id, { statut: newStatus });
+        onNotify('success', 'Statut modifié', `La facture est maintenant "${newStatus.replace('_', ' ')}".`);
+        setStatusUpdateInvoice(null);
+    } catch (e: any) {
+        onNotify('error', 'Erreur', e.message);
+    }
+  };
+
   const createPDFDoc = (f: Facture) => {
     const doc = new jsPDF();
     const client = customers.find(c => c.id === f.client_id);
@@ -124,6 +138,22 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      
+      {/* Modal Changement Statut Manuel */}
+      {statusUpdateInvoice && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setStatusUpdateInvoice(null)}>
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm p-6 shadow-2xl border dark:border-slate-800 animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-black text-slate-800 dark:text-white mb-4 text-center">Modifier le statut</h3>
+                <div className="grid grid-cols-1 gap-2">
+                    <button onClick={() => handleChangeStatus('brouillon')} className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm">Brouillon</button>
+                    <button onClick={() => handleChangeStatus('non_payee')} className="p-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold text-sm">En Attente</button>
+                    <button onClick={() => handleChangeStatus('payee')} className="p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 font-bold text-sm">Payée</button>
+                    <button onClick={() => handleChangeStatus('annule')} className="p-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-400 font-bold text-sm">Annulée</button>
+                </div>
+            </div>
+        </div>
+      )}
+
       {invoiceToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setInvoiceToDelete(null)}>
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
@@ -138,11 +168,11 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
           <div className="bg-white dark:bg-slate-900 rounded-3xl sm:rounded-[2.5rem] w-full max-w-4xl shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50"><h2 className="text-xl font-black">{editingInvoice ? 'Modifier la Facture' : 'Nouvelle Facture'}</h2><button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button></div>
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Client</label><select required className="w-full p-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})}><option value="">Choisir</option>{customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}</select></div>
                 <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Véhicule</label><select required className="w-full p-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold" value={formData.vehicule_id} onChange={e => setFormData({...formData, vehicule_id: e.target.value})}><option value="">Choisir</option>{vehicles.filter(v => v.client_id === formData.client_id).map(v => (<option key={v.id} value={v.id}>{v.marque} {v.modele} - {v.immatriculation}</option>))}</select></div>
                 <div className="space-y-1"><DatePicker label="Date" value={formData.date_facture} onChange={d => setFormData({...formData, date_facture: d})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Statut</label><select className="w-full p-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold" value={formData.statut} onChange={e => setFormData({...formData, statut: e.target.value as any})}><option value="brouillon">Brouillon</option><option value="non_payee">En attente de paiement</option><option value="payee">Payée</option><option value="annule">Annulée</option></select></div>
+                {/* Suppression du champ Statut */}
               </div>
               <div className="space-y-3">
                 <table className="w-full text-left"><thead className="bg-slate-100 dark:bg-slate-700 text-[10px] font-black uppercase"><tr><th className="p-3">Description</th><th className="p-3 text-center">Qté</th><th className="p-3 text-right">P.U. HT</th><th className="p-3 text-right">Total HT</th><th className="p-3"></th></tr></thead><tbody className="divide-y dark:divide-slate-700">{items.map((item, idx) => (<tr key={idx} className="bg-white dark:bg-slate-900"><td className="p-2"><input placeholder="Description..." className="w-full p-2 bg-transparent outline-none text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400" value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} /></td><td className="p-2"><input placeholder="1" type="number" className="w-full p-2 bg-transparent outline-none text-sm font-bold text-center text-slate-900 dark:text-white placeholder:text-slate-400" value={item.quantity} onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)} /></td><td className="p-2"><input placeholder="0.00" type="number" step="0.01" className="w-full p-2 bg-transparent outline-none text-sm font-bold text-right text-slate-900 dark:text-white placeholder:text-slate-400" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value))} /></td><td className="p-2 text-right font-black text-sm">{item.total.toFixed(2)} €</td><td className="p-2 text-center"><button type="button" onClick={() => removeItem(idx)} className="text-rose-400"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button></td></tr>))}</tbody></table>
@@ -187,7 +217,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
                   const client = customers.find(c => c.id === inv.client_id);
                   const delay = calculateDelay(inv.date_facture);
                   const isOverdue = inv.statut === 'non_payee' && delay >= 7;
-                  return (<tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all group"><td className="px-6 py-5 font-bold text-slate-700 dark:text-slate-200">{inv.numero_facture}</td><td className="px-6 py-5 font-bold text-slate-800 dark:text-white">{client ? `${client.nom} ${client.prenom}` : 'Inconnu'}</td><td className="px-6 py-5 text-sm text-slate-500">{inv.date_facture}</td><td className="px-6 py-5 font-black text-slate-900 dark:text-white">{inv.montant_ttc.toFixed(2)} €</td><td className="px-6 py-5"><div className="flex flex-col gap-1"><span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase w-fit ${inv.statut === 'payee' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : inv.statut === 'non_payee' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}>{inv.statut === 'non_payee' ? 'En attente de paiement' : inv.statut}</span>{isOverdue && (<span className="px-2 py-0.5 bg-rose-600 text-white text-[9px] font-black rounded-lg animate-pulse flex items-center gap-1 w-fit shadow-lg shadow-rose-500/20"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>Retard</span>)}</div></td>
+                  return (<tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all group"><td className="px-6 py-5 font-bold text-slate-700 dark:text-slate-200">{inv.numero_facture}</td><td className="px-6 py-5 font-bold text-slate-800 dark:text-white">{client ? `${client.nom} ${client.prenom}` : 'Inconnu'}</td><td className="px-6 py-5 text-sm text-slate-500">{inv.date_facture}</td><td className="px-6 py-5 font-black text-slate-900 dark:text-white">{inv.montant_ttc.toFixed(2)} €</td><td className="px-6 py-5"><div className="flex flex-col gap-1"><button onClick={() => setStatusUpdateInvoice(inv)} className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase w-fit border transition-all active:scale-95 hover:shadow-sm ${inv.statut === 'payee' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : inv.statut === 'non_payee' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}>{inv.statut === 'non_payee' ? 'En attente' : inv.statut.replace('_', ' ')}</button>{isOverdue && (<span className="px-2 py-0.5 bg-rose-600 text-white text-[9px] font-black rounded-lg animate-pulse flex items-center gap-1 w-fit shadow-lg shadow-rose-500/20"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>Retard</span>)}</div></td>
                   <td className="px-6 py-5 text-right">
                     <div className="flex justify-end gap-2">
                         <button onClick={() => handleSendEmail(inv)} className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all" title="Envoyer">

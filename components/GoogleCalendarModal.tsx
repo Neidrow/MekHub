@@ -23,8 +23,8 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
   };
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/80 backdrop-blur-xl p-4 animate-in fade-in duration-500">
-      <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl relative animate-in zoom-in duration-300">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/80 backdrop-blur-xl p-4 animate-in fade-in duration-500 overflow-y-auto">
+      <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl relative animate-in zoom-in duration-300 my-auto">
         {/* Bande décorative Google */}
         <div className="h-2 flex w-full">
           <div className="flex-1 bg-[#4285F4]"></div>
@@ -33,26 +33,25 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
           <div className="flex-1 bg-[#34A853]"></div>
         </div>
 
-        <div className="p-10 lg:p-14 text-center">
-          <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+        <div className="p-8 lg:p-12 text-center">
+          <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
             <svg className="w-10 h-10" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
             </svg>
           </div>
 
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-4">
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-3">
             Synchronisez votre Agenda
           </h2>
-          <p className="text-slate-500 font-medium leading-relaxed mb-10">
+          <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8">
             Retrouvez tous vos rendez-vous clients directement sur votre <span className="font-bold text-slate-900">Google Agenda</span>.
           </p>
 
           <div className="space-y-3">
-            {/* 1. Connecter (Action Principale) */}
             <button 
               onClick={handleConnect}
               disabled={loading}
-              className="w-full py-5 bg-[#4285F4] text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-[#357ae8] transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 text-sm uppercase tracking-widest"
+              className="w-full py-4 bg-[#4285F4] text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-[#357ae8] transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 text-xs uppercase tracking-widest"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -69,26 +68,43 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
               )}
             </button>
             
-            {/* 2. Me rappeler plus tard (Ferme juste le modal) */}
             <button 
               onClick={onRemindLater}
               disabled={loading}
-              className="w-full py-4 bg-slate-50 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all text-xs uppercase tracking-widest border border-slate-100"
+              className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all text-xs uppercase tracking-widest border border-slate-100"
             >
-              Me rappeler plus tard
+              Plus tard
             </button>
 
-            {/* 3. Ne plus demander (Sauvegarde en base) */}
             <div className="pt-2">
                 <button 
                 onClick={handleDismiss}
                 disabled={loading}
                 className="text-[10px] font-bold text-slate-400 hover:text-slate-600 hover:underline transition-colors"
                 >
-                Ne plus me demander (je configurerai plus tard)
+                Ne plus me demander
                 </button>
             </div>
           </div>
+
+          {/* Aide Contextuelle pour l'écran "Non validé" */}
+          <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100/50 text-left relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-2 opacity-10">
+                <svg className="w-16 h-16 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+             </div>
+             <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+               Message "Application non validée" ?
+             </p>
+             <p className="text-[11px] text-amber-800/80 leading-relaxed font-medium relative z-10">
+               C'est normal durant la phase de certification Google. Pour continuer :
+             </p>
+             <ol className="list-decimal pl-4 mt-1.5 space-y-1 text-[10px] text-amber-900 font-bold relative z-10">
+                <li>Cliquez sur le lien <span className="underline">Paramètres avancés</span> (en bas à gauche).</li>
+                <li>Puis sur <span className="underline">Accéder à garage-pro-eight.vercel.app (non sécurisé)</span>.</li>
+             </ol>
+          </div>
+
         </div>
       </div>
     </div>
