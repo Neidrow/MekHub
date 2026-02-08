@@ -22,8 +22,16 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
   const [filterPeriod, setFilterPeriod] = useState<string>('30days');
   
   const [maintenance, setMaintenance] = useState({ enabled: false, message: '' });
-  const [broadcast, setBroadcast] = useState({ title: '', message: '', type: 'info' as 'info' | 'warning' | 'success' });
+  
+  // Notification Broadcast State
+  const [broadcast, setBroadcast] = useState({ 
+    title: '', 
+    message: '', 
+    type: 'info' as 'info' | 'success' | 'error',
+    target: 'all' as string
+  });
   const [broadcastLoading, setBroadcastLoading] = useState(false);
+  
   const [showDeleteModal, setShowDeleteModal] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -165,9 +173,16 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
     e.preventDefault();
     setBroadcastLoading(true);
     try {
-      await api.sendGlobalNotification(broadcast.title, broadcast.message, broadcast.type);
-      setBroadcast({ title: '', message: '', type: 'info' });
-      onNotify('success', 'Diffusion terminée', 'La notification a été envoyée à tous les garages.');
+      // Si target === 'all', on passe 'all', sinon on passe l'ID
+      const targetId = broadcast.target === 'all' ? 'all' : broadcast.target;
+      await api.sendAdminNotification(broadcast.title, broadcast.message, broadcast.type, targetId);
+      
+      const targetName = broadcast.target === 'all' 
+        ? `tous les garages (${stats.totalGarages})` 
+        : invitedUsers.find(u => u.id === broadcast.target)?.garage_name || "le garage";
+
+      setBroadcast({ title: '', message: '', type: 'info', target: 'all' });
+      onNotify('success', 'Diffusion terminée', `Notification envoyée à ${targetName}.`);
     } catch (err: any) { onNotify('error', 'Erreur', err.message); }
     finally { setBroadcastLoading(false); }
   };
@@ -371,6 +386,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
       )}
       {currentTab === 'super-admin-communication' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500">
+           {/* Section Maintenance */}
            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
               <h3 className="text-xl font-black text-slate-800 dark:text-white">Maintenance Système</h3>
               <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
@@ -380,12 +396,46 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
               <textarea value={maintenance.message} onChange={e => setMaintenance({...maintenance, message: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-32 outline-none font-medium text-slate-800 dark:text-white" placeholder="Message aux utilisateurs..." />
               <button onClick={() => api.setMaintenanceStatus(maintenance)} className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black uppercase text-xs tracking-widest">Sauvegarder le message</button>
            </div>
+
+           {/* Section Notification Ciblée */}
            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
-              <h3 className="text-xl font-black text-slate-800 dark:text-white">Diffusion Globale</h3>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white">Envoyer une Notification</h3>
               <form onSubmit={handleBroadcast} className="space-y-4">
-                <input required value={broadcast.title} onChange={e => setBroadcast({...broadcast, title: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" placeholder="Titre" />
-                <textarea required value={broadcast.message} onChange={e => setBroadcast({...broadcast, message: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-32 outline-none font-medium text-slate-900 dark:text-white" placeholder="Message..." />
-                <button type="submit" disabled={broadcastLoading} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs tracking-widest">Diffuser aux {stats.totalGarages} partenaires</button>
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Sélecteur de Type (Couleur) */}
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Type</label>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => setBroadcast({...broadcast, type: 'info'})} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 transition-all ${broadcast.type === 'info' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'border-slate-100 text-slate-400'}`}>Info</button>
+                            <button type="button" onClick={() => setBroadcast({...broadcast, type: 'success'})} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 transition-all ${broadcast.type === 'success' ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'border-slate-100 text-slate-400'}`}>Succès</button>
+                            <button type="button" onClick={() => setBroadcast({...broadcast, type: 'error'})} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 transition-all ${broadcast.type === 'error' ? 'bg-rose-50 border-rose-500 text-rose-600' : 'border-slate-100 text-slate-400'}`}>Alerte</button>
+                        </div>
+                    </div>
+                    
+                    {/* Sélecteur de Cible */}
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Destinataire</label>
+                        <select 
+                            value={broadcast.target} 
+                            onChange={e => setBroadcast({...broadcast, target: e.target.value})} 
+                            className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-sm text-slate-900 dark:text-white"
+                        >
+                            <option value="all">📢 Tous les garages</option>
+                            <optgroup label="Garage spécifique">
+                                {invitedUsers.map(u => (
+                                    <option key={u.id} value={u.id}>{u.garage_name || u.email}</option>
+                                ))}
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
+                <input required value={broadcast.title} onChange={e => setBroadcast({...broadcast, title: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" placeholder="Titre de la notification" />
+                <textarea required value={broadcast.message} onChange={e => setBroadcast({...broadcast, message: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-32 outline-none font-medium text-slate-900 dark:text-white" placeholder="Contenu du message..." />
+                
+                <button type="submit" disabled={broadcastLoading} className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                    {broadcastLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Envoyer la notification"}
+                </button>
               </form>
            </div>
         </div>

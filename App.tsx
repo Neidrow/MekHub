@@ -327,6 +327,27 @@ const App: React.FC = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
+  // Helper pour les couleurs de notifications
+  const getNotifStyles = (type: string, read: boolean) => {
+    if (read) return 'opacity-60 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800';
+    switch (type) {
+      case 'success': return 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30';
+      case 'error': return 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30';
+      case 'warning': return 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30';
+      default: return 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30';
+    }
+  };
+
+  const getNotifTitleColor = (type: string, read: boolean) => {
+    if (read) return 'text-slate-600 dark:text-slate-400';
+    switch (type) {
+      case 'success': return 'text-emerald-800 dark:text-emerald-300';
+      case 'error': return 'text-rose-800 dark:text-rose-300';
+      case 'warning': return 'text-amber-800 dark:text-amber-300';
+      default: return 'text-blue-900 dark:text-blue-200';
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
   const userRole: any = session?.user?.user_metadata?.role || 'user_basic';
 
@@ -447,7 +468,22 @@ const App: React.FC = () => {
                     <button onClick={handleMarkAllNotifsRead} className="text-[10px] font-black text-blue-600 dark:text-blue-400 hover:underline uppercase tracking-tight">Tout lire</button>
                   </div>
                   <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
-                    {notifications.length === 0 ? (<div className="p-10 text-center text-slate-400 italic text-sm">Aucune notification</div>) : (notifications.map(n => (<div key={n.id} className={`p-4 border-b border-slate-50 dark:border-slate-800 last:border-0 transition-all group flex gap-3 ${!n.read ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'opacity-60'}`}><div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.read ? 'bg-blue-500 shadow-sm' : 'bg-transparent'}`}></div><div className="flex-1"><p className="text-xs font-black text-slate-900 dark:text-white">{n.title}</p><p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">{n.message}</p><div className="flex items-center justify-between mt-2"><span className="text-[9px] font-bold text-slate-400 uppercase">{n.created_at ? new Date(n.created_at).toLocaleDateString() : 'Aujourd\'hui'}</span><div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">{!n.read && <button onClick={() => handleMarkNotifRead(n.id)} className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">Lue</button>}<button onClick={() => handleDeleteNotif(n.id)} className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase">Suppr.</button></div></div></div></div>)))}
+                    {notifications.length === 0 ? (<div className="p-10 text-center text-slate-400 italic text-sm">Aucune notification</div>) : (notifications.map(n => (
+                        <div key={n.id} className={`p-4 border-b border-slate-50 dark:border-slate-800 last:border-0 transition-all group flex gap-3 ${getNotifStyles(n.type, n.read)}`}>
+                            <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.read ? (n.type === 'error' ? 'bg-rose-500 shadow-sm shadow-rose-500/50' : n.type === 'success' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-blue-500 shadow-sm') : 'bg-transparent'}`}></div>
+                            <div className="flex-1">
+                                <p className={`text-xs font-black ${getNotifTitleColor(n.type, n.read)}`}>{n.title}</p>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">{n.message}</p>
+                                <div className="flex items-center justify-between mt-2">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase">{n.created_at ? new Date(n.created_at).toLocaleDateString() : 'Aujourd\'hui'}</span>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {!n.read && <button onClick={() => handleMarkNotifRead(n.id)} className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">Lue</button>}
+                                        <button onClick={() => handleDeleteNotif(n.id)} className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase">Suppr.</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )))}
                   </div>
                 </div>
               )}

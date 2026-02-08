@@ -102,18 +102,22 @@ class ApiService {
         details: simplifiedDetails
       }]);
 
-      // 2. Nettoyage strict : Ne garder que les 5 dernières actions pour CET utilisateur
-      // On sélectionne à partir du 6ème élément (index 5) pour suppression
-      const { data: logsToDelete } = await supabase
+      // 2. Nettoyage strict et immédiat
+      // On récupère TOUS les IDs de l'utilisateur triés par date décroissante (le plus récent en premier)
+      const { data: userLogs } = await supabase
         .from('activity_logs')
         .select('id')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .range(5, 1000); 
+        .order('created_at', { ascending: false });
 
-      if (logsToDelete && logsToDelete.length > 0) {
-        const ids = logsToDelete.map(l => l.id);
-        await supabase.from('activity_logs').delete().in('id', ids);
+      // Si on a plus de 5 logs, on supprime tout ce qui dépasse l'index 4 (donc à partir du 6ème élément)
+      if (userLogs && userLogs.length > 5) {
+        const logsToDelete = userLogs.slice(5); // Garde 0,1,2,3,4. Prend 5...fin
+        const idsToDelete = logsToDelete.map(l => l.id);
+        
+        if (idsToDelete.length > 0) {
+            await supabase.from('activity_logs').delete().in('id', idsToDelete);
+        }
       }
 
     } catch (e) {
@@ -149,11 +153,37 @@ class ApiService {
     await this.logActivity('update', 'system_maintenance', JSON.stringify(status));
   }
 
-  async sendGlobalNotification(title: string, message: string, type: 'info' | 'warning' | 'error' | 'success') {
-    const { data: users } = await supabase.from('parametres').select('user_id');
-    if (!users) return;
-    const notifications = users.map(u => ({ user_id: u.user_id, title, message, type, read: false }));
-    await supabase.from('notifications').insert(notifications);
+  async sendAdminNotification(title: string, message: string, type: 'info' | 'warning' | 'error' | 'success', targetUserId: string = 'all') {
+    if (targetUserId && targetUserId !== 'all') {
+        // Envoi ciblé
+        await supabase.from('notifications').insert([{
+            user_id: targetUserId,
+            title,
+            message,
+            type,
+            read: false
+        }]);
+    } else {
+        // Envoi global à tous les comptes enregistrés dans garages_accounts
+        // Utiliser garages_accounts est plus fiable que parametres car tous les utilisateurs n'ont pas forcément sauvegardé leurs paramètres
+        const { data: users } = await supabase.from('garages_accounts').select('id');
+        
+        if (!users || users.length === 0) return;
+        
+        const notifications = users.map(u => ({ 
+            user_id: u.id, // Dans garages_accounts, 'id' correspond au user_id Auth
+            title, 
+            message, 
+            type, 
+            read: false 
+        }));
+        
+        const { error } = await supabase.from('notifications').insert(notifications);
+        if (error) {
+            console.error("Erreur envoi notification globale:", error);
+            throw new Error("Erreur lors de l'envoi : " + error.message);
+        }
+    }
   }
 
   async fetchData<T>(table: string): Promise<T[]> {
