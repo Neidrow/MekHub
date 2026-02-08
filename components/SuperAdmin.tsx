@@ -53,7 +53,8 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
       const filteredPartners = history.filter((u: any) => u.email !== targetEmail);
       
       setInvitedUsers(filteredPartners);
-      setLogs(activityLogs);
+      // On filtre les logs pour ne garder que les actions (pas de navigation) côté affichage aussi par sécurité
+      setLogs(activityLogs.filter(l => l.action_type !== 'navigation'));
       setMaintenance(sysMaint);
       setResetRequests(pwResets);
       setStats({ 
@@ -83,18 +84,22 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
     const labels: Record<string, string> = {
       'dashboard': 'Dashboard', 'appointments': 'RDV', 'customers': 'Clients',
       'vehicles': 'Véhicules', 'mechanics': 'Équipe', 'inventory': 'Stock',
-      'quotes': 'Devis', 'invoices': 'Factures', 'ai-assistant': 'IA Assist', 'settings': 'Params'
+      'quotes': 'Devis', 'invoices': 'Factures', 'ai-assistant': 'IA Assist', 'settings': 'Params', 'system': 'Système'
     };
-    const counts: Record<string, { navigation: number, creation: number }> = {};
+    const counts: Record<string, { actions: number }> = {};
     filteredLogs.forEach(log => {
       const label = labels[log.target] || log.target || 'Autre';
-      if (!counts[label]) counts[label] = { navigation: 0, creation: 0 };
-      if (log.action_type === 'navigation') counts[label].navigation++;
-      else if (['create', 'update', 'delete'].includes(log.action_type)) counts[label].creation++;
+      if (!counts[label]) counts[label] = { actions: 0 };
+      // On compte uniquement les actions (create, update, delete, login)
+      if (['create', 'update', 'delete', 'login'].includes(log.action_type)) {
+          counts[label].actions++;
+      }
     });
-    return Object.entries(counts).map(([name, data]) => ({ 
-      name, Visites: data.navigation, Actions: data.creation, Total: data.navigation + data.creation 
-    })).sort((a, b) => b.Total - a.Total);
+    
+    return Object.entries(counts)
+        .map(([name, data]) => ({ name, Actions: data.actions }))
+        .sort((a, b) => b.Actions - a.Actions)
+        .filter(item => item.Actions > 0); // On ne garde que s'il y a des actions
   }, [filteredLogs]);
 
   const activeUsersRanking = useMemo(() => {
@@ -202,10 +207,10 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center">
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Actions totales</p>
               <h3 className="text-4xl font-black text-slate-900 dark:text-white">{filteredLogs.length}</h3>
-              <p className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">Volume d'activité SaaS</p>
+              <p className="text-[10px] font-bold text-emerald-500 mt-2 uppercase">Créations & Mises à jour</p>
            </div>
            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Dernière activité</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Dernière action</p>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">
                 {filteredLogs[0] ? new Date(filteredLogs[0].created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '--:--'}
               </h3>
@@ -214,7 +219,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
         </div>
 
         <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col">
-           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Top Engagement</p>
+           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Top Actifs (Actions)</p>
            <div className="space-y-4 flex-1">
               {activeUsersRanking.map((user, i) => (
                 <button key={user.email} onClick={() => setFilterUser(user.email)} className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all border ${filterUser === user.email ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800 border-transparent'}`}>
@@ -222,7 +227,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
                     <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white ${i === 0 ? 'bg-amber-500 shadow-lg' : 'bg-slate-400'}`}>{i+1}</span>
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{user.email.split('@')[0]}</span>
                   </div>
-                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 shrink-0">{user.count} pts</span>
+                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 shrink-0">{user.count} acts</span>
                 </button>
               ))}
            </div>
@@ -234,13 +239,13 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
               <div>
                  <h3 className="text-xl font-black text-slate-800 dark:text-white">Détail par module</h3>
-                 <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Analyse des visites vs actions concrètes (création/édition).</p>
+                 <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Analyse des actions concrètes (création, édition, suppression).</p>
               </div>
               {filterUser !== 'all' && <button onClick={() => setFilterUser('all')} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">Réinitialiser</button>}
            </div>
            <div className="h-[350px] w-full">
              {featureAnalysis.length === 0 ? (
-               <div className="h-full flex items-center justify-center text-slate-400 italic">Aucune donnée sur cette période</div>
+               <div className="h-full flex items-center justify-center text-slate-400 italic">Aucune action sur cette période</div>
              ) : (
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={featureAnalysis} margin={{ top: 10, right: 30, left: 0, bottom: 60 }}>
@@ -248,8 +253,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeights: '800', fill: '#94a3b8'}} angle={-35} textAnchor="end" interval={0} />
                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeights: '800', fill: '#94a3b8'}} />
                    <Tooltip cursor={{fill: '#f1f5f9', radius: 10}} contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)', backgroundColor: '#1e293b', color: '#fff', padding: '20px' }} itemStyle={{ fontWeight: '900', fontSize: '13px' }} labelStyle={{ marginBottom: '10px', opacity: 0.5, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px' }} />
-                   <Bar dataKey="Visites" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} barSize={40} />
-                   <Bar dataKey="Actions" stackId="a" fill="#8b5cf6" radius={[10, 10, 0, 0]} barSize={40} />
+                   <Bar dataKey="Actions" fill="#8b5cf6" radius={[10, 10, 0, 0]} barSize={40} />
                  </BarChart>
                </ResponsiveContainer>
              )}
@@ -263,11 +267,10 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
                 <div key={f.name} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">{f.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{f.Visites} visites • {f.Actions} actions</p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{f.Actions} actions</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-black text-blue-600 dark:text-blue-400">{f.Total}</p>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Points</p>
+                    <p className="text-lg font-black text-blue-600 dark:text-blue-400">{f.Actions}</p>
                   </div>
                 </div>
               ))}
@@ -392,7 +395,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
               <div>
                   <h3 className="text-xl font-black text-slate-800 dark:text-white">Journal d'Audit de Sécurité</h3>
-                  <span className="text-[10px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">Dernières activités</span>
+                  <span className="text-[10px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">Dernières actions (Max 10/user)</span>
               </div>
               <div className="flex gap-2">
                   <div className="relative">
@@ -429,7 +432,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
                           <td className="px-6 py-4 text-right text-[10px] font-medium text-slate-400">{new Date(log.created_at).toLocaleString()}</td>
                        </tr>
                     ))}
-                    {filteredLogs.length === 0 && <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-bold italic">Aucun log récent pour cette sélection.</td></tr>}
+                    {filteredLogs.length === 0 && <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-bold italic">Aucune action enregistrée pour cette sélection.</td></tr>}
                  </tbody>
               </table>
            </div>

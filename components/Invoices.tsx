@@ -124,11 +124,25 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
       const longUrl = await api.uploadDocument(`facture_${f.numero_facture}.pdf`, pdfBlob);
       const shortUrl = await api.shortenUrl(longUrl);
       const garageName = settings?.nom || 'Votre Garage';
-      const subject = encodeURIComponent(`${isRelance ? '[IMPORTANT] Relance de paiement : ' : ''}Facture ${f.numero_facture} - ${garageName}`);
-      const body = encodeURIComponent(isRelance ? `Bonjour ${client.prenom} ${client.nom}, Sauf erreur ou omission de notre part, nous n'avons pas encore enregistré le règlement de votre facture n° ${f.numero_facture}...` : `Bonjour ${client.prenom} ${client.nom}, Veuillez trouver ci-joint votre facture n° ${f.numero_facture}...`);
+      
+      const resteAPayer = (f.montant_ttc - (f.acompte || 0)).toFixed(2);
+      const dateFacture = new Date(f.date_facture).toLocaleDateString('fr-FR');
+
+      // Sujets et Corps de message améliorés
+      const subject = isRelance 
+        ? encodeURIComponent(`Relance : Votre facture ${f.numero_facture} - ${garageName}`)
+        : encodeURIComponent(`Votre facture ${f.numero_facture} - ${garageName}`);
+
+      const bodyContent = isRelance
+        ? `Bonjour ${client.prenom} ${client.nom},\n\nJ'espère que vous allez bien.\n\nJe me permets de vous solliciter concernant le règlement de la facture n° ${f.numero_facture} du ${dateFacture}, d'un montant restant de ${resteAPayer} €.\n\nSauf erreur de notre part, ce règlement ne nous est pas encore parvenu.\n\nVous trouverez la facture en pièce jointe via le lien ci-dessous.\n\nMerci de procéder à la régularisation dès que possible.\n\nSi le paiement a déjà été effectué, veuillez ne pas tenir compte de ce message.\n\nCordialement,\n\n${garageName}`
+        : `Bonjour ${client.prenom} ${client.nom},\n\nVeuillez trouver ci-joint votre facture n° ${f.numero_facture} du ${dateFacture}.\n\nLe montant total est de ${f.montant_ttc.toFixed(2)} €.\n\nNous vous remercions de votre confiance.\n\nCordialement,\n\n${garageName}`;
+
+      const body = encodeURIComponent(bodyContent);
+      
       window.location.href = `mailto:${client.email}?subject=${subject}&body=${body}`;
+      
       if (!isRelance) await onUpdate(f.id, { statut: 'non_payee' });
-      onNotify("success", "Email prêt", isRelance ? "Relance préparée." : "Facture envoyée.");
+      onNotify("success", "Email prêt", isRelance ? "Relance préparée dans votre messagerie." : "Facture préparée dans votre messagerie.");
     } catch (err: any) { onNotify("error", "Erreur d'envoi", err.message); }
     finally { setSendingEmail(null); }
   };
@@ -220,12 +234,16 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
                   return (<tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all group"><td className="px-6 py-5 font-bold text-slate-700 dark:text-slate-200">{inv.numero_facture}</td><td className="px-6 py-5 font-bold text-slate-800 dark:text-white">{client ? `${client.nom} ${client.prenom}` : 'Inconnu'}</td><td className="px-6 py-5 text-sm text-slate-500">{inv.date_facture}</td><td className="px-6 py-5 font-black text-slate-900 dark:text-white">{inv.montant_ttc.toFixed(2)} €</td><td className="px-6 py-5"><div className="flex flex-col gap-1"><button onClick={() => setStatusUpdateInvoice(inv)} className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase w-fit border transition-all active:scale-95 hover:shadow-sm ${inv.statut === 'payee' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : inv.statut === 'non_payee' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}>{inv.statut === 'non_payee' ? 'En attente' : inv.statut.replace('_', ' ')}</button>{isOverdue && (<span className="px-2 py-0.5 bg-rose-600 text-white text-[9px] font-black rounded-lg animate-pulse flex items-center gap-1 w-fit shadow-lg shadow-rose-500/20"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>Retard</span>)}</div></td>
                   <td className="px-6 py-5 text-right">
                     <div className="flex justify-end gap-2">
-                        <button onClick={() => handleSendEmail(inv)} className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all" title="Envoyer">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 00-2-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                        </button>
-                        <button onClick={() => handleSendEmail(inv, true)} className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all" title="Relance">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </button>
+                        {inv.statut === 'brouillon' && (
+                          <button onClick={() => handleSendEmail(inv)} className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all" title="Envoyer">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 00-2-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                          </button>
+                        )}
+                        {inv.statut === 'non_payee' && (
+                          <button onClick={() => handleSendEmail(inv, true)} className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all" title="Relance">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          </button>
+                        )}
                         <button onClick={() => handleDownloadPDF(inv)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="PDF">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         </button>

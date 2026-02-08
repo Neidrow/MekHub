@@ -85,12 +85,15 @@ class ApiService {
 
   async logActivity(action_type: ActivityLog['action_type'], target: string, details: string = '') {
     try {
+      // Optimisation : On ne log pas la navigation pour économiser la BDD
+      if (action_type === 'navigation') return;
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const simplifiedDetails = details.length > 100 ? details.substring(0, 97) + '...' : details;
 
-      // 1. Insérer le nouveau log
+      // 1. Insérer le nouveau log (Action uniquement)
       await supabase.from('activity_logs').insert([{
         user_id: user.id,
         email: user.email,
@@ -99,13 +102,14 @@ class ApiService {
         details: simplifiedDetails
       }]);
 
-      // 2. Nettoyage strict : Ne garder que les 5 derniers logs pour CET utilisateur
+      // 2. Nettoyage strict : Ne garder que les 10 dernières actions pour CET utilisateur
+      // On sélectionne à partir du 11ème élément (index 10) pour suppression
       const { data: logsToDelete } = await supabase
         .from('activity_logs')
         .select('id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .range(5, 1000); // On récupère tout ce qui dépasse le 5ème élément
+        .range(10, 1000); 
 
       if (logsToDelete && logsToDelete.length > 0) {
         const ids = logsToDelete.map(l => l.id);
@@ -118,7 +122,7 @@ class ApiService {
   }
 
   async fetchGlobalActivityLogs(): Promise<ActivityLog[]> {
-    // Augmentation de la limite pour voir les 5 derniers de plusieurs utilisateurs
+    // On récupère une liste globale pour l'admin, triée par date
     const { data, error } = await supabase
       .from('activity_logs')
       .select('*')

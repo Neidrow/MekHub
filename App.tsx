@@ -11,6 +11,7 @@ import Vehicles from './components/Vehicles.tsx';
 import Quotes from './components/Quotes.tsx';
 import Invoices from './components/Invoices.tsx';
 import Inventory from './components/Inventory.tsx';
+import Statistics from './components/Statistics.tsx';
 import AIAssistant from './components/AIAssistant.tsx';
 import Settings from './components/Settings.tsx';
 import Mechanics from './components/Mechanics.tsx';
@@ -73,7 +74,6 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
 
 const App: React.FC = () => {
   // ROUTING MANUEL POUR LES PAGES STATIQUES
-  // Ceci doit être fait avant toute logique d'authentification
   const path = typeof window !== 'undefined' ? window.location.pathname : '';
   
   if (path === '/privacy') {
@@ -374,6 +374,7 @@ const App: React.FC = () => {
       case 'quotes': return <Quotes devis={devis} customers={clients} vehicles={vehicules} settings={settings} userRole={userRole} invoices={factures} onAdd={async (d) => { const r = await api.postData<Devis>('devis', d); setDevis([r, ...devis]); return r; }} onUpdate={async (id, up) => { await api.updateData('devis', id, up); setDevis(devis.map(d => d.id === id ? { ...d, ...up } : d)); }} onDelete={async (id) => { await api.deleteData('devis', id); setDevis(devis.filter(d => d.id !== id)); }} onAddInvoice={async (f) => { const r = await api.postData<Facture>('factures', f); setFactures([r, ...factures]); }} onNavigate={handleNavigate} onNotify={handleNotify} />;
       case 'invoices': return <Invoices invoices={factures} customers={clients} vehicles={vehicules} settings={settings} onAdd={async (f) => { const r = await api.postData<Facture>('factures', f); setFactures([r, ...factures]); }} onUpdate={async (id, up) => { await api.updateData('factures', id, up); setFactures(factures.map(f => f.id === id ? { ...f, ...up } : f)); }} onDelete={async (id) => { await api.deleteData('factures', id); setFactures(factures.filter(f => f.id !== id)); }} onNotify={handleNotify} />;
       case 'inventory': return <Inventory inventory={stock} userRole={userRole} onAddItem={async (i) => { const r = await api.postData<StockItem>('stock', i); setStock([r, ...stock]); return r; }} onUpdateItem={async (id, up) => { await api.updateData('stock', id, up); setStock(stock.map(s => s.id === id ? { ...s, ...up } : s)); }} onDeleteItem={async (id) => { await api.deleteData('stock', id); setStock(stock.filter(s => s.id !== id)); }} />;
+      case 'statistics': return <Statistics invoices={factures} appointments={rendezVous} customers={clients} />;
       case 'ai-assistant': return <AIAssistant userId={session.user.id} userRole={userRole} />;
       case 'settings': return <Settings initialSettings={settings} onSave={async (s) => { const r = await api.saveSettings(s); setSettings(r); }} onRefresh={async () => { const r = await api.getSettings(); setSettings(r); }} />;
       case 'super-admin-overview': case 'super-admin-garages': case 'super-admin-logs': case 'super-admin-communication': return <SuperAdmin currentTab={currentView} onNotify={handleNotify} />;
@@ -400,6 +401,7 @@ const App: React.FC = () => {
             <NavItem view="quotes" label="Devis" icon={ICONS.Quotes} currentView={currentView} onClick={handleNavigate} />
             <NavItem view="invoices" label="Factures" icon={ICONS.Invoices} currentView={currentView} onClick={handleNavigate} />
             <NavItem view="inventory" label="Stock" icon={ICONS.Inventory} isPremium={true} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="statistics" label="Statistiques" icon={ICONS.Stats} currentView={currentView} onClick={handleNavigate} />
             <NavItem view="ai-assistant" label="Assistant IA" icon={ICONS.AI} color="indigo" isPremium={true} currentView={currentView} onClick={handleNavigate} />
             {userRole === 'super_admin' && (
               <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-800 space-y-1.5">

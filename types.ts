@@ -207,6 +207,7 @@ export type ViewState =
   | 'quotes' 
   | 'invoices' 
   | 'inventory' 
+  | 'statistics'
   | 'ai-assistant' 
   | 'settings' 
   | 'super-admin-overview'  // Admin Home
