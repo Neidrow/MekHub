@@ -102,14 +102,14 @@ class ApiService {
         details: simplifiedDetails
       }]);
 
-      // 2. Nettoyage strict : Ne garder que les 10 dernières actions pour CET utilisateur
-      // On sélectionne à partir du 11ème élément (index 10) pour suppression
+      // 2. Nettoyage strict : Ne garder que les 5 dernières actions pour CET utilisateur
+      // On sélectionne à partir du 6ème élément (index 5) pour suppression
       const { data: logsToDelete } = await supabase
         .from('activity_logs')
         .select('id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .range(10, 1000); 
+        .range(5, 1000); 
 
       if (logsToDelete && logsToDelete.length > 0) {
         const ids = logsToDelete.map(l => l.id);
