@@ -61,7 +61,7 @@ const TermsOfService: React.FC = () => {
           <section>
             <h2 className="text-xl font-black text-slate-900 dark:text-white mb-4">7. Contact</h2>
             <p className="text-sm leading-relaxed">
-              Pour toute question concernant ces conditions, veuillez nous contacter à : <strong>contact.ishlempro@gmail.com</strong>
+              Pour toute question concernant ces conditions, veuillez nous contacter à : <strong>ishlem.pro@gmail.com</strong>
             </p>
           </section>
 

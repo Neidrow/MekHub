@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 
 const PrivacyPolicy: React.FC = () => {
   return (
@@ -61,7 +61,7 @@ const PrivacyPolicy: React.FC = () => {
             <h2 className="text-xl font-black text-slate-900 dark:text-white mb-4">5. Contact</h2>
             <p className="text-sm leading-relaxed">
               Pour toute question concernant cette politique ou pour exercer vos droits (accès, rectification, suppression), veuillez nous contacter à : <br/>
-              <strong>Email :</strong> contact.ishlempro@gmail.com
+              <strong>Email :</strong> ishlem.pro@gmail.com
             </p>
           </section>
 

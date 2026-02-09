@@ -282,7 +282,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose, onRestartTutorial, curre
 
         {/* Footer */}
         <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-center shrink-0">
-          <p className="text-xs font-bold text-slate-400 dark:text-slate-500">Besoin d'une assistance technique ? <a href="mailto:support@garagepro.saas" className="text-blue-600 dark:text-blue-400 hover:underline">Contactez le support</a></p>
+          <p className="text-xs font-bold text-slate-400 dark:text-slate-500">Besoin d'une assistance technique ? <a href="mailto:ishlem.pro@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">Contactez le support</a></p>
         </div>
       </div>
     </div>

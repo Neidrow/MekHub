@@ -145,8 +145,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
              <p className="text-slate-400 text-xs leading-relaxed px-4">
                 L'accès à la plateforme est réservé aux professionnels habilités. Pour obtenir vos accès, veuillez contacter l'administration :
              </p>
-             <a href="mailto:contact.ishlempro@gmail.com" className="inline-block px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-blue-400 font-black text-xs uppercase tracking-widest transition-all">
-                contact.ishlempro@gmail.com
+             <a href="mailto:ishlem.pro@gmail.com" className="inline-block px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-blue-400 font-black text-xs uppercase tracking-widest transition-all">
+                ishlem.pro@gmail.com
              </a>
           </div>
         </div>

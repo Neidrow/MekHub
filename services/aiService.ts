@@ -5,17 +5,17 @@ import { UserRole } from '../types';
 import { api } from './api';
 
 // LIMITES
-const BASIC_HOURLY_LIMIT = 10;
-const PREMIUM_HOURLY_LIMIT = 100;
+const BASIC_DAILY_LIMIT = 10;
+const PREMIUM_DAILY_LIMIT = 100;
 const MAX_WORDS = 1200;
 
 // -- Logic for usage quotas --
 const checkUsage = async (userId: string, role: UserRole) => {
     const currentCount = await api.getAiUsageCount(userId);
-    const limit = (role === 'user_premium' || role === 'super_admin') ? PREMIUM_HOURLY_LIMIT : BASIC_HOURLY_LIMIT;
+    const limit = (role === 'user_premium' || role === 'super_admin') ? PREMIUM_DAILY_LIMIT : BASIC_DAILY_LIMIT;
     
     if (currentCount >= limit) {
-        throw new Error(`⚠️ Quota atteint (${currentCount}/${limit} par heure). Passez en Premium pour plus de diagnostics.`);
+        throw new Error(`⚠️ Quota atteint (${currentCount}/${limit} par jour). Passez en Premium pour plus de diagnostics.`);
     }
 
     return currentCount;

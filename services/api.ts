@@ -353,8 +353,9 @@ class ApiService {
   }
 
   async getAiUsageCount(userId: string): Promise<number> {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { count } = await supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', userId).gt('created_at', oneHourAgo);
+    // Vérification sur les dernières 24 heures (journalier)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', userId).gt('created_at', oneDayAgo);
     return count || 0;
   }
 
