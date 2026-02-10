@@ -33,7 +33,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
 
   const generateRef = () => { const now = new Date(); const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); const timeStr = now.toTimeString().slice(0, 5).replace(/:/g, ''); return `F-${now.getFullYear()}-${dateStr.slice(4)}-${timeStr}`; };
   const [formData, setFormData] = useState({ client_id: '', vehicule_id: '', numero_facture: generateRef(), date_facture: new Date().toISOString().split('T')[0], statut: 'brouillon' as Facture['statut'], acompte: 0, notes: '' });
-  const [items, setItems] = useState<InvoiceItem[]>([{ description: 'Forfait Révision', quantity: 1, unitPrice: 80, total: 80 }]);
+  const [items, setItems] = useState<InvoiceItem[]>([{ description: t('invoices.default_item'), quantity: 1, unitPrice: 80, total: 80 }]);
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
@@ -75,7 +75,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     try {
       const payload = { ...formData, vehicule_id: formData.vehicule_id, items, montant_ht: totals.ht, tva: totals.tva, montant_ttc: totals.ttc, montant_paye: totals.ttc - totals.rest };
       if (editingInvoice) { await onUpdate(editingInvoice.id, payload); onNotify("success", t('settings.save_success'), t('settings.save_success')); }
-      else { await onAdd(payload); onNotify("success", t('quotes.form_save'), t('settings.save_success')); }
+      else { await onAdd(payload); onNotify("success", t('common.save'), t('settings.save_success')); }
       setIsModalOpen(false);
       setEditingInvoice(null);
     } catch (err: any) { onNotify("error", t('common.error'), err.message); }
@@ -86,7 +86,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
     if (!statusUpdateInvoice) return;
     try {
         await onUpdate(statusUpdateInvoice.id, { statut: newStatus });
-        onNotify('success', t('settings.save_success'), `Facture -> ${newStatus.replace('_', ' ')}.`);
+        onNotify('success', t('settings.save_success'), `Facture -> ${getStatusLabel(newStatus)}.`);
         setStatusUpdateInvoice(null);
     } catch (e: any) {
         onNotify('error', t('common.error'), e.message);
@@ -117,7 +117,7 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
 
   const handleSendEmail = async (f: Facture, isRelance = false) => {
     const client = customers.find(c => c.id === f.client_id);
-    if (!client || !client.email) { onNotify("error", "Email manquant", "Le client n'a pas d'adresse email."); return; }
+    if (!client || !client.email) { onNotify("error", t('common.error'), "Email manquant."); return; }
     setSendingEmail(f.id);
     try {
       const doc = createPDFDoc(f);
@@ -132,19 +132,19 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
         : encodeURIComponent(`Votre facture ${f.numero_facture} - ${garageName}`);
 
       const bodyContent = isRelance
-        ? `Bonjour ${client.prenom} ${client.nom},\n\nJ'espère que vous allez bien.\n\nJe me permets de vous solliciter concernant le règlement de la facture n° ${f.numero_facture} du ${dateFacture}, d'un montant restant de ${resteAPayer} €.\n\nSauf erreur de notre part, ce règlement ne nous est pas encore parvenu.\n\nVous trouverez la facture en pièce jointe via le lien ci-dessous.\n\n${longUrl}\n\nMerci de procéder à la régularisation dès que possible.\n\nCordialement,\n\n${garageName}`
-        : `Bonjour ${client.prenom} ${client.nom},\n\nVeuillez trouver ci-joint votre facture n° ${f.numero_facture} du ${dateFacture}.\n\nLe montant total est de ${f.montant_ttc.toFixed(2)} €.\n\nLien de téléchargement : ${longUrl}\n\nCordialement,\n\n${garageName}`;
+        ? `Bonjour ${client.prenom} ${client.nom},\n\nJ'espère que vous allez bien.\n\nJe me permets de vous solliciter concernant le règlement de la facture n° ${f.numero_facture} du ${dateFacture}, d'un montant restant de ${resteAPayer} €.\n\nSauf erreur de notre part, ce règlement ne nous est pas encore parvenu.\n\n📄 TÉLÉCHARGER VOTRE FACTURE :\n${longUrl}\n\nMerci de procéder à la régularisation dès que possible.\n\nCordialement,\n\n${garageName}`
+        : `Bonjour ${client.prenom} ${client.nom},\n\nVeuillez trouver ci-joint votre facture n° ${f.numero_facture} du ${dateFacture}.\n\nLe montant total est de ${f.montant_ttc.toFixed(2)} €.\n\n📄 TÉLÉCHARGER VOTRE FACTURE :\n${longUrl}\n\nCordialement,\n\n${garageName}`;
 
       const body = encodeURIComponent(bodyContent);
       window.location.href = `mailto:${client.email}?subject=${subject}&body=${body}`;
       
       if (!isRelance) await onUpdate(f.id, { statut: 'non_payee' });
-      onNotify("success", "Email prêt", isRelance ? "Relance préparée." : "Facture préparée.");
+      onNotify("success", "Email", isRelance ? "Relance préparée." : "Facture préparée.");
     } catch (err: any) { onNotify("error", t('common.error'), err.message); }
     finally { setSendingEmail(null); }
   };
 
-  const confirmDelete = async () => { if (!invoiceToDelete) return; setDeleteLoading(true); try { await onDelete(invoiceToDelete.id); setInvoiceToDelete(null); onNotify("success", t('settings.save_success'), "Facture supprimée."); } catch (error) { onNotify("error", t('common.error'), "Impossible de supprimer."); } finally { setDeleteLoading(false); } };
+  const confirmDelete = async () => { if (!invoiceToDelete) return; setDeleteLoading(true); try { await onDelete(invoiceToDelete.id); setInvoiceToDelete(null); onNotify("success", t('settings.save_success'), "Facture supprimée."); } catch (error) { onNotify("error", t('common.error'), t('common.error_delete')); } finally { setDeleteLoading(false); } };
   const calculateDelay = (dateStr: string) => { const today = new Date(); today.setHours(0, 0, 0, 0); const invDate = new Date(dateStr); invDate.setHours(0, 0, 0, 0); const diffTime = today.getTime() - invDate.getTime(); return Math.floor(diffTime / (1000 * 60 * 60 * 24)); };
 
   const getStatusLabel = (s: Facture['statut']) => {
@@ -195,8 +195,8 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, customers, vehicles, sett
                 <div className="space-y-1"><DatePicker label={t('common.date')} value={formData.date_facture} onChange={d => setFormData({...formData, date_facture: d})} /></div>
               </div>
               <div className="space-y-3">
-                <table className="w-full text-left"><thead className="bg-slate-100 dark:bg-slate-700 text-[10px] font-black uppercase"><tr><th className="p-3">{t('common.description')}</th><th className="p-3 text-center">Qté</th><th className="p-3 text-right">P.U. HT</th><th className="p-3 text-right">{t('quotes.total_ht')}</th><th className="p-3"></th></tr></thead><tbody className="divide-y dark:divide-slate-700">{items.map((item, idx) => (<tr key={idx} className="bg-white dark:bg-slate-900"><td className="p-2"><input placeholder="..." className="w-full p-2 bg-transparent outline-none text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400" value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} /></td><td className="p-2"><input placeholder="1" type="number" className="w-full p-2 bg-transparent outline-none text-sm font-bold text-center text-slate-900 dark:text-white placeholder:text-slate-400" value={item.quantity} onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)} /></td><td className="p-2"><input placeholder="0.00" type="number" step="0.01" className="w-full p-2 bg-transparent outline-none text-sm font-bold text-right text-slate-900 dark:text-white placeholder:text-slate-400" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value))} /></td><td className="p-2 text-right font-black text-sm">{item.total.toFixed(2)} €</td><td className="p-2 text-center"><button type="button" onClick={() => removeItem(idx)} className="text-rose-400"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button></td></tr>))}</tbody></table>
-                <button type="button" onClick={addItem} className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-emerald-600 font-bold text-xs uppercase tracking-widest border-t dark:border-slate-700">+ Ajouter une ligne</button>
+                <table className="w-full text-left"><thead className="bg-slate-100 dark:bg-slate-700 text-[10px] font-black uppercase"><tr><th className="p-3">{t('common.description')}</th><th className="p-3 text-center">{t('common.quantity')}</th><th className="p-3 text-right">{t('common.price_unit')}</th><th className="p-3 text-right">{t('quotes.total_ht')}</th><th className="p-3"></th></tr></thead><tbody className="divide-y dark:divide-slate-700">{items.map((item, idx) => (<tr key={idx} className="bg-white dark:bg-slate-900"><td className="p-2"><input placeholder="..." className="w-full p-2 bg-transparent outline-none text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400" value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} /></td><td className="p-2"><input placeholder="1" type="number" className="w-full p-2 bg-transparent outline-none text-sm font-bold text-center text-slate-900 dark:text-white placeholder:text-slate-400" value={item.quantity} onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)} /></td><td className="p-2"><input placeholder="0.00" type="number" step="0.01" className="w-full p-2 bg-transparent outline-none text-sm font-bold text-right text-slate-900 dark:text-white placeholder:text-slate-400" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value))} /></td><td className="p-2 text-right font-black text-sm">{item.total.toFixed(2)} €</td><td className="p-2 text-center"><button type="button" onClick={() => removeItem(idx)} className="text-rose-400"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button></td></tr>))}</tbody></table>
+                <button type="button" onClick={addItem} className="w-full py-3 bg-slate-50 dark:bg-slate-800 text-emerald-600 font-bold text-xs uppercase tracking-widest border-t dark:border-slate-700">{t('invoices.add_line')}</button>
               </div>
               <div className="flex flex-col md:flex-row gap-8">
                 <div className="flex-1 space-y-4"><div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">{t('common.notes')}</label><textarea placeholder="..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl h-20 text-slate-900 dark:text-white" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} /></div><div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">{t('invoices.form_deposit')}</label><input placeholder="0.00" type="number" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-bold" value={formData.acompte} onChange={e => setFormData({...formData, acompte: parseFloat(e.target.value) || 0})} /></div></div>

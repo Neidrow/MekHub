@@ -123,12 +123,11 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!newRDV.mecanicien_id) { setError('Veuillez affecter un mécanicien.'); return; }
+    if (!newRDV.mecanicien_id) { setError(t('appointments.error_mechanic')); return; }
 
     const isAvailable = checkMechanicAvailability(newRDV.mecanicien_id, newRDV.date, newRDV.heure, newRDV.duree);
     if (!isAvailable) {
-        const mech = mecaniciens.find(m => m.id === newRDV.mecanicien_id);
-        setError(`Le mécanicien ${mech?.prenom} n'est pas disponible sur ce créneau.`);
+        setError(t('appointments.error_conflict'));
         return;
     }
 
@@ -137,13 +136,16 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
       await onAddAppointment(newRDV);
       setIsModalOpen(false);
       setNewRDV({ client_id: '', vehicule_id: '', mecanicien_id: '', type_intervention: '', date: todayStr, heure: '09:00', duree: '1h', description: '', notes: '', statut: 'en_attente' });
-    } catch (err: any) { setError(err?.message || "Erreur lors de l'enregistrement."); }
+    } catch (err: any) { setError(t('common.error_save')); }
     finally { setLoading(false); }
   };
 
-  const statusLabels: Record<string, string> = language === 'fr' 
-    ? { 'en_attente': 'Planifié', 'en_cours': 'En cours', 'termine': 'Terminé', 'annule': 'Annulé' }
-    : { 'en_attente': 'Scheduled', 'en_cours': 'In Progress', 'termine': 'Completed', 'annule': 'Cancelled' };
+  const statusLabels: Record<string, string> = {
+    'en_attente': t('appointments.status_pending'),
+    'en_cours': t('appointments.status_progress'),
+    'termine': t('appointments.status_done'),
+    'annule': t('appointments.status_cancelled')
+  };
 
   // Helper pour le style de la liste (similaire à Appointments.tsx mais plus compact pour le dashboard)
   const getCompactStatusStyle = (status: RendezVous['statut']) => {
@@ -177,22 +179,22 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             </div>
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto scrollbar-hide">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.customers')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.client_id} onChange={e => setNewRDV({...newRDV, client_id: e.target.value, vehicule_id: ''})}><option value="">Select</option>{customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}</select></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.vehicles')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.vehicule_id} onChange={e => setNewRDV({...newRDV, vehicule_id: e.target.value})}><option value="">Select</option>{vehicles.filter(v => v.client_id === newRDV.client_id).map(v => (<option key={v.id} value={v.id}>{v.immatriculation} - {v.marque} {v.modele}</option>))}</select></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.customers')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.client_id} onChange={e => setNewRDV({...newRDV, client_id: e.target.value, vehicule_id: ''})}><option value="">{t('common.select')}</option>{customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}</select></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.vehicles')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.vehicule_id} onChange={e => setNewRDV({...newRDV, vehicule_id: e.target.value})}><option value="">{t('common.select')}</option>{vehicles.filter(v => v.client_id === newRDV.client_id).map(v => (<option key={v.id} value={v.id}>{v.immatriculation} - {v.marque} {v.modele}</option>))}</select></div>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Type</label><input required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.type_intervention} onChange={e => setNewRDV({...newRDV, type_intervention: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.mechanics')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.mecanicien_id} onChange={e => setNewRDV({...newRDV, mecanicien_id: e.target.value})}><option value="">Select</option>{mecaniciens.map(m => <option key={m.id} value={m.id}>{m.prenom} {m.nom}</option>)}</select></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('appointments.type')}</label><input required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.type_intervention} onChange={e => setNewRDV({...newRDV, type_intervention: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.mechanics')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.mecanicien_id} onChange={e => setNewRDV({...newRDV, mecanicien_id: e.target.value})}><option value="">{t('common.select')}</option>{mecaniciens.map(m => <option key={m.id} value={m.id}>{m.prenom} {m.nom}</option>)}</select></div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Date</label><input type="date" required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.date} onChange={e => setNewRDV({...newRDV, date: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Heure</label><input type="time" required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.heure} onChange={e => setNewRDV({...newRDV, heure: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Durée</label><select className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.duree} onChange={e => setNewRDV({...newRDV, duree: e.target.value})}><option value="30m">30 min</option><option value="1h">1 heure</option><option value="2h">2 heures</option><option value="3h">3 heures</option><option value="4h">4 heures</option><option value="8h">8 heures</option></select></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('common.date')}</label><input type="date" required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.date} onChange={e => setNewRDV({...newRDV, date: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('appointments.time')}</label><input type="time" required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.heure} onChange={e => setNewRDV({...newRDV, heure: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('appointments.duration')}</label><select className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.duree} onChange={e => setNewRDV({...newRDV, duree: e.target.value})}><option value="30m">30 min</option><option value="1h">1 heure</option><option value="2h">2 heures</option><option value="3h">3 heures</option><option value="4h">4 heures</option><option value="8h">8 heures</option></select></div>
               </div>
 
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Description</label><textarea className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold h-24 text-slate-900 dark:text-white" value={newRDV.description} onChange={e => setNewRDV({...newRDV, description: e.target.value})} /></div>
+              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('common.description')}</label><textarea className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold h-24 text-slate-900 dark:text-white" value={newRDV.description} onChange={e => setNewRDV({...newRDV, description: e.target.value})} /></div>
               
               {error && <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl text-[10px] font-black uppercase text-center">{error}</div>}
               

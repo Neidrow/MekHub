@@ -22,7 +22,22 @@ export const TRANSLATIONS = {
       description: "Description",
       history: "Historique",
       copy: "Copier",
-      copied: "Copié !"
+      copied: "Copié !",
+      client: "Client",
+      vehicle: "Véhicule",
+      mechanic: "Mécanicien",
+      duration: "Durée",
+      status: "Statut",
+      time: "Heure",
+      type: "Type",
+      quantity: "Qté",
+      price_unit: "P.U.",
+      total: "Total",
+      error_delete: "Impossible de supprimer cet élément.",
+      error_save: "Erreur lors de l'enregistrement.",
+      success_save: "Enregistrement réussi !",
+      yes: "Oui",
+      no: "Non"
     },
     nav: {
       dashboard: "Tableau de Bord",
@@ -55,7 +70,7 @@ export const TRANSLATIONS = {
       send_temp_pass: "Envoyer mot de passe temporaire",
       back_login: "Retour à la connexion",
       new_on_garage: "Nouveau sur GaragePro ?",
-      access_restricted: "L'accès à la plateforme est réservé aux professionnels habilités. Pour obtenir vos accès, veuillez contacter l'administration :",
+      access_restricted: "L'accès à la plateforme est réservé aux professionnels habilités.",
       privacy: "Politique de confidentialité",
       terms: "Conditions d'utilisation",
       slogan: "Gestion d'atelier nouvelle génération"
@@ -76,6 +91,22 @@ export const TRANSLATIONS = {
       read: "Lu",
       delete: "Suppr."
     },
+    appointments: {
+      title: "Agenda Atelier",
+      new_title: "Nouveau Rendez-vous",
+      edit_title: "Modifier Rendez-vous",
+      delete_title: "Supprimer ce rendez-vous ?",
+      delete_confirm: "Supprimer le RDV",
+      error_mechanic: "Veuillez affecter un mécanicien.",
+      error_conflict: "Ce mécanicien n'est pas disponible sur ce créneau.",
+      no_data: "Aucun rendez-vous trouvé",
+      status_pending: "Planifié",
+      status_progress: "En cours",
+      status_done: "Terminé",
+      status_cancelled: "Annulé",
+      google_synced: "Google",
+      local: "Local"
+    },
     customers: {
       title: "Fichier Clients",
       subtitle: "Gérez votre base de données clients.",
@@ -86,13 +117,13 @@ export const TRANSLATIONS = {
       col_contact: "Contact",
       col_address: "Adresse",
       delete_title: "Supprimer ce client ?",
-      delete_warning: "Attention, cette action est irréversible. Toutes les données associées seront perdues.",
+      delete_warning: "Attention, cette action est irréversible.",
       delete_confirm: "Supprimer définitivement",
       form_name: "Nom",
       form_firstname: "Prénom",
       form_email: "Email professionnel",
       form_phone: "Téléphone",
-      form_address: "Adresse (Optionnel)",
+      form_address: "Adresse",
       form_notes: "Notes internes",
       form_save_create: "Créer le client",
       form_save_edit: "Enregistrer les modifications"
@@ -105,7 +136,7 @@ export const TRANSLATIONS = {
       filter_client: "Tous les clients",
       no_data: "Aucun véhicule trouvé",
       delete_title: "Supprimer ce véhicule ?",
-      delete_warning: "Attention, cette action est irréversible. L'historique sera effacé.",
+      delete_warning: "L'historique sera effacé.",
       mileage: "Kilométrage",
       owner: "Propriétaire",
       history_modal_title: "Dossier Véhicule",
@@ -122,7 +153,7 @@ export const TRANSLATIONS = {
     },
     mechanics: {
       title: "Équipe Technique",
-      subtitle: "Gérez vos forces de travail et affectations.",
+      subtitle: "Gérez vos forces de travail.",
       add_btn: "Nouveau Collaborateur",
       no_data: "Aucun technicien dans l'équipe",
       delete_title: "Supprimer ce collaborateur ?",
@@ -194,7 +225,8 @@ export const TRANSLATIONS = {
       form_save: "Sauvegarder",
       total_ht: "Total HT",
       total_ttc: "Total TTC",
-      vat: "TVA"
+      vat: "TVA",
+      default_item: "Main d'oeuvre"
     },
     invoices: {
       title: "Facturation",
@@ -210,11 +242,13 @@ export const TRANSLATIONS = {
       action_remind: "Relance",
       delete_title: "Supprimer cette facture ?",
       form_deposit: "Acompte",
-      form_to_pay: "À Payer"
+      form_to_pay: "À Payer",
+      add_line: "+ Ajouter une ligne",
+      default_item: "Forfait Révision"
     },
     settings: {
       title: "Paramètres de l'Atelier",
-      subtitle: "Configurez l'identité visuelle, la fiscalité et les mentions légales.",
+      subtitle: "Identité, fiscalité et préférences.",
       section_connected: "Services Connectés",
       btn_connect_google: "Connecter l'agenda",
       btn_disconnect_google: "Déconnecter l'agenda",
@@ -237,7 +271,7 @@ export const TRANSLATIONS = {
     },
     statistics: {
       title: "Statistiques",
-      subtitle: "Analyse de la performance sur le trimestre.",
+      subtitle: "Analyse de la performance.",
       revenue_trend: "Évolution du Chiffre d'Affaires",
       current_month: "Mois en cours",
       last_month: "Mois dernier",
@@ -246,20 +280,20 @@ export const TRANSLATIONS = {
       completed_appts: "RDV Terminés",
       detail_title: "Détail",
       invoices_count: "factures",
-      no_data_period: "Aucun encaissement sur cette période."
+      no_data_period: "Aucun encaissement."
     },
     ai: {
       active_badge: "Assistant Intelligent Actif",
       title: "Expertise & Communication",
-      subtitle: "Optimisez votre atelier grâce au moteur de diagnostic intégré.",
+      subtitle: "Optimisez votre atelier grâce à l'IA.",
       quota: "Quota journalier",
       remaining: "restants",
       tab_diag: "Diagnostic Prédictif",
       tab_msg: "Assistant Message",
       warning_title: "Avertissement Important",
-      warning_text: "Les résultats fournis par cette Intelligence Artificielle sont des hypothèses techniques basées sur les symptômes décrits. Ils ne constituent pas une certitude absolue et ne remplacent en aucun cas un diagnostic physique réalisé par un professionnel qualifié.",
+      warning_text: "Les résultats fournis par cette IA sont des hypothèses techniques. Ils ne remplacent pas un diagnostic physique.",
       label_symptoms: "Symptômes du véhicule",
-      placeholder_symptoms: "Ex: Bruit de claquement à l'avant gauche, fumée bleue à l'accélération...",
+      placeholder_symptoms: "Ex: Bruit de claquement à l'avant gauche...",
       btn_analyze: "Analyser les symptômes",
       label_client: "Client",
       label_status: "Statut travaux",
@@ -269,14 +303,14 @@ export const TRANSLATIONS = {
     },
     calendar: {
       title: "Synchronisez votre Agenda",
-      subtitle: "Retrouvez tous vos rendez-vous clients directement sur votre Google Agenda.",
+      subtitle: "Retrouvez vos RDV clients sur Google Agenda.",
       btn_connect: "Connecter maintenant",
       btn_later: "Plus tard",
       btn_dismiss: "Ne plus me demander",
       help_title: "Message \"Application non validée\" ?",
-      help_text: "C'est normal durant la phase de certification Google. Pour continuer :",
-      help_step1: "Cliquez sur le lien Paramètres avancés",
-      help_step2: "Puis sur Accéder à (non sécurisé)"
+      help_text: "C'est normal durant la certification. Cliquez sur Paramètres avancés > Accéder à (non sécurisé).",
+      help_step1: "Paramètres avancés",
+      help_step2: "Accéder à (non sécurisé)"
     },
     welcome: {
       title: "Bienvenue chez vous !",
@@ -305,7 +339,22 @@ export const TRANSLATIONS = {
       description: "Description",
       history: "History",
       copy: "Copy",
-      copied: "Copied!"
+      copied: "Copied!",
+      client: "Customer",
+      vehicle: "Vehicle",
+      mechanic: "Mechanic",
+      duration: "Duration",
+      status: "Status",
+      time: "Time",
+      type: "Type",
+      quantity: "Qty",
+      price_unit: "Unit Price",
+      total: "Total",
+      error_delete: "Cannot delete this item.",
+      error_save: "Error while saving.",
+      success_save: "Successfully saved!",
+      yes: "Yes",
+      no: "No"
     },
     nav: {
       dashboard: "Dashboard",
@@ -338,7 +387,7 @@ export const TRANSLATIONS = {
       send_temp_pass: "Send temporary password",
       back_login: "Back to login",
       new_on_garage: "New to GaragePro?",
-      access_restricted: "Access is restricted to authorized professionals. To get access, please contact administration:",
+      access_restricted: "Access restricted to authorized professionals.",
       privacy: "Privacy Policy",
       terms: "Terms of Service",
       slogan: "Next-gen workshop management"
@@ -359,6 +408,22 @@ export const TRANSLATIONS = {
       read: "Read",
       delete: "Del."
     },
+    appointments: {
+      title: "Workshop Schedule",
+      new_title: "New Appointment",
+      edit_title: "Edit Appointment",
+      delete_title: "Delete this appointment?",
+      delete_confirm: "Delete Appointment",
+      error_mechanic: "Please assign a mechanic.",
+      error_conflict: "The mechanic is not available at this time.",
+      no_data: "No appointments found",
+      status_pending: "Scheduled",
+      status_progress: "In Progress",
+      status_done: "Completed",
+      status_cancelled: "Cancelled",
+      google_synced: "Google",
+      local: "Local"
+    },
     customers: {
       title: "Customer Database",
       subtitle: "Manage your client database.",
@@ -369,13 +434,13 @@ export const TRANSLATIONS = {
       col_contact: "Contact",
       col_address: "Address",
       delete_title: "Delete this customer?",
-      delete_warning: "Warning, this action is irreversible. All associated data will be lost.",
+      delete_warning: "Warning, this action is irreversible.",
       delete_confirm: "Delete permanently",
-      form_name: "Name",
+      form_name: "Last Name",
       form_firstname: "First Name",
       form_email: "Business Email",
       form_phone: "Phone",
-      form_address: "Address (Optional)",
+      form_address: "Address",
       form_notes: "Internal Notes",
       form_save_create: "Create Customer",
       form_save_edit: "Save Changes"
@@ -388,7 +453,7 @@ export const TRANSLATIONS = {
       filter_client: "All customers",
       no_data: "No vehicles found",
       delete_title: "Delete this vehicle?",
-      delete_warning: "Warning, this action is irreversible. History will be cleared.",
+      delete_warning: "Warning, history will be cleared.",
       mileage: "Mileage",
       owner: "Owner",
       history_modal_title: "Vehicle File",
@@ -405,7 +470,7 @@ export const TRANSLATIONS = {
     },
     mechanics: {
       title: "Technical Team",
-      subtitle: "Manage your workforce and assignments.",
+      subtitle: "Manage your workforce.",
       add_btn: "New Coworker",
       no_data: "No technicians in the team",
       delete_title: "Delete this coworker?",
@@ -464,7 +529,7 @@ export const TRANSLATIONS = {
       col_ref: "Reference",
       col_client: "Customer",
       col_date: "Date",
-      col_amount: "Total (Incl. VAT)",
+      col_amount: "Total TTC",
       col_status: "Status",
       action_send: "Send",
       action_convert: "Convert",
@@ -475,9 +540,10 @@ export const TRANSLATIONS = {
       convert_text: "You are about to create a new invoice based on quote",
       form_notes: "Notes (Visible on quote)",
       form_save: "Save",
-      total_ht: "Total Excl. VAT",
-      total_ttc: "Total Incl. VAT",
-      vat: "VAT"
+      total_ht: "Total HT",
+      total_ttc: "Total TTC",
+      vat: "VAT",
+      default_item: "Labor"
     },
     invoices: {
       title: "Invoicing",
@@ -493,11 +559,13 @@ export const TRANSLATIONS = {
       action_remind: "Remind",
       delete_title: "Delete this invoice?",
       form_deposit: "Deposit",
-      form_to_pay: "To Pay"
+      form_to_pay: "To Pay",
+      add_line: "+ Add line",
+      default_item: "Standard Service"
     },
     settings: {
       title: "Workshop Settings",
-      subtitle: "Configure visual identity, taxes and legal notices.",
+      subtitle: "Identity, tax and preferences.",
       section_connected: "Connected Services",
       btn_connect_google: "Connect Calendar",
       btn_disconnect_google: "Disconnect Calendar",
@@ -505,7 +573,7 @@ export const TRANSLATIONS = {
       label_logo: "Workshop Logo",
       btn_upload: "Upload Photo",
       label_biz_name: "Business Name",
-      label_siret: "Registration ID",
+      label_siret: "Registration ID (SIRET)",
       label_address: "Business Address",
       label_phone: "Phone",
       label_email: "Email",
@@ -520,7 +588,7 @@ export const TRANSLATIONS = {
     },
     statistics: {
       title: "Statistics",
-      subtitle: "Performance analysis for the quarter.",
+      subtitle: "Performance analysis.",
       revenue_trend: "Revenue Trend",
       current_month: "Current Month",
       last_month: "Last Month",
@@ -529,20 +597,20 @@ export const TRANSLATIONS = {
       completed_appts: "Completed Appts",
       detail_title: "Details",
       invoices_count: "invoices",
-      no_data_period: "No payments received in this period."
+      no_data_period: "No revenue during this period."
     },
     ai: {
       active_badge: "Smart Assistant Active",
       title: "Expertise & Communication",
-      subtitle: "Optimize your workshop with the integrated diagnostic engine.",
+      subtitle: "Optimize your workshop with AI.",
       quota: "Daily Quota",
       remaining: "remaining",
       tab_diag: "Predictive Diagnosis",
       tab_msg: "Message Assistant",
       warning_title: "Important Warning",
-      warning_text: "The results provided by this Artificial Intelligence are technical hypotheses based on the described symptoms. They do not constitute absolute certainty and do not replace a physical diagnosis by a qualified professional.",
+      warning_text: "Results provided by AI are technical hypotheses. They do not replace a physical diagnosis.",
       label_symptoms: "Vehicle Symptoms",
-      placeholder_symptoms: "Ex: Clicking noise front left, blue smoke on acceleration...",
+      placeholder_symptoms: "Ex: Clicking noise front left...",
       btn_analyze: "Analyze Symptoms",
       label_client: "Customer",
       label_status: "Work Status",
@@ -552,14 +620,14 @@ export const TRANSLATIONS = {
     },
     calendar: {
       title: "Sync Your Calendar",
-      subtitle: "Find all your customer appointments directly on your Google Calendar.",
+      subtitle: "Find all customer appointments on Google Calendar.",
       btn_connect: "Connect Now",
       btn_later: "Later",
       btn_dismiss: "Don't ask again",
       help_title: "\"App not verified\" message?",
-      help_text: "This is normal during the Google certification phase. To continue:",
-      help_step1: "Click on the Advanced settings link",
-      help_step2: "Then on Go to (unsafe)"
+      help_text: "Normal during certification. Click Advanced > Go to (unsafe).",
+      help_step1: "Advanced settings",
+      help_step2: "Go to (unsafe)"
     },
     welcome: {
       title: "Welcome Home!",

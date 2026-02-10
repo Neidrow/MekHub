@@ -62,7 +62,7 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
           </span>
         )}
         {alertCount !== undefined && alertCount > 0 && (
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900 animate-pulse">
             {alertCount > 9 ? '9+' : alertCount}
           </span>
         )}
@@ -72,7 +72,7 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
 };
 
 const GarageProApp: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   
   // ROUTING MANUEL POUR LES PAGES STATIQUES
   const path = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -138,6 +138,11 @@ const GarageProApp: React.FC = () => {
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  
+  // Alertes Menu
+  const [invoiceAlerts, setInvoiceAlerts] = useState(0);
+  const [quoteAlerts, setQuoteAlerts] = useState(0);
+
   const notifRef = useRef<HTMLDivElement>(null);
 
   const handleSession = async (sess: any) => {
@@ -196,6 +201,41 @@ const GarageProApp: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Calcul des alertes (Factures en retard / Devis expirés)
+  useEffect(() => {
+    if (!factures && !devis) return;
+
+    const calculateDelay = (dateStr: string) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(dateStr);
+      targetDate.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - targetDate.getTime();
+      return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    // Factures en retard (> 7 jours comme dans Invoices.tsx)
+    const overdueInvoices = factures.filter(f => 
+      f.statut === 'non_payee' && calculateDelay(f.date_facture) >= 7
+    ).length;
+    setInvoiceAlerts(overdueInvoices);
+
+    // Devis expirés (En attente + date validité dépassée)
+    const validityDays = settings?.validite_devis || 30;
+    const expiredQuotes = devis.filter(d => {
+      if (d.statut !== 'en_attente') return false;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const devisDate = new Date(d.date_devis);
+      devisDate.setHours(0,0,0,0);
+      const expirationDate = new Date(devisDate);
+      expirationDate.setDate(devisDate.getDate() + validityDays);
+      return today > expirationDate;
+    }).length;
+    setQuoteAlerts(expiredQuotes);
+
+  }, [factures, devis, settings]);
 
   useEffect(() => {
     const checkSys = async () => {
@@ -414,8 +454,8 @@ const GarageProApp: React.FC = () => {
             <NavItem view="customers" label={t('nav.customers')} icon={ICONS.Customers} currentView={currentView} onClick={handleNavigate} />
             <NavItem view="vehicles" label={t('nav.vehicles')} icon={ICONS.Vehicles} currentView={currentView} onClick={handleNavigate} />
             <NavItem view="mechanics" label={t('nav.mechanics')} icon={ICONS.Mechanics} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="quotes" label={t('nav.quotes')} icon={ICONS.Quotes} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="invoices" label={t('nav.invoices')} icon={ICONS.Invoices} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="quotes" label={t('nav.quotes')} icon={ICONS.Quotes} currentView={currentView} onClick={handleNavigate} alertCount={quoteAlerts} />
+            <NavItem view="invoices" label={t('nav.invoices')} icon={ICONS.Invoices} currentView={currentView} onClick={handleNavigate} alertCount={invoiceAlerts} />
             <NavItem view="inventory" label={t('nav.inventory')} icon={ICONS.Inventory} isPremium={true} currentView={currentView} onClick={handleNavigate} />
             <NavItem view="statistics" label={t('nav.statistics')} icon={ICONS.Stats} currentView={currentView} onClick={handleNavigate} />
             <NavItem view="ai-assistant" label={t('nav.ai_assistant')} icon={ICONS.AI} color="indigo" isPremium={true} currentView={currentView} onClick={handleNavigate} />
@@ -445,6 +485,10 @@ const GarageProApp: React.FC = () => {
           <div className="hidden lg:block text-sm font-bold text-slate-400 uppercase tracking-widest">{settings?.nom || "GaragePro"} {t('nav.atelier')}</div>
           <div className="flex items-center gap-2 sm:gap-4">
             
+            <button onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-all font-black text-xs uppercase tracking-widest border border-transparent hover:border-blue-100 dark:hover:border-slate-700">
+               {language}
+            </button>
+
             <button id="app-theme-toggle" onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-all">
                {darkMode ? (
                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="3" r="1.5" /><circle cx="12" cy="21" r="1.5" /><circle cx="3" cy="12" r="1.5" /><circle cx="21" cy="12" r="1.5" /><circle cx="5.64" cy="5.64" r="1.5" /><circle cx="18.36" cy="18.36" r="1.5" /><circle cx="5.64" cy="18.36" r="1.5" /><circle cx="18.36" cy="5.64" r="1.5" /></svg>
