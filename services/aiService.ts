@@ -1,6 +1,4 @@
 
-// Service IA utilisant Google Gemini API
-import { GoogleGenAI } from "@google/genai";
 import { UserRole } from '../types';
 import { api } from './api';
 
@@ -8,6 +6,10 @@ import { api } from './api';
 const BASIC_DAILY_LIMIT = 10;
 const PREMIUM_DAILY_LIMIT = 100;
 const MAX_WORDS = 1200;
+
+// Configuration GROQ
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile"; // Modèle performant et rapide
 
 // -- Logic for usage quotas --
 const checkUsage = async (userId: string, role: UserRole) => {
@@ -67,6 +69,33 @@ Donner un diagnostic structuré, priorisé et directement exploitable à l'ateli
 ⚠️ VIGILANCE
 [Un point de sécurité ou une erreur de débutant à éviter]`;
 
+const callGroqApi = async (messages: any[]) => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("Clé API manquante. Veuillez configurer l'API Key.");
+
+  const response = await fetch(GROQ_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messages: messages,
+      model: GROQ_MODEL,
+      temperature: 0.2,
+      max_tokens: 1024
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || `Erreur API Groq (${response.status})`);
+  }
+
+  const data = await response.json();
+  return data.choices[0]?.message?.content || "";
+};
+
 const localExpertDiagnostic = (symptoms: string, errorMessage: string = ""): string => {
   const s = symptoms.toLowerCase();
   let suggestions = "🛠️ DIAGNOSTIC LOCAL (MODE SECOURS)\n\n";
@@ -89,28 +118,22 @@ export const getDiagnosticSuggestions = async (symptoms: string, userId: string,
       checkWordCount(symptoms);
       await checkUsage(userId, role);
 
-      // Create Gemini client instance - API key obtained from environment variable API_KEY
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview', // Complex text task
-        contents: `Symptômes du véhicule : "${symptoms}"`,
-        config: {
-          systemInstruction: DIAGNOSTIC_SYSTEM_PROMPT,
-          temperature: 0.2,
-        },
-      });
+      const responseText = await callGroqApi([
+        { role: "system", content: DIAGNOSTIC_SYSTEM_PROMPT },
+        { role: "user", content: `Symptômes du véhicule : "${symptoms}"` }
+      ]);
       
       await api.logAiUsage(userId);
-      return response.text || localExpertDiagnostic(symptoms);
+      return responseText || localExpertDiagnostic(symptoms);
 
   } catch (error: any) {
-    console.error("❌ ERREUR API GEMINI :", error);
+    console.error("❌ ERREUR API IA :", error);
     
     if (error.message.includes('Quota') || error.message.includes('Texte trop long')) {
         throw error;
     }
     
-    return localExpertDiagnostic(symptoms, "⚠️ Erreur de connexion au service Gemini.");
+    return localExpertDiagnostic(symptoms, "⚠️ Erreur de connexion au service IA (Groq).");
   }
 };
 
@@ -121,23 +144,21 @@ export const generateCustomerMessage = async (serviceDetails: string, customerNa
     checkWordCount(serviceDetails);
     await checkUsage(userId, role);
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Basic text generation
-      contents: `Rédige un SMS pour un client.
+    const systemPrompt = "Tu es un assistant administratif de garage automobile. Tu rédiges des SMS courts et professionnels. CONSIGNES : - Court, poli et factuel (format SMS). - Pas d'objet, pas de titre. - Ne signe pas (le système l'ajoute).";
+    const userPrompt = `Rédige un SMS pour un client.
       Nom Client : ${customerName}
-      Contexte : ${serviceDetails}`,
-      config: {
-        systemInstruction: "Tu es un assistant administratif de garage automobile. Tu rédiges des SMS courts et professionnels. CONSIGNES : - Court, poli et factuel (format SMS). - Pas d'objet, pas de titre. - Ne signe pas (le système l'ajoute).",
-        temperature: 0.7,
-      }
-    });
+      Contexte : ${serviceDetails}`;
+
+    const responseText = await callGroqApi([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+    ]);
     
     await api.logAiUsage(userId);
-    return response.text || fallbackMessage;
+    return responseText || fallbackMessage;
 
   } catch (error: any) {
-    console.error("Erreur Gemini Message:", error);
+    console.error("Erreur IA Message:", error);
     if (error.message.includes('Quota') || error.message.includes('Texte trop long')) {
         throw error;
     }
