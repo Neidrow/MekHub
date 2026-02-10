@@ -9,7 +9,10 @@ const MAX_WORDS = 1200;
 
 // Configuration GROQ
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile"; // Modèle performant et rapide
+// Modèle mis à jour (l'ancien llama3-70b-8192 est déprécié)
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Clé API fournie par l'utilisateur
+const GROQ_API_KEY = "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";
 
 // -- Logic for usage quotas --
 const checkUsage = async (userId: string, role: UserRole) => {
@@ -70,13 +73,12 @@ Donner un diagnostic structuré, priorisé et directement exploitable à l'ateli
 [Un point de sécurité ou une erreur de débutant à éviter]`;
 
 const callGroqApi = async (messages: any[]) => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("Clé API manquante. Veuillez configurer l'API Key.");
+  if (!GROQ_API_KEY) throw new Error("Clé API interne manquante.");
 
   const response = await fetch(GROQ_API_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      "Authorization": `Bearer ${GROQ_API_KEY}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -88,8 +90,10 @@ const callGroqApi = async (messages: any[]) => {
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || `Erreur API Groq (${response.status})`);
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Erreur Groq détaillée:", errorData);
+    const message = errorData.error?.message || `Erreur HTTP ${response.status}`;
+    throw new Error(`API Groq: ${message}`);
   }
 
   const data = await response.json();
@@ -108,7 +112,7 @@ const localExpertDiagnostic = (symptoms: string, errorMessage: string = ""): str
     suggestions += "🔍 ANALYSE RAPIDE\nSymptôme générique nécessitant une investigation standard.\n\n🛠️ VÉRIFICATIONS ATELIER\n👉 LECTURE CODES DÉFAUTS : Brancher la valise OBD pour relever les DTC.\n👉 ESSAI ROUTIER : Reproduire le défaut pour affiner le ressenti.\n";
   }
   
-  return suggestions + "\n" + (errorMessage || "⚠️ Connexion API instable - Diagnostic générique affiché.");
+  return suggestions + "\n\n" + (errorMessage || "⚠️ Erreur de connexion au service IA (Groq).");
 };
 
 export const getDiagnosticSuggestions = async (symptoms: string, userId: string, role: UserRole) => {
@@ -124,7 +128,7 @@ export const getDiagnosticSuggestions = async (symptoms: string, userId: string,
       ]);
       
       await api.logAiUsage(userId);
-      return responseText || localExpertDiagnostic(symptoms);
+      return responseText;
 
   } catch (error: any) {
     console.error("❌ ERREUR API IA :", error);
@@ -133,7 +137,7 @@ export const getDiagnosticSuggestions = async (symptoms: string, userId: string,
         throw error;
     }
     
-    return localExpertDiagnostic(symptoms, "⚠️ Erreur de connexion au service IA (Groq).");
+    return localExpertDiagnostic(symptoms, `⚠️ Problème connexion IA : ${error.message}`);
   }
 };
 

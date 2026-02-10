@@ -80,7 +80,7 @@ export const TRANSLATIONS = {
       quick_add: "Nouveau RDV",
       monthly_revenue: "CA Mensuel",
       customers_count: "Clients",
-      vehicles_count: "Véhicules",
+      vehicles_count: "Vehicules",
       today_rdv: "RDV Aujourd'hui",
       today_list_title: "RDV du jour",
       no_rdv_today: "Aucun rendez-vous aujourd'hui",
@@ -105,7 +105,11 @@ export const TRANSLATIONS = {
       status_done: "Terminé",
       status_cancelled: "Annulé",
       google_synced: "Google",
-      local: "Local"
+      local: "Local",
+      type: "Type d'intervention",
+      status: "Statut actuel",
+      time: "Heure de début",
+      duration: "Durée estimée"
     },
     customers: {
       title: "Fichier Clients",
@@ -422,7 +426,11 @@ export const TRANSLATIONS = {
       status_done: "Completed",
       status_cancelled: "Cancelled",
       google_synced: "Google",
-      local: "Local"
+      local: "Local",
+      type: "Service Type",
+      status: "Current Status",
+      time: "Start Time",
+      duration: "Estimated Duration"
     },
     customers: {
       title: "Customer Database",
