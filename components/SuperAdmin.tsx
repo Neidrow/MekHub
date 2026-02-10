@@ -48,6 +48,9 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
   const loadData = async (currentAdminEmail?: string) => {
     setLoading(true);
     try {
+      // Nettoyage proactif des logs (Garder max 5/user)
+      await api.enforceLogRetention();
+
       const [history, activityLogs, sysMaint, pwResets] = await Promise.all([
         api.fetchInvitations(),
         api.fetchGlobalActivityLogs(),
@@ -445,7 +448,7 @@ const SuperAdmin: React.FC<SuperAdminProps> = ({ currentTab, onNotify }) => {
            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
               <div>
                   <h3 className="text-xl font-black text-slate-800 dark:text-white">Journal d'Audit de Sécurité</h3>
-                  <span className="text-[10px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">Dernières actions (Max 5/user)</span>
+                  <span className="text-[10px] font-black text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">Rotation : 5 dernières actions max / utilisateur</span>
               </div>
               <div className="flex gap-2">
                   <div className="relative">

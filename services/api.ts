@@ -102,17 +102,17 @@ class ApiService {
         details: simplifiedDetails
       }]);
 
-      // 2. Nettoyage strict et immédiat
-      // On récupère TOUS les IDs de l'utilisateur triés par date décroissante (le plus récent en premier)
+      // 2. Nettoyage strict (FIFO : First In, First Out)
+      // On garde uniquement les 5 derniers logs de cet utilisateur
       const { data: userLogs } = await supabase
         .from('activity_logs')
         .select('id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // Si on a plus de 5 logs, on supprime tout ce qui dépasse l'index 4 (donc à partir du 6ème élément)
       if (userLogs && userLogs.length > 5) {
-        const logsToDelete = userLogs.slice(5); // Garde 0,1,2,3,4. Prend 5...fin
+        // On garde les index 0,1,2,3,4. On supprime à partir de l'index 5.
+        const logsToDelete = userLogs.slice(5); 
         const idsToDelete = logsToDelete.map(l => l.id);
         
         if (idsToDelete.length > 0) {
@@ -125,8 +125,38 @@ class ApiService {
     }
   }
 
+  // Fonction de maintenance pour l'admin : force la limite de 5 logs pour TOUS les utilisateurs
+  async enforceLogRetention() {
+    try {
+        const { data: allLogs } = await supabase
+            .from('activity_logs')
+            .select('id, user_id, created_at')
+            .order('created_at', { ascending: false });
+
+        if (!allLogs) return;
+
+        const userCounts: Record<string, number> = {};
+        const idsToDelete: string[] = [];
+
+        for (const log of allLogs) {
+            userCounts[log.user_id] = (userCounts[log.user_id] || 0) + 1;
+            if (userCounts[log.user_id] > 5) {
+                idsToDelete.push(log.id);
+            }
+        }
+
+        if (idsToDelete.length > 0) {
+            await supabase.from('activity_logs').delete().in('id', idsToDelete);
+            console.log(`Nettoyage logs admin : ${idsToDelete.length} entrées supprimées.`);
+        }
+    } catch (e) {
+        console.error("Erreur maintenance logs", e);
+    }
+  }
+
   async fetchGlobalActivityLogs(): Promise<ActivityLog[]> {
     // On récupère une liste globale pour l'admin, triée par date
+    // La limite de 200 est pour l'affichage, mais le nettoyage se fait en amont
     const { data, error } = await supabase
       .from('activity_logs')
       .select('*')
@@ -269,7 +299,17 @@ class ApiService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Non connecté");
     const filePath = `${user.id}/${fileName}`;
-    await supabase.storage.from('documents').upload(filePath, fileBlob, { contentType: 'application/pdf', upsert: true });
+    
+    // Upload avec gestion d'erreur explicite
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(filePath, fileBlob, { contentType: 'application/pdf', upsert: true });
+
+    if (uploadError) {
+      console.error("Erreur upload Supabase:", uploadError);
+      throw new Error("Erreur lors de l'envoi du document. Le bucket 'documents' est peut-être manquant.");
+    }
+
     const { data } = supabase.storage.from('documents').getPublicUrl(filePath, { download: true });
     return data.publicUrl;
   }
