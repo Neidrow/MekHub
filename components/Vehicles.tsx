@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Vehicule, Client, RendezVous, Facture } from '../types';
 import { api } from '../services/api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface VehiclesProps {
   vehicles: Vehicule[];
@@ -14,6 +15,7 @@ interface VehiclesProps {
 }
 
 const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, invoices, onAdd, onUpdate, onDelete }) => {
+  const { t, locale } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicule | null>(null);
   const [loading, setLoading] = useState(false);
@@ -154,7 +156,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[85vh] overflow-hidden border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
             <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <div>
-                <h3 className="text-xl font-black text-slate-800 dark:text-white">Dossier Véhicule</h3>
+                <h3 className="text-xl font-black text-slate-800 dark:text-white">{t('vehicles.history_modal_title')}</h3>
                 <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mt-1">{historyVehicle.marque} {historyVehicle.modele} - <span className="uppercase">{historyVehicle.immatriculation}</span></p>
               </div>
               <button onClick={() => setHistoryVehicle(null)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all">
@@ -168,13 +170,13 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
                 onClick={() => setHistoryTab('appointments')}
                 className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${historyTab === 'appointments' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
-                Interventions ({vehicleAppointments.length})
+                {t('vehicles.tab_interventions')} ({vehicleAppointments.length})
               </button>
               <button 
                 onClick={() => setHistoryTab('invoices')}
                 className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-all ${historyTab === 'invoices' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/20' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
-                Factures ({vehicleInvoices.length})
+                {t('vehicles.tab_invoices')} ({vehicleInvoices.length})
               </button>
             </div>
 
@@ -182,13 +184,13 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
               {historyTab === 'appointments' ? (
                 <div className="space-y-3">
                   {vehicleAppointments.length === 0 ? (
-                    <div className="text-center py-10 text-slate-400 dark:text-slate-600 italic font-medium">Aucune intervention enregistrée.</div>
+                    <div className="text-center py-10 text-slate-400 dark:text-slate-600 italic font-medium">{t('common.none')}.</div>
                   ) : (
                     vehicleAppointments.map(app => (
                       <div key={app.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center">
                         <div>
                           <p className="font-black text-slate-800 dark:text-white text-sm">{app.type_intervention}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{new Date(app.date).toLocaleDateString()} à {app.heure}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{new Date(app.date).toLocaleDateString(locale)} à {app.heure}</p>
                           {app.description && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic line-clamp-1">{app.description}</p>}
                         </div>
                         <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${getStatusBadge(app.statut)}`}>
@@ -201,13 +203,13 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
               ) : (
                 <div className="space-y-3">
                   {vehicleInvoices.length === 0 ? (
-                    <div className="text-center py-10 text-slate-400 dark:text-slate-600 italic font-medium">Aucune facture enregistrée.</div>
+                    <div className="text-center py-10 text-slate-400 dark:text-slate-600 italic font-medium">{t('common.none')}.</div>
                   ) : (
                     vehicleInvoices.map(inv => (
                       <div key={inv.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center">
                         <div>
                           <p className="font-black text-slate-800 dark:text-white text-sm">{inv.numero_facture}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{new Date(inv.date_facture).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">{new Date(inv.date_facture).toLocaleDateString(locale)}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-black text-slate-900 dark:text-white text-sm">{inv.montant_ttc.toFixed(2)} €</p>
@@ -232,9 +234,9 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
              </div>
-             <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">Supprimer ce véhicule ?</h3>
+             <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">{t('vehicles.delete_title')}</h3>
              <p className="text-slate-500 dark:text-slate-400 text-center text-sm mb-8 leading-relaxed">
-               Attention, cette action est <span className="font-bold text-rose-600 dark:text-rose-400">irréversible</span>. Le véhicule <span className="font-bold text-slate-700 dark:text-slate-300">{vehicleToDelete.immatriculation}</span> sera effacé ainsi que son historique.
+               {t('vehicles.delete_warning')}
              </p>
              <div className="flex flex-col gap-3">
                <button 
@@ -245,7 +247,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
                  {deleteLoading ? (
                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                  ) : (
-                   "Supprimer définitivement"
+                   t('customers.delete_confirm')
                  )}
                </button>
                <button 
@@ -253,7 +255,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
                  disabled={deleteLoading}
                  className="w-full py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-black rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs"
                >
-                 Annuler
+                 {t('common.cancel')}
                </button>
              </div>
           </div>
@@ -265,8 +267,8 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh] border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 sm:p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">{editingVehicle ? 'Modifier le Véhicule' : 'Nouveau Véhicule'}</h2>
-                <p className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest mt-1">Saisie des données techniques</p>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">{editingVehicle ? t('common.edit') : t('vehicles.add_btn')}</h2>
+                <p className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest mt-1">{t('vehicles.subtitle')}</p>
               </div>
               <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -275,36 +277,36 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
             
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto scrollbar-hide">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Propriétaire</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.owner')}</label>
                 <select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200" value={formData.client_id} onChange={e => setFormData({...formData, client_id: e.target.value})}>
-                  <option value="">Sélectionner un client</option>
+                  <option value="">{t('common.select')}</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Immatriculation</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.form_immat')}</label>
                 <input required placeholder="AA-123-BB" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-black uppercase tracking-wider text-slate-800 dark:text-white" value={formData.immatriculation} onChange={e => setFormData({...formData, immatriculation: e.target.value.toUpperCase()})} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Marque</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.form_brand')}</label>
                   <input required placeholder="ex: Renault" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200" value={formData.marque} onChange={e => setFormData({...formData, marque: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modèle</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.form_model')}</label>
                   <input required placeholder="ex: Clio IV" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200" value={formData.modele} onChange={e => setFormData({...formData, modele: e.target.value})} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Année</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.form_year')}</label>
                   <input required type="number" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200" value={formData.annee} onChange={e => setFormData({...formData, annee: parseInt(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kilométrage actuel</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.mileage')}</label>
                   <div className="relative">
                     <input required type="number" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold pr-12 text-slate-700 dark:text-slate-200" value={formData.kilometrage} onChange={e => setFormData({...formData, kilometrage: parseInt(e.target.value)})} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">km</span>
@@ -314,17 +316,17 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Couleur</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.form_color')}</label>
                   <input placeholder="ex: Noir" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200" value={formData.couleur} onChange={e => setFormData({...formData, couleur: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Numéro VIN (Optionnel)</label>
-                  <input placeholder="Numéro de châssis" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200" value={formData.vin} onChange={e => setFormData({...formData, vin: e.target.value.toUpperCase()})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('vehicles.form_vin')}</label>
+                  <input placeholder="VIN..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200" value={formData.vin} onChange={e => setFormData({...formData, vin: e.target.value.toUpperCase()})} />
                 </div>
               </div>
 
               <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 mt-2">
-                {loading ? "Chargement..." : editingVehicle ? "Mettre à jour la fiche" : "Ajouter au parc"}
+                {loading ? t('common.loading') : editingVehicle ? t('vehicles.form_save_edit') : t('vehicles.form_save_create')}
               </button>
             </form>
           </div>
@@ -335,12 +337,12 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
            <div>
-             <h3 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Parc Automobile</h3>
-             <p className="text-slate-500 dark:text-slate-400 font-medium">Gestion technique et historique des véhicules.</p>
+             <h3 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('vehicles.title')}</h3>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">{t('vehicles.subtitle')}</p>
            </div>
            <button id="veh-add-btn" onClick={() => { setEditingVehicle(null); setIsModalOpen(true); }} className="w-full lg:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95">
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-             Nouveau Véhicule
+             {t('vehicles.add_btn')}
            </button>
         </div>
 
@@ -350,7 +352,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
              <input 
                type="text" 
-               placeholder="Rechercher (Plaque, Marque, Modèle...)" 
+               placeholder={t('vehicles.search_placeholder')} 
                value={searchQuery}
                onChange={e => setSearchQuery(e.target.value)}
                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 transition-all"
@@ -364,7 +366,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
                  onChange={e => setFilterClient(e.target.value)}
                  className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 appearance-none transition-all cursor-pointer"
               >
-                 <option value="">Tous les clients</option>
+                 <option value="">{t('vehicles.filter_client')}</option>
                  {customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}
               </select>
               <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
@@ -378,8 +380,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
             <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-200 dark:text-slate-700 mb-6">
                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.6 2 11.8 2 12v4c0 .6.4 1 1 1h2" /></svg>
             </div>
-            <h4 className="text-xl font-bold text-slate-800 dark:text-white">Aucun véhicule trouvé</h4>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-xs">Modifiez vos filtres ou ajoutez un nouveau véhicule.</p>
+            <h4 className="text-xl font-bold text-slate-800 dark:text-white">{t('vehicles.no_data')}</h4>
           </div>
         ) : (
           filteredVehicles.map((v) => {
@@ -397,14 +398,14 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
                 </div>
                 
                 <h3 className="text-lg font-black text-slate-800 dark:text-white truncate leading-tight">{v.marque} <span className="text-slate-500 dark:text-slate-400 font-bold">{v.modele}</span></h3>
-                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">{v.annee} • {v.couleur || 'Couleur N/A'}</p>
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">{v.annee} • {v.couleur || '-'}</p>
                 
                 <div className="mt-6 mb-6 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-3">
                    <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-slate-400">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                    </div>
                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kilométrage</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('vehicles.mileage')}</p>
                       <p className="text-sm font-black text-slate-800 dark:text-white">{v.kilometrage?.toLocaleString() || 0} km</p>
                    </div>
                 </div>
@@ -415,7 +416,7 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
                       {owner?.nom?.charAt(0) || '?'}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Propriétaire</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">{t('vehicles.owner')}</p>
                       <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{owner ? `${owner.nom} ${owner.prenom}` : 'Inconnu'}</p>
                     </div>
                   </div>
@@ -424,14 +425,14 @@ const Vehicles: React.FC<VehiclesProps> = ({ vehicles, customers, appointments, 
                     <button 
                       onClick={() => handleViewHistory(v)} 
                       className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all" 
-                      title="Historique"
+                      title={t('common.history')}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
-                    <button onClick={() => handleEdit(v)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Modifier">
+                    <button onClick={() => handleEdit(v)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title={t('common.edit')}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
-                    <button onClick={() => setVehicleToDelete(v)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all" title="Supprimer">
+                    <button onClick={() => setVehicleToDelete(v)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all" title={t('common.delete')}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>

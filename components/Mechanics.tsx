@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mecanicien, MechanicStatus } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface MechanicsProps {
   mechanics: Mecanicien[];
@@ -10,6 +11,7 @@ interface MechanicsProps {
 }
 
 const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDelete }) => {
+  const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMech, setEditingMech] = useState<Mecanicien | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,7 +21,6 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
     statut: 'disponible' as MechanicStatus 
   });
 
-  // States pour la suppression
   const [mechanicToDelete, setMechanicToDelete] = useState<Mecanicien | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -88,9 +89,9 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
 
   const getStatusLabel = (status: MechanicStatus) => {
     switch (status) {
-      case 'disponible': return 'Disponible';
-      case 'en_intervention': return 'En cours';
-      case 'absent': return 'Absent';
+      case 'disponible': return t('mechanics.status_available');
+      case 'en_intervention': return t('mechanics.status_busy');
+      case 'absent': return t('mechanics.status_absent');
       default: return status;
     }
   };
@@ -105,9 +106,9 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
              </div>
-             <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">Supprimer ce collaborateur ?</h3>
+             <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">{t('mechanics.delete_title')}</h3>
              <p className="text-slate-500 dark:text-slate-400 text-center text-sm mb-8 leading-relaxed">
-               Attention, cette action est <span className="font-bold text-rose-600 dark:text-rose-400">irréversible</span>. <span className="font-bold text-slate-700 dark:text-slate-300">{mechanicToDelete.prenom} {mechanicToDelete.nom}</span> sera retiré(e) de l'équipe.
+               {t('mechanics.delete_warning')} <span className="font-bold text-slate-700 dark:text-slate-300">{mechanicToDelete.prenom} {mechanicToDelete.nom}</span>
              </p>
              <div className="flex flex-col gap-3">
                <button 
@@ -118,7 +119,7 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
                  {deleteLoading ? (
                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                  ) : (
-                   "Supprimer définitivement"
+                   t('customers.delete_confirm')
                  )}
                </button>
                <button 
@@ -126,7 +127,7 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
                  disabled={deleteLoading}
                  className="w-full py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-black rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs"
                >
-                 Annuler
+                 {t('common.cancel')}
                </button>
              </div>
           </div>
@@ -138,8 +139,8 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh] border dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 sm:p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">{editingMech ? 'Modifier le Collaborateur' : 'Nouveau Collaborateur'}</h2>
-                <p className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest mt-1">Gestion des ressources atelier</p>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">{editingMech ? t('common.edit') : t('mechanics.add_btn')}</h2>
+                <p className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest mt-1">{t('mechanics.subtitle')}</p>
               </div>
               <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -149,24 +150,24 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nom</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('mechanics.form_name')}</label>
                   <input required placeholder="ex: DUPONT" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value.toUpperCase()})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prénom</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('mechanics.form_firstname')}</label>
                   <input required placeholder="ex: Marc" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={formData.prenom} onChange={e => setFormData({...formData, prenom: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Statut Actuel</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('mechanics.form_status')}</label>
                 <select className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={formData.statut} onChange={e => setFormData({...formData, statut: e.target.value as MechanicStatus})}>
-                  <option value="disponible">Disponible</option>
-                  <option value="en_intervention">En intervention</option>
-                  <option value="absent">Absent</option>
+                  <option value="disponible">{t('mechanics.status_available')}</option>
+                  <option value="en_intervention">{t('mechanics.status_busy')}</option>
+                  <option value="absent">{t('mechanics.status_absent')}</option>
                 </select>
               </div>
               <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all">
-                {loading ? "Enregistrement..." : editingMech ? "Mettre à jour" : "Ajouter à l'équipe"}
+                {loading ? t('common.loading') : editingMech ? t('mechanics.form_save_edit') : t('mechanics.form_save_create')}
               </button>
             </form>
           </div>
@@ -175,19 +176,19 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h3 className="text-2xl lg:text-3xl font-black text-slate-800 dark:text-white tracking-tight">Équipe Technique</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">Gérez vos forces de travail et affectations.</p>
+          <h3 className="text-2xl lg:text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('mechanics.title')}</h3>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">{t('mechanics.subtitle')}</p>
         </div>
         <button onClick={() => { setEditingMech(null); setIsModalOpen(true); }} className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2">
            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-           Nouveau Collaborateur
+           {t('mechanics.add_btn')}
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {mechanics.length === 0 ? (
            <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800">
-             <p className="text-slate-400 dark:text-slate-600 font-black italic uppercase text-xs tracking-widest">Aucun technicien dans l'équipe</p>
+             <p className="text-slate-400 dark:text-slate-600 font-black italic uppercase text-xs tracking-widest">{t('mechanics.no_data')}</p>
            </div>
         ) : (
           mechanics.map(m => (
@@ -206,7 +207,7 @@ const Mechanics: React.FC<MechanicsProps> = ({ mechanics, onAdd, onUpdate, onDel
 
               <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Disponibilité</p>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('mechanics.availability')}</p>
                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{getStatusLabel(m.statut)}</p>
                 </div>
                 <div className="flex gap-2">

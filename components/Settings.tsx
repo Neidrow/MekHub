@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GarageSettings } from '../types';
 import { api } from '../services/api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface SettingsProps {
   initialSettings: GarageSettings | null;
@@ -10,6 +11,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState<Partial<GarageSettings>>({
     nom: '', siret: '', adresse: '', telephone: '', email: '', tva: 20.00, 
     tva_intracom: '', conditions_paiement: 'Paiement à réception', penalites_retard: 'Taux légal en vigueur (3 fois le taux d\'intérêt légal)', validite_devis: 30,
@@ -33,7 +35,7 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      alert(`Erreur d'enregistrement: ${err.message}`);
+      alert(`${t('common.error')}: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -93,8 +95,8 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
     <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-3xl font-black text-[#1e293b] dark:text-white tracking-tight">Paramètres de l'Atelier</h3>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Configurez l'identité visuelle, la fiscalité et les mentions légales.</p>
+          <h3 className="text-3xl font-black text-[#1e293b] dark:text-white tracking-tight">{t('settings.title')}</h3>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">{t('settings.subtitle')}</p>
         </div>
       </div>
       
@@ -102,7 +104,7 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8 lg:p-12 space-y-8">
         <h4 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
           <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-          Services Connectés
+          {t('settings.section_connected')}
         </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -130,9 +132,9 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
                 {syncLoading ? (
                     <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                 ) : formData.google_calendar_enabled ? (
-                    "Déconnecter l'agenda"
+                    t('settings.btn_disconnect_google')
                 ) : (
-                    "Connecter l'agenda"
+                    t('settings.btn_connect_google')
                 )}
                 </button>
             </div>
@@ -162,10 +164,10 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
             </div>
             
             <div className="flex-1 w-full space-y-2 text-center md:text-left">
-               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Logo de l'atelier</label>
+               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_logo')}</label>
                <div className="flex flex-col md:flex-row gap-3">
                  <button type="button" onClick={triggerFileInput} className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-sm flex items-center justify-center gap-2">
-                    Importer une photo
+                    {t('settings.btn_upload')}
                  </button>
                </div>
             </div>
@@ -173,106 +175,76 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom commercial</label>
-              <input required type="text" placeholder="Garage Expert Auto" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_biz_name')}</label>
+              <input required type="text" placeholder="Garage Expert Auto" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Numéro SIRET</label>
-              <input required type="text" placeholder="123 456 789 00012" value={formData.siret} onChange={e => setFormData({...formData, siret: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_siret')}</label>
+              <input required type="text" placeholder="123 456 789 00012" value={formData.siret} onChange={e => setFormData({...formData, siret: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_address')}</label>
+            <input required type="text" placeholder="12 rue de la Mécanique, 75000 Paris" value={formData.adresse} onChange={e => setFormData({...formData, adresse: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Adresse de l'établissement</label>
-              <input required type="text" placeholder="12 Rue de la Réparation, 75000 Paris" value={formData.adresse} onChange={e => setFormData({...formData, adresse: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_phone')}</label>
+              <input required type="text" placeholder="01 23 45 67 89" value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Téléphone</label>
-              <input required type="text" placeholder="01 23 45 67 89" value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_email')}</label>
+              <input required type="email" placeholder="contact@garage.pro" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-              <input required type="email" placeholder="contact@garage-expert.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" />
-            </div>
-          </div>
-
-          <div className="pt-8 pb-4 border-t border-slate-100 dark:border-slate-800">
-             <h4 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2 mb-6">
-               <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-               Mentions Légales & Facturation
-             </h4>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Taux de TVA (%)</label>
-                  <input 
-                    required 
-                    type="number" 
-                    step="0.1" 
-                    min="0" 
-                    placeholder="20.0"
-                    value={formData.tva === undefined ? '' : formData.tva} 
-                    onChange={handleTvaChange} 
-                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" 
-                  />
-                  <p className="text-[10px] text-slate-400 font-medium ml-1">Mettre 0 pour Micro-entreprise (art. 293B CGI).</p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">N° TVA Intracommunautaire</label>
-                  <input 
-                    type="text" 
-                    placeholder="FRXX XXXXXXXX"
-                    value={formData.tva_intracom || ''} 
-                    onChange={e => setFormData({...formData, tva_intracom: e.target.value})} 
-                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" 
-                  />
-                </div>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Validité des devis (Jours)</label>
-                  <input 
-                    type="number" 
-                    min="1"
-                    placeholder="30"
-                    value={formData.validite_devis || 30} 
-                    onChange={e => setFormData({...formData, validite_devis: parseInt(e.target.value)})} 
-                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Conditions de Paiement</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ex: Paiement à réception"
-                    value={formData.conditions_paiement || ''} 
-                    onChange={e => setFormData({...formData, conditions_paiement: e.target.value})} 
-                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-blue-500/10" 
-                  />
-                </div>
-             </div>
-
-             <div className="space-y-2">
-               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Pénalités de retard (Texte légal)</label>
-               <textarea 
-                 value={formData.penalites_retard || ''} 
-                 onChange={e => setFormData({...formData, penalites_retard: e.target.value})} 
-                 className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-medium text-sm h-24 text-slate-700 dark:text-slate-200" 
-                 placeholder="Ex: Taux légal en vigueur (3 fois le taux d'intérêt légal). Indemnité forfaitaire pour frais de recouvrement : 40€."
-               />
-             </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-6 border-t border-slate-50 dark:border-slate-800">
-            {success && <div className="text-emerald-600 font-bold animate-in fade-in">Mise à jour effectuée !</div>}
-            <button disabled={loading} type="submit" className="ml-auto px-10 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center gap-3 disabled:opacity-50 active:scale-95">
-              {loading ? "..." : "Enregistrer les modifications"}
-            </button>
           </div>
         </div>
+
+        {/* --- Mentions Légales --- */}
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8 lg:p-12 space-y-8">
+          <h4 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {t('settings.section_legal')}
+          </h4>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_vat')}</label>
+              <input type="number" step="0.1" placeholder="20.0" value={formData.tva} onChange={handleTvaChange} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_vat_intra')}</label>
+              <input type="text" placeholder="FR 12 345678900" value={formData.tva_intracom} onChange={e => setFormData({...formData, tva_intracom: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_validity')}</label>
+             <input type="number" placeholder="30" value={formData.validite_devis} onChange={e => setFormData({...formData, validite_devis: parseInt(e.target.value) || 30})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_payment_terms')}</label>
+             <input type="text" placeholder="Paiement à réception" value={formData.conditions_paiement} onChange={e => setFormData({...formData, conditions_paiement: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white" />
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t('settings.label_penalties')}</label>
+             <textarea placeholder="Taux légal en vigueur..." value={formData.penalites_retard} onChange={e => setFormData({...formData, penalites_retard: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-800 dark:text-white h-24" />
+          </div>
+        </div>
+
+        <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all text-xs uppercase tracking-widest active:scale-95 disabled:opacity-70 flex items-center justify-center gap-3">
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          ) : (
+            <>
+              {success && <svg className="w-5 h-5 animate-in zoom-in" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+              {success ? t('settings.save_success') : t('settings.btn_save')}
+            </>
+          )}
+        </button>
       </form>
     </div>
   );

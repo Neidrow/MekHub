@@ -288,17 +288,72 @@ class ApiService {
   async syncWithGoogleCalendar(rdv: RendezVous, action: 'create' | 'update' | 'delete'): Promise<boolean> {
     const token = this.getStoredGoogleToken();
     if (!token) return false;
+    
     try {
       const [y, m, d] = rdv.date.split('-').map(Number);
       const [h, min] = rdv.heure.split(':').map(Number);
       const start = new Date(y, m - 1, d, h, min).toISOString();
-      const end = new Date(new Date(start).getTime() + 3600000).toISOString();
-      const event = { summary: `Atelier: ${rdv.type_intervention}`, start: { dateTime: start, timeZone: 'UTC' }, end: { dateTime: end, timeZone: 'UTC' } };
+      const end = new Date(new Date(start).getTime() + 3600000).toISOString(); // Par défaut 1h si pas de durée précise dans la logique simple
+
+      // Récupération des détails pour enrichir l'événement
+      let description = `Intervention: ${rdv.type_intervention}`;
+      let title = `🔧 ${rdv.type_intervention}`;
+      let location = '';
+
+      if (action !== 'delete') {
+          try {
+              const { data: client } = await supabase.from('clients').select('nom, prenom, telephone, adresse').eq('id', rdv.client_id).single();
+              const { data: vehicule } = await supabase.from('vehicules').select('marque, modele, immatriculation').eq('id', rdv.vehicule_id).single();
+              const { data: settings } = await supabase.from('parametres').select('nom, adresse').eq('user_id', rdv.user_id).single();
+
+              if (client) {
+                  title = `🔧 ${rdv.type_intervention} - ${client.nom}`;
+                  description += `\n\n👤 CLIENT:\n${client.nom} ${client.prenom}\n📞 ${client.telephone}`;
+              }
+              if (vehicule) {
+                  description += `\n\n🚗 VÉHICULE:\n${vehicule.marque} ${vehicule.modele}\n${vehicule.immatriculation}`;
+              }
+              if (rdv.notes) {
+                  description += `\n\n📝 NOTES:\n${rdv.notes}`;
+              }
+              if (settings?.adresse) {
+                  location = settings.adresse;
+              }
+          } catch (detailsError) {
+              console.warn("Impossible de récupérer les détails pour Google Calendar", detailsError);
+          }
+      }
+
+      const event = { 
+          summary: title,
+          description: description,
+          location: location,
+          start: { dateTime: start, timeZone: 'Europe/Paris' }, // Force Paris TZ or generic UTC
+          end: { dateTime: end, timeZone: 'Europe/Paris' },
+          colorId: '11' // Tomato red (style atelier/urgence)
+      };
+
       let url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
       let method = 'POST';
-      if (action !== 'create' && rdv.google_event_id) { url += `/${rdv.google_event_id}`; method = action === 'delete' ? 'DELETE' : 'PATCH'; }
-      const res = await fetch(url, { method, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: action !== 'delete' ? JSON.stringify(event) : null });
-      if (action === 'create' && res.ok) { const data = await res.json(); await supabase.from('rendez_vous').update({ google_event_id: data.id }).eq('id', rdv.id); }
+      
+      if (action !== 'create' && rdv.google_event_id) { 
+          url += `/${rdv.google_event_id}`; 
+          method = action === 'delete' ? 'DELETE' : 'PATCH'; 
+      }
+
+      const res = await fetch(url, { 
+          method, 
+          headers: { 
+              'Authorization': `Bearer ${token}`, 
+              'Content-Type': 'application/json' 
+          }, 
+          body: action !== 'delete' ? JSON.stringify(event) : null 
+      });
+
+      if (action === 'create' && res.ok) { 
+          const data = await res.json(); 
+          await supabase.from('rendez_vous').update({ google_event_id: data.id }).eq('id', rdv.id); 
+      }
       return res.ok;
     } catch { return false; }
   }

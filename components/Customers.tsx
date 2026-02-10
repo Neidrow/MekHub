@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Client } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface CustomersProps {
   customers: Client[];
@@ -10,15 +11,14 @@ interface CustomersProps {
 }
 
 const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer }) => {
+  const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Client | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // States pour la suppression
   const [customerToDelete, setCustomerToDelete] = useState<Client | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // States pour la recherche
   const [searchTerm, setSearchTerm] = useState('');
   
   const [formData, setFormData] = useState({
@@ -30,7 +30,6 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
     notes: ''
   });
 
-  // Filtrage des clients
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => 
       c.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,9 +109,9 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
              </div>
-             <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">Supprimer ce client ?</h3>
+             <h3 className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">{t('customers.delete_title')}</h3>
              <p className="text-slate-500 dark:text-slate-400 text-center text-sm mb-8 leading-relaxed">
-               Attention, cette action est <span className="font-bold text-rose-600 dark:text-rose-400">irréversible</span>. Toutes les données associées (véhicules, historiques) seront perdues.
+               {t('customers.delete_warning')}
              </p>
              <div className="flex flex-col gap-3">
                <button 
@@ -123,7 +122,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
                  {deleteLoading ? (
                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                  ) : (
-                   "Supprimer définitivement"
+                   t('customers.delete_confirm')
                  )}
                </button>
                <button 
@@ -131,7 +130,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
                  disabled={deleteLoading}
                  className="w-full py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-black rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs"
                >
-                 Annuler
+                 {t('common.cancel')}
                </button>
              </div>
           </div>
@@ -144,8 +143,8 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
           <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-[2.5rem] w-full max-w-lg shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <div className="p-6 sm:p-10 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center shrink-0">
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">{editingCustomer ? 'Modifier le Client' : 'Nouveau Client'}</h2>
-                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Fiche signalétique</p>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">{editingCustomer ? t('common.edit') : t('customers.add_btn')}</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{t('customers.subtitle')}</p>
               </div>
               <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -155,33 +154,33 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
             <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-5 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nom</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('customers.form_name')}</label>
                   <input required placeholder="ex: DUPONT" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value.toUpperCase()})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prénom</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('customers.form_firstname')}</label>
                   <input required placeholder="ex: Jean" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200" value={formData.prenom} onChange={e => setFormData({...formData, prenom: e.target.value})} />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email professionnel</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('customers.form_email')}</label>
                 <input required type="email" placeholder="jean.dupont@email.com" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Téléphone</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('customers.form_phone')}</label>
                 <input required placeholder="06 12 34 56 78" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200" value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})} />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Adresse (Optionnel)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('customers.form_address')}</label>
                 <input placeholder="ex: 12 rue de la Paix, 75000 Paris" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200" value={formData.adresse} onChange={e => setFormData({...formData, adresse: e.target.value})} />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Notes internes</label>
-                <textarea placeholder="Observations particulières (ex: Client VIP, Appeler avant 12h...)" className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200 h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('customers.form_notes')}</label>
+                <textarea placeholder="Observations..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 dark:text-slate-200 h-24" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
               </div>
               <div className="pt-4">
                  <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
-                   {loading ? "Chargement..." : editingCustomer ? "Enregistrer les modifications" : "Créer le client"}
+                   {loading ? t('common.loading') : editingCustomer ? t('customers.form_save_edit') : t('customers.form_save_create')}
                  </button>
               </div>
             </form>
@@ -192,8 +191,8 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
       {/* Header avec Recherche et Action */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-           <h3 className="text-2xl lg:text-3xl font-black text-slate-800 dark:text-white tracking-tight">Fichier Clients</h3>
-           <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Gérez votre base de données clients.</p>
+           <h3 className="text-2xl lg:text-3xl font-black text-slate-800 dark:text-white tracking-tight">{t('customers.title')}</h3>
+           <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">{t('customers.subtitle')}</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
@@ -202,7 +201,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input 
               type="text" 
-              placeholder="Rechercher (Nom, Tél...)" 
+              placeholder={t('customers.search_placeholder')} 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 transition-all shadow-sm"
@@ -211,7 +210,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
 
           <button id="cust-add-btn" onClick={() => { setEditingCustomer(null); setIsModalOpen(true); }} className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-            Nouveau Client
+            {t('customers.add_btn')}
           </button>
         </div>
       </div>
@@ -222,10 +221,10 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Identité</th>
-                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contact</th>
-                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Adresse</th>
-                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Actions</th>
+                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('customers.col_identity')}</th>
+                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('customers.col_contact')}</th>
+                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('customers.col_address')}</th>
+                <th className="px-6 py-6 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -236,7 +235,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
                       <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 dark:text-slate-600 mb-4">
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                       </div>
-                      <p className="text-slate-400 dark:text-slate-500 font-bold">Aucun client trouvé</p>
+                      <p className="text-slate-400 dark:text-slate-500 font-bold">{t('customers.no_data')}</p>
                     </div>
                   </td>
                 </tr>
@@ -279,7 +278,7 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 leading-relaxed max-w-[250px]">{c.adresse}</p>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-wide">Non renseignée</span>
+                        <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-wide">{t('common.none')}</span>
                       )}
                     </td>
                     <td className="px-6 py-5 text-right">
@@ -287,14 +286,14 @@ const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdat
                         <button 
                           onClick={() => handleEdit(c)}
                           className="p-3 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-xl hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all shadow-sm"
-                          title="Modifier"
+                          title={t('common.edit')}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
                         <button 
                           onClick={() => handleDeleteClick(c)}
                           className="p-3 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 rounded-xl hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white transition-all shadow-sm"
-                          title="Supprimer"
+                          title={t('common.delete')}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>

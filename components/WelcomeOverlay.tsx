@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface WelcomeOverlayProps {
   garageName: string;
@@ -7,6 +8,7 @@ interface WelcomeOverlayProps {
 }
 
 const WelcomeOverlay: React.FC<WelcomeOverlayProps> = ({ garageName, onComplete }) => {
+  const { t } = useLanguage();
   const [isFading, setIsFading] = useState(false);
 
   useEffect(() => {
@@ -67,10 +69,10 @@ const WelcomeOverlay: React.FC<WelcomeOverlayProps> = ({ garageName, onComplete 
           </svg>
         </div>
         <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4 drop-shadow-lg">
-          Bienvenue chez vous !
+          {t('welcome.title')}
         </h1>
         <p className="text-xl md:text-2xl font-bold text-white/90 drop-shadow-md">
-          L'atelier <span className="underline decoration-white/50">{garageName}</span> est prêt à décoller.
+          {t('nav.atelier')} <span className="underline decoration-white/50">{garageName}</span> {t('welcome.subtitle').replace("L'atelier", "").trim()}
         </p>
       </div>
     </div>

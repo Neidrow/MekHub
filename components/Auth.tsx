@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { api } from '../services/api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface AuthProps {
   onLogin: (session: any) => void;
@@ -9,6 +10,7 @@ interface AuthProps {
 type AuthStep = 'login' | 'forgot-password';
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
+  const { t } = useLanguage();
   const [step, setStep] = useState<AuthStep>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -84,20 +86,20 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               </svg>
             </div>
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">GaragePro SaaS</h1>
-            <p className="text-slate-400 text-sm font-medium">Gestion d'atelier nouvelle génération</p>
+            <p className="text-slate-400 text-sm font-medium">{t('auth.slogan')}</p>
           </div>
 
           {step === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Email professionnel</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">{t('auth.email_label')}</label>
                 <input required type="email" placeholder="chef@atelier.pro" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
 
               <div className="space-y-1">
                 <div className="flex justify-between items-center pr-4">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Mot de passe</label>
-                    <button type="button" onClick={() => setStep('forgot-password')} className="text-[10px] font-bold text-blue-400 hover:text-blue-300">Mot de passe oublié ?</button>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">{t('auth.password_label')}</label>
+                    <button type="button" onClick={() => setStep('forgot-password')} className="text-[10px] font-bold text-blue-400 hover:text-blue-300">{t('auth.forgot_password')}</button>
                 </div>
                 <input required type="password" placeholder="••••••••" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={password} onChange={e => setPassword(e.target.value)} />
               </div>
@@ -110,20 +112,20 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 >
                   {stayConnected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
                 </button>
-                <span className="text-xs font-bold text-slate-400 cursor-pointer select-none" onClick={() => setStayConnected(!stayConnected)}>Rester connecté</span>
+                <span className="text-xs font-bold text-slate-400 cursor-pointer select-none" onClick={() => setStayConnected(!stayConnected)}>{t('auth.stay_connected')}</span>
               </div>
 
               {error && <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs font-bold text-center animate-shake">{error}</div>}
               {success && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-bold text-center">{success}</div>}
 
               <button disabled={loading} type="submit" className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 mt-6 uppercase tracking-widest text-xs">
-                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Se connecter"}
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : t('auth.login_btn')}
               </button>
             </form>
           ) : (
             <form onSubmit={handleResetPassword} className="space-y-4 text-left animate-in slide-in-from-right duration-300">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Email de votre compte</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">{t('auth.email_label')}</label>
                 <input required type="email" placeholder="Entrez votre email" className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none focus:border-blue-500 transition-all font-medium placeholder:text-slate-600" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
 
@@ -131,19 +133,19 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               {success && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-bold text-center leading-relaxed">{success}</div>}
 
               <button disabled={loading} type="submit" className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 mt-6 uppercase tracking-widest text-xs">
-                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Envoyer mot de passe temporaire"}
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : t('auth.send_temp_pass')}
               </button>
 
               <button type="button" onClick={() => { setStep('login'); setError(''); setSuccess(''); }} className="w-full text-center text-slate-400 text-xs font-bold hover:text-white transition-colors mt-2">
-                Retour à la connexion
+                {t('auth.back_login')}
               </button>
             </form>
           )}
 
           <div className="mt-10 pt-8 border-t border-white/5 text-center space-y-4">
-             <p className="text-slate-500 text-[11px] font-bold uppercase tracking-widest">Nouveau sur GaragePro ?</p>
+             <p className="text-slate-500 text-[11px] font-bold uppercase tracking-widest">{t('auth.new_on_garage')}</p>
              <p className="text-slate-400 text-xs leading-relaxed px-4">
-                L'accès à la plateforme est réservé aux professionnels habilités. Pour obtenir vos accès, veuillez contacter l'administration :
+                {t('auth.access_restricted')}
              </p>
              <a href="mailto:ishlem.pro@gmail.com" className="inline-block px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-blue-400 font-black text-xs uppercase tracking-widest transition-all">
                 ishlem.pro@gmail.com
@@ -155,11 +157,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       {/* --- LEGAL LINKS FOOTER --- */}
       <div className="flex gap-6 mt-4 z-10">
         <a href="/privacy" className="text-xs font-bold text-slate-500 hover:text-white transition-colors uppercase tracking-widest opacity-60 hover:opacity-100">
-          Politique de confidentialité
+          {t('auth.privacy')}
         </a>
         <span className="text-slate-700 font-bold">•</span>
         <a href="/terms" className="text-xs font-bold text-slate-500 hover:text-white transition-colors uppercase tracking-widest opacity-60 hover:opacity-100">
-          Conditions d'utilisation
+          {t('auth.terms')}
         </a>
       </div>
 

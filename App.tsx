@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ViewState, Client, Vehicule, RendezVous, Facture, Devis, StockItem, Mecanicien, GarageSettings, Notification, SystemMaintenance } from './types.ts';
 import { ICONS } from './constants.tsx';
 import { api, supabase } from './services/api.ts';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext.tsx';
 import Auth from './components/Auth.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import Appointments from './components/Appointments.tsx';
@@ -16,8 +17,6 @@ import AIAssistant from './components/AIAssistant.tsx';
 import Settings from './components/Settings.tsx';
 import Mechanics from './components/Mechanics.tsx';
 import SuperAdmin from './components/SuperAdmin.tsx';
-import WelcomeOverlay from './components/WelcomeOverlay.tsx';
-import GoogleCalendarModal from './components/GoogleCalendarModal.tsx';
 import PublicQuoteView from './components/PublicQuoteView.tsx';
 import Tutorial from './components/Tutorial.tsx';
 import HelpModal from './components/HelpModal.tsx';
@@ -72,7 +71,9 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blu
   );
 };
 
-const App: React.FC = () => {
+const GarageProApp: React.FC = () => {
+  const { t } = useLanguage();
+  
   // ROUTING MANUEL POUR LES PAGES STATIQUES
   const path = typeof window !== 'undefined' ? window.location.pathname : '';
   
@@ -138,11 +139,6 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-
-  const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
-  const [passError, setPassError] = useState('');
-  const [passLoading, setPassLoading] = useState(false);
 
   const handleSession = async (sess: any) => {
     setSession(sess);
@@ -327,7 +323,6 @@ const App: React.FC = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
-  // Helper pour les couleurs de notifications
   const getNotifStyles = (type: string, read: boolean) => {
     if (read) return 'opacity-60 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800';
     switch (type) {
@@ -414,31 +409,31 @@ const App: React.FC = () => {
             <h1 className="text-xl font-black tracking-tight dark:text-white">GaragePro</h1>
           </div>
           <nav className="space-y-1.5 flex-1 overflow-y-auto scrollbar-hide">
-            <NavItem view="dashboard" label="Dashboard" icon={ICONS.Dashboard} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="appointments" label="Agenda" icon={ICONS.Appointments} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="customers" label="Clients" icon={ICONS.Customers} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="vehicles" label="Véhicules" icon={ICONS.Vehicles} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="mechanics" label="Équipe" icon={ICONS.Mechanics} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="quotes" label="Devis" icon={ICONS.Quotes} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="invoices" label="Factures" icon={ICONS.Invoices} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="inventory" label="Stock" icon={ICONS.Inventory} isPremium={true} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="statistics" label="Statistiques" icon={ICONS.Stats} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="ai-assistant" label="Assistant IA" icon={ICONS.AI} color="indigo" isPremium={true} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="dashboard" label={t('nav.dashboard')} icon={ICONS.Dashboard} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="appointments" label={t('nav.appointments')} icon={ICONS.Appointments} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="customers" label={t('nav.customers')} icon={ICONS.Customers} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="vehicles" label={t('nav.vehicles')} icon={ICONS.Vehicles} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="mechanics" label={t('nav.mechanics')} icon={ICONS.Mechanics} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="quotes" label={t('nav.quotes')} icon={ICONS.Quotes} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="invoices" label={t('nav.invoices')} icon={ICONS.Invoices} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="inventory" label={t('nav.inventory')} icon={ICONS.Inventory} isPremium={true} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="statistics" label={t('nav.statistics')} icon={ICONS.Stats} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="ai-assistant" label={t('nav.ai_assistant')} icon={ICONS.AI} color="indigo" isPremium={true} currentView={currentView} onClick={handleNavigate} />
             {userRole === 'super_admin' && (
               <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-                <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Master Admin</p>
-                <NavItem view="super-admin-overview" label="Overview" icon={ICONS.Dashboard} color="rose" currentView={currentView} onClick={handleNavigate} />
-                <NavItem view="super-admin-garages" label="Garages" icon={ICONS.AdminGarages} color="rose" currentView={currentView} onClick={handleNavigate} />
-                <NavItem view="super-admin-logs" label="Audit Logs" icon={ICONS.AdminLogs} color="rose" currentView={currentView} onClick={handleNavigate} />
-                <NavItem view="super-admin-communication" label="Système" icon={ICONS.AdminComm} color="rose" currentView={currentView} onClick={handleNavigate} />
+                <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('nav.master_admin')}</p>
+                <NavItem view="super-admin-overview" label={t('nav.admin_overview')} icon={ICONS.Dashboard} color="rose" currentView={currentView} onClick={handleNavigate} />
+                <NavItem view="super-admin-garages" label={t('nav.admin_garages')} icon={ICONS.AdminGarages} color="rose" currentView={currentView} onClick={handleNavigate} />
+                <NavItem view="super-admin-logs" label={t('nav.admin_logs')} icon={ICONS.AdminLogs} color="rose" currentView={currentView} onClick={handleNavigate} />
+                <NavItem view="super-admin-communication" label={t('nav.admin_comm')} icon={ICONS.AdminComm} color="rose" currentView={currentView} onClick={handleNavigate} />
               </div>
             )}
           </nav>
           <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-            <NavItem view="settings" label="Paramètres" icon={ICONS.Settings} currentView={currentView} onClick={handleNavigate} />
+            <NavItem view="settings" label={t('nav.settings')} icon={ICONS.Settings} currentView={currentView} onClick={handleNavigate} />
             <button onClick={() => api.logout()} className="flex items-center gap-3 px-4 py-3 rounded-2xl w-full text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all font-medium">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-              <span className="text-sm">Déconnexion</span>
+              <span className="text-sm">{t('nav.logout')}</span>
             </button>
           </div>
         </div>
@@ -447,8 +442,9 @@ const App: React.FC = () => {
       <main className="lg:ml-72 min-h-screen">
         <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-6 lg:px-10 h-20 flex items-center justify-between">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-500"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-          <div className="hidden lg:block text-sm font-bold text-slate-400 uppercase tracking-widest">{settings?.nom || "GaragePro"} Atelier</div>
+          <div className="hidden lg:block text-sm font-bold text-slate-400 uppercase tracking-widest">{settings?.nom || "GaragePro"} {t('nav.atelier')}</div>
           <div className="flex items-center gap-2 sm:gap-4">
+            
             <button id="app-theme-toggle" onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-all">
                {darkMode ? (
                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="3" r="1.5" /><circle cx="12" cy="21" r="1.5" /><circle cx="3" cy="12" r="1.5" /><circle cx="21" cy="12" r="1.5" /><circle cx="5.64" cy="5.64" r="1.5" /><circle cx="18.36" cy="18.36" r="1.5" /><circle cx="5.64" cy="18.36" r="1.5" /><circle cx="18.36" cy="5.64" r="1.5" /></svg>
@@ -464,21 +460,21 @@ const App: React.FC = () => {
               {isNotifOpen && (
                 <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in slide-in-from-top-4 duration-200 z-[100]">
                   <div className="p-5 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Notifications</h4>
-                    <button onClick={handleMarkAllNotifsRead} className="text-[10px] font-black text-blue-600 dark:text-blue-400 hover:underline uppercase tracking-tight">Tout lire</button>
+                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">{t('dashboard.notifications')}</h4>
+                    <button onClick={handleMarkAllNotifsRead} className="text-[10px] font-black text-blue-600 dark:text-blue-400 hover:underline uppercase tracking-tight">{t('dashboard.mark_read')}</button>
                   </div>
                   <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
-                    {notifications.length === 0 ? (<div className="p-10 text-center text-slate-400 italic text-sm">Aucune notification</div>) : (notifications.map(n => (
+                    {notifications.length === 0 ? (<div className="p-10 text-center text-slate-400 italic text-sm">{t('dashboard.all_calm')}</div>) : (notifications.map(n => (
                         <div key={n.id} className={`p-4 border-b border-slate-50 dark:border-slate-800 last:border-0 transition-all group flex gap-3 ${getNotifStyles(n.type, n.read)}`}>
                             <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.read ? (n.type === 'error' ? 'bg-rose-500 shadow-sm shadow-rose-500/50' : n.type === 'success' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-blue-500 shadow-sm') : 'bg-transparent'}`}></div>
                             <div className="flex-1">
                                 <p className={`text-xs font-black ${getNotifTitleColor(n.type, n.read)}`}>{n.title}</p>
                                 <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">{n.message}</p>
                                 <div className="flex items-center justify-between mt-2">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase">{n.created_at ? new Date(n.created_at).toLocaleDateString() : 'Aujourd\'hui'}</span>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase">{n.created_at ? new Date(n.created_at).toLocaleDateString() : t('common.today')}</span>
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {!n.read && <button onClick={() => handleMarkNotifRead(n.id)} className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">Lue</button>}
-                                        <button onClick={() => handleDeleteNotif(n.id)} className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase">Suppr.</button>
+                                        {!n.read && <button onClick={() => handleMarkNotifRead(n.id)} className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">{t('dashboard.read')}</button>}
+                                        <button onClick={() => handleDeleteNotif(n.id)} className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase">{t('dashboard.delete')}</button>
                                     </div>
                                 </div>
                             </div>
@@ -490,7 +486,7 @@ const App: React.FC = () => {
             </div>
             <div className="h-8 w-px bg-slate-100 dark:bg-slate-800 mx-1 sm:mx-2"></div>
             <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block"><p className="text-xs font-black dark:text-white uppercase truncate max-w-[120px]">{session.user.email.split('@')[0]}</p><p className="text-[10px] font-bold text-slate-400 uppercase">{userRole === 'super_admin' ? 'Master Admin' : 'Chef d\'Atelier'}</p></div>
+              <div className="text-right hidden sm:block"><p className="text-xs font-black dark:text-white uppercase truncate max-w-[120px]">{session.user.email.split('@')[0]}</p><p className="text-[10px] font-bold text-slate-400 uppercase">{userRole === 'super_admin' ? t('nav.master_admin') : t('nav.workshop_manager')}</p></div>
               <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-blue-600">{session.user.email[0].toUpperCase()}</div>
             </div>
           </div>
@@ -532,6 +528,15 @@ const App: React.FC = () => {
 
       {toast && <div className="fixed bottom-24 right-6 z-[100] animate-in slide-in-from-right"><div className={`p-4 rounded-2xl shadow-2xl border flex items-center gap-3 min-w-[300px] ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : toast.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-800' : 'bg-blue-50 border-blue-100 text-blue-800'}`}><h4 className="font-black text-sm">{toast.title}</h4><p className="text-xs opacity-80">{toast.message}</p></div></div>}
     </div>
+  );
+};
+
+// Wrapper simple pour fournir le contexte
+const App: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <GarageProApp />
+    </LanguageProvider>
   );
 };
 

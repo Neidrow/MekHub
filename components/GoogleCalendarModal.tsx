@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface GoogleCalendarModalProps {
   onConnect: () => Promise<void>;
@@ -8,6 +9,7 @@ interface GoogleCalendarModalProps {
 }
 
 const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, onRemindLater, onDismissForever }) => {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
 
   const handleConnect = async () => {
@@ -41,10 +43,10 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
           </div>
 
           <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-3">
-            Synchronisez votre Agenda
+            {t('calendar.title')}
           </h2>
           <p className="text-slate-500 font-medium text-sm leading-relaxed mb-8">
-            Retrouvez tous vos rendez-vous clients directement sur votre <span className="font-bold text-slate-900">Google Agenda</span>.
+            {t('calendar.subtitle')}
           </p>
 
           <div className="space-y-3">
@@ -63,7 +65,7 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
                     <path fill="#FBBC05" d="M5.29 13.57c-.24-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.13H1.71C.62 8.28 0 10.72 0 13.29s.62 5.01 1.71 7.16l3.58-2.86c-.95-2.83-.95-5.96 0-8.02z"/>
                     <path fill="#EA4335" d="M12 4.75c1.69 0 3.21.58 4.41 1.72l3.31-3.31C17.71 1.05 15.11 0 12 0 7.55 0 3.61 2.69 1.71 6.13l3.58 2.86c.95-2.83 3.59-4.94 6.71-4.94z"/>
                   </svg>
-                  Connecter maintenant
+                  {t('calendar.btn_connect')}
                 </>
               )}
             </button>
@@ -73,7 +75,7 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
               disabled={loading}
               className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-2xl hover:bg-slate-100 transition-all text-xs uppercase tracking-widest border border-slate-100"
             >
-              Plus tard
+              {t('calendar.btn_later')}
             </button>
 
             <div className="pt-2">
@@ -82,7 +84,7 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
                 disabled={loading}
                 className="text-[10px] font-bold text-slate-400 hover:text-slate-600 hover:underline transition-colors"
                 >
-                Ne plus me demander
+                {t('calendar.btn_dismiss')}
                 </button>
             </div>
           </div>
@@ -94,14 +96,14 @@ const GoogleCalendarModal: React.FC<GoogleCalendarModalProps> = ({ onConnect, on
              </div>
              <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5 flex items-center gap-1">
                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-               Message "Application non validée" ?
+               {t('calendar.help_title')}
              </p>
              <p className="text-[11px] text-amber-800/80 leading-relaxed font-medium relative z-10">
-               C'est normal durant la phase de certification Google. Pour continuer :
+               {t('calendar.help_text')}
              </p>
              <ol className="list-decimal pl-4 mt-1.5 space-y-1 text-[10px] text-amber-900 font-bold relative z-10">
-                <li>Cliquez sur le lien <span className="underline">Paramètres avancés</span> (en bas à gauche).</li>
-                <li>Puis sur <span className="underline">Accéder à garage-pro-eight.vercel.app (non sécurisé)</span>.</li>
+                <li>{t('calendar.help_step1')}</li>
+                <li>{t('calendar.help_step2')}</li>
              </ol>
           </div>
 
