@@ -72,7 +72,7 @@ Donner un diagnostic structuré, priorisé et directement exploitable à l'ateli
 ⚠️ VIGILANCE
 [Un point de sécurité ou une erreur de débutant à éviter]`;
 
-const callGroqApi = async (messages: any[]) => {
+const callGroqApi = async (messages: any[], temperature: number = 0.2) => {
   if (!GROQ_API_KEY) throw new Error("Clé API interne manquante.");
 
   const response = await fetch(GROQ_API_URL, {
@@ -84,7 +84,7 @@ const callGroqApi = async (messages: any[]) => {
     body: JSON.stringify({
       messages: messages,
       model: GROQ_MODEL,
-      temperature: 0.2,
+      temperature: temperature,
       max_tokens: 1024
     })
   });
@@ -125,7 +125,7 @@ export const getDiagnosticSuggestions = async (symptoms: string, userId: string,
       const responseText = await callGroqApi([
         { role: "system", content: DIAGNOSTIC_SYSTEM_PROMPT },
         { role: "user", content: `Symptômes du véhicule : "${symptoms}"` }
-      ]);
+      ], 0.2);
       
       await api.logAiUsage(userId);
       return responseText;
@@ -142,21 +142,31 @@ export const getDiagnosticSuggestions = async (symptoms: string, userId: string,
 };
 
 export const generateCustomerMessage = async (serviceDetails: string, customerName: string, userId: string, role: UserRole) => {
-  const fallbackMessage = `Bonjour ${customerName}, les travaux suivants sont terminés : ${serviceDetails}. Vous pouvez récupérer votre véhicule. Cordialement.`;
+  const fallbackMessage = `Bonjour ${customerName}, concernant votre véhicule : ${serviceDetails}. N'hésitez pas à nous contacter pour plus d'informations. Cordialement.`;
 
   try {
     checkWordCount(serviceDetails);
     await checkUsage(userId, role);
 
-    const systemPrompt = "Tu es un assistant administratif de garage automobile. Tu rédiges des SMS courts et professionnels. CONSIGNES : - Court, poli et factuel (format SMS). - Pas d'objet, pas de titre. - Ne signe pas (le système l'ajoute).";
-    const userPrompt = `Rédige un SMS pour un client.
-      Nom Client : ${customerName}
-      Contexte : ${serviceDetails}`;
+    const systemPrompt = `Tu es le secrétaire expert d'un garage automobile prestigieux.
+    TA MISSION : Rédiger un SMS pour un client spécifique.
+    
+    CONTRAINTES :
+    1. Le message doit être UNIQUE, courtois, professionnel et chaleureux. Ne répète jamais la même formule mot pour mot.
+    2. Utilise le nom du client (${customerName}) de manière naturelle.
+    3. Le message doit être basé précisément sur l'objet fourni.
+    4. Format SMS : court, concis, pas d'objet de mail, pas de signature explicite (le système l'ajoute).
+    5. Sois créatif dans la formulation tout en restant très pro.`;
 
+    const userPrompt = `Rédige un message pour :
+      Client : ${customerName}
+      Objet / Contexte : ${serviceDetails}`;
+
+    // Température augmentée à 0.7 pour plus de créativité et d'unicité
     const responseText = await callGroqApi([
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
-    ]);
+    ], 0.7);
     
     await api.logAiUsage(userId);
     return responseText || fallbackMessage;

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { StockItem, UserRole, StockHistory } from '../types';
 import { api } from '../services/api';
@@ -33,10 +34,10 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
   const isPremium = userRole === 'user_premium' || userRole === 'super_admin';
   
   const CATEGORIES = useMemo(() => [
-    { id: 'Piece', label: t('inventory.cat_part'), color: 'bg-blue-600', icon: '🔧' },
-    { id: 'Consommable', label: t('inventory.cat_consumable'), color: 'bg-emerald-500', icon: '💧' },
-    { id: 'Produit', label: t('inventory.cat_product'), color: 'bg-purple-600', icon: '🛒' },
-    { id: 'Autre', label: t('inventory.cat_other'), color: 'bg-slate-700', icon: '📦' }
+    { id: 'Piece', label: t('inventory.cat_part'), color: 'bg-blue-600', text: 'text-blue-600', soft: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border-blue-100 dark:border-blue-800', icon: '🔧' },
+    { id: 'Consommable', label: t('inventory.cat_consumable'), color: 'bg-emerald-500', text: 'text-emerald-600', soft: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 border-emerald-100 dark:border-emerald-800', icon: '💧' },
+    { id: 'Produit', label: t('inventory.cat_product'), color: 'bg-purple-600', text: 'text-purple-600', soft: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 border-purple-100 dark:border-purple-800', icon: '🛒' },
+    { id: 'Autre', label: t('inventory.cat_other'), color: 'bg-slate-600', text: 'text-slate-600', soft: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700', icon: '📦' }
   ], [language, t]);
 
   const filteredInventory = useMemo(() => inventory.filter(item => { 
@@ -170,10 +171,10 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
         {/* Stats & Filters */}
         <div id="stock-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4">
            {displayedCategories.map(cat => (
-             <div key={cat.id} onClick={() => setActiveFilter(cat.id === activeFilter ? 'Tout' : cat.id)} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeFilter === cat.id ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600'}`}>
+             <div key={cat.id} onClick={() => setActiveFilter(cat.id === activeFilter ? 'Tout' : cat.id)} className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeFilter === cat.id ? `${cat.color} text-white border-transparent shadow-lg shadow-${cat.color.split('-')[1]}-500/30` : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600 text-slate-500 dark:text-slate-400'}`}>
                 <span className="text-2xl mb-2 block">{cat.icon}</span>
-                <p className="text-xs font-black uppercase tracking-widest opacity-60">{cat.label}</p>
-                <p className="text-lg font-black">{inventory.filter(i => i.categorie === cat.id).length}</p>
+                <p className={`text-xs font-black uppercase tracking-widest ${activeFilter === cat.id ? 'opacity-80' : 'opacity-60'}`}>{cat.label}</p>
+                <p className={`text-lg font-black ${activeFilter === cat.id ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{inventory.filter(i => i.categorie === cat.id).length}</p>
              </div>
            ))}
         </div>
@@ -187,28 +188,31 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, userRole, onAddItem, o
              ) : (
                filteredInventory.map(item => {
                  const isAlert = item.quantite <= item.seuil_alerte;
+                 const cat = CATEGORIES.find(c => c.id === item.categorie);
                  return (
-                   <div key={item.id} className={`p-5 rounded-2xl border transition-all hover:shadow-lg group relative ${isAlert ? 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'}`}>
+                   <div key={item.id} className={`p-5 rounded-2xl border transition-all hover:shadow-lg group relative ${isAlert ? 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'}`}>
                       <div className="flex justify-between items-start mb-3">
-                         <span className="px-2 py-1 bg-white dark:bg-slate-900 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-100 dark:border-slate-700">{item.categorie}</span>
+                         <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${cat ? cat.soft : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                            {item.categorie}
+                         </span>
                          <div className="flex gap-1">
-                            <button onClick={() => openHistoryModal(item)} className="p-2 bg-white dark:bg-slate-900 text-blue-500 rounded-lg hover:text-blue-700 transition-colors shadow-sm"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
-                            <button onClick={() => openEditModal(item)} className="p-2 bg-white dark:bg-slate-900 text-slate-400 rounded-lg hover:text-slate-700 dark:hover:text-white transition-colors shadow-sm"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
-                            <button onClick={() => setItemToDelete(item)} className="p-2 bg-white dark:bg-slate-900 text-rose-400 rounded-lg hover:text-rose-600 transition-colors shadow-sm"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                            <button onClick={() => openHistoryModal(item)} className="p-2 bg-slate-50 dark:bg-slate-800 text-blue-500 rounded-xl hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
+                            <button onClick={() => openEditModal(item)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-xl hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                            <button onClick={() => setItemToDelete(item)} className="p-2 bg-slate-50 dark:bg-slate-800 text-rose-400 rounded-xl hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                          </div>
                       </div>
-                      <h4 className="font-black text-slate-800 dark:text-white text-lg truncate" title={item.nom}>{item.nom}</h4>
-                      <p className="text-xs font-bold text-slate-400 mb-4">{item.reference}</p>
+                      <h4 className="font-black text-slate-800 dark:text-white text-lg truncate mb-1" title={item.nom}>{item.nom}</h4>
+                      <p className="text-xs font-bold text-slate-400 mb-6 font-mono tracking-tight">{item.reference}</p>
                       
-                      <div className="flex items-center justify-between mt-auto">
-                         <div className="text-right">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">Prix Vente</p>
-                            <p className="font-black text-slate-800 dark:text-white">{item.prix_vente.toFixed(2)} €</p>
+                      <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50 dark:border-slate-800/50">
+                         <div>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Prix Vente</p>
+                            <p className="font-black text-slate-800 dark:text-white text-sm">{item.prix_vente.toFixed(2)} €</p>
                          </div>
-                         <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-1.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                            <button onClick={() => { setRestockItem(item); setRestockData({ type: 'remove', quantity: 1, date: new Date().toISOString().split('T')[0], note: '' }); setIsRestockModalOpen(true); }} className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors font-black">-</button>
-                            <span className={`font-black text-lg min-w-[2ch] text-center ${isAlert ? 'text-rose-600 animate-pulse' : 'text-slate-800 dark:text-white'}`}>{item.quantite}</span>
-                            <button onClick={() => { setRestockItem(item); setRestockData({ type: 'add', quantity: 1, date: new Date().toISOString().split('T')[0], note: '' }); setIsRestockModalOpen(true); }} className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors font-black">+</button>
+                         <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                            <button onClick={() => { setRestockItem(item); setRestockData({ type: 'remove', quantity: 1, date: new Date().toISOString().split('T')[0], note: '' }); setIsRestockModalOpen(true); }} className="w-7 h-7 rounded-lg bg-white dark:bg-slate-700 text-rose-500 hover:text-rose-600 flex items-center justify-center shadow-sm font-black transition-colors">-</button>
+                            <span className={`font-black text-sm min-w-[2.5ch] text-center ${isAlert ? 'text-rose-600 animate-pulse' : 'text-slate-800 dark:text-white'}`}>{item.quantite}</span>
+                            <button onClick={() => { setRestockItem(item); setRestockData({ type: 'add', quantity: 1, date: new Date().toISOString().split('T')[0], note: '' }); setIsRestockModalOpen(true); }} className="w-7 h-7 rounded-lg bg-white dark:bg-slate-700 text-emerald-500 hover:text-emerald-600 flex items-center justify-center shadow-sm font-black transition-colors">+</button>
                          </div>
                       </div>
                    </div>

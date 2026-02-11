@@ -125,7 +125,7 @@ const GarageProApp: React.FC = () => {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
   
-  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', title: string, message: string } | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info' | 'warning', title: string, message: string } | null>(null);
 
   const [clients, setClients] = useState<Client[]>([]);
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
@@ -144,6 +144,11 @@ const GarageProApp: React.FC = () => {
   const [quoteAlerts, setQuoteAlerts] = useState(0);
 
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const handleNotify = (type: 'success' | 'error' | 'info' | 'warning', title: string, message: string) => {
+    setToast({ type, title, message });
+    setTimeout(() => setToast(null), 5000);
+  };
 
   const handleSession = async (sess: any) => {
     setSession(sess);
@@ -186,6 +191,15 @@ const GarageProApp: React.FC = () => {
       setDevis(d);
       setFactures(f);
       setNotifications(n);
+
+      // --- DETECTION TOKEN GOOGLE MANQUANT (ZOMBIE STATE) ---
+      // Si la DB dit "activé" mais que le navigateur n'a pas le token (session expiré ou onglet fermé)
+      if (sett?.google_calendar_enabled) {
+          const storedToken = api.getStoredGoogleToken();
+          if (!storedToken) {
+              handleNotify('warning', 'Google Calendar', 'Connexion expirée. Veuillez vous reconnecter dans les paramètres.');
+          }
+      }
 
       if (sess.user.user_metadata?.needs_password_change) {
         setMustChangePassword(true);
@@ -337,11 +351,6 @@ const GarageProApp: React.FC = () => {
     return () => clearInterval(interval);
   }, [session, isSuspended, rendezVous]);
 
-  const handleNotify = (type: 'success' | 'error' | 'info', title: string, message: string) => {
-    setToast({ type, title, message });
-    setTimeout(() => setToast(null), 5000);
-  };
-
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);
     localStorage.setItem('garagepro_current_view', view);
@@ -422,8 +431,8 @@ const GarageProApp: React.FC = () => {
 
   const renderContent = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} appointments={rendezVous} invoices={factures} notifications={notifications} onMarkAsRead={handleMarkNotifRead} onAddAppointment={async (app) => { const r = await api.postData<RendezVous>('rendez_vous', app); setRendezVous([r, ...rendezVous]); }} onNavigate={handleNavigate} />;
-      case 'appointments': return <Appointments appointments={rendezVous} customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} onAddAppointment={async (app) => { const r = await api.postData<RendezVous>('rendez_vous', app); setRendezVous([r, ...rendezVous]); }} onUpdateStatus={async (id, s) => { await api.updateData('rendez_vous', id, { statut: s }); setRendezVous(rendezVous.map(r => r.id === id ? { ...r, statut: s } : r)); }} onUpdateAppointment={async (id, up) => { await api.updateData('rendez_vous', id, up); setRendezVous(rendezVous.map(r => r.id === id ? { ...r, ...up } : r)); }} onDelete={async (id) => { await api.deleteData('rendez_vous', id); setRendezVous(rendezVous.filter(r => r.id !== id)); }} onNavigate={handleNavigate} />;
+      case 'dashboard': return <Dashboard customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} appointments={rendezVous} invoices={factures} notifications={notifications} onMarkAsRead={handleMarkNotifRead} onAddAppointment={async (app) => { try { const r = await api.postData<RendezVous>('rendez_vous', app); setRendezVous([r, ...rendezVous]); } catch (e: any) { if(e.message && e.message.includes('Token Google')) { handleNotify('error', 'Erreur Google', e.message); } else { throw e; } } }} onNavigate={handleNavigate} />;
+      case 'appointments': return <Appointments appointments={rendezVous} customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} onAddAppointment={async (app) => { try { const r = await api.postData<RendezVous>('rendez_vous', app); setRendezVous([r, ...rendezVous]); } catch (e: any) { if(e.message && e.message.includes('Token Google')) { handleNotify('error', 'Erreur Google', e.message); } else { throw e; } } }} onUpdateStatus={async (id, s) => { await api.updateData('rendez_vous', id, { statut: s }); setRendezVous(rendezVous.map(r => r.id === id ? { ...r, statut: s } : r)); }} onUpdateAppointment={async (id, up) => { await api.updateData('rendez_vous', id, up); setRendezVous(rendezVous.map(r => r.id === id ? { ...r, ...up } : r)); }} onDelete={async (id) => { await api.deleteData('rendez_vous', id); setRendezVous(rendezVous.filter(r => r.id !== id)); }} onNavigate={handleNavigate} />;
       case 'customers': return <Customers customers={clients} onAddCustomer={async (c) => { const r = await api.postData<Client>('clients', c); setClients([r, ...clients]); }} onUpdateCustomer={async (id, up) => { await api.updateData('clients', id, up); setClients(clients.map(c => c.id === id ? { ...c, ...up } : c)); }} onDeleteCustomer={async (id) => { await api.deleteData('clients', id); setClients(clients.filter(c => c.id !== id)); }} />;
       case 'vehicles': return <Vehicles vehicles={vehicules} customers={clients} appointments={rendezVous} invoices={factures} onAdd={async (v) => { const r = await api.postData<Vehicule>('vehicules', v); setVehicules([r, ...vehicules]); }} onUpdate={async (id, up) => { await api.updateData('vehicules', id, up); setVehicules(vehicules.map(v => v.id === id ? { ...v, ...up } : v)); }} onDelete={async (id) => { await api.deleteData('vehicules', id); setVehicules(vehicules.filter(v => v.id !== id)); }} />;
       case 'mechanics': return <Mechanics mechanics={mecaniciens} onAdd={async (m) => { const r = await api.postData<Mecanicien>('mecaniciens', m); setMecaniciens([r, ...mecaniciens]); }} onUpdate={async (id, up) => { await api.updateData('mecaniciens', id, up); setMecaniciens(mecaniciens.map(m => m.id === id ? { ...m, ...up } : m)); }} onDelete={async (id) => { await api.deleteData('mecaniciens', id); setMecaniciens(mecaniciens.filter(m => m.id !== id)); }} />;
@@ -446,7 +455,9 @@ const GarageProApp: React.FC = () => {
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
                <ICONS.Dashboard />
             </div>
-            <h1 className="text-xl font-black tracking-tight dark:text-white">GaragePro</h1>
+            <h1 className="text-xl font-black tracking-tight dark:text-white truncate" title={settings?.nom || "GaragePro"}>
+              {settings?.nom || "GaragePro"}
+            </h1>
           </div>
           <nav className="space-y-1.5 flex-1 overflow-y-auto scrollbar-hide">
             <NavItem view="dashboard" label={t('nav.dashboard')} icon={ICONS.Dashboard} currentView={currentView} onClick={handleNavigate} />
@@ -570,7 +581,7 @@ const GarageProApp: React.FC = () => {
         />
       )}
 
-      {toast && <div className="fixed bottom-24 right-6 z-[100] animate-in slide-in-from-right"><div className={`p-4 rounded-2xl shadow-2xl border flex items-center gap-3 min-w-[300px] ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : toast.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-800' : 'bg-blue-50 border-blue-100 text-blue-800'}`}><h4 className="font-black text-sm">{toast.title}</h4><p className="text-xs opacity-80">{toast.message}</p></div></div>}
+      {toast && <div className="fixed bottom-24 right-6 z-[100] animate-in slide-in-from-right"><div className={`p-4 rounded-2xl shadow-2xl border flex items-center gap-3 min-w-[300px] ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : toast.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-800' : toast.type === 'warning' ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-blue-50 border-blue-100 text-blue-800'}`}><h4 className="font-black text-sm">{toast.title}</h4><p className="text-xs opacity-80">{toast.message}</p></div></div>}
     </div>
   );
 };

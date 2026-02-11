@@ -327,7 +327,13 @@ class ApiService {
 
   async syncWithGoogleCalendar(rdv: RendezVous, action: 'create' | 'update' | 'delete'): Promise<boolean> {
     const token = this.getStoredGoogleToken();
-    if (!token) return false;
+    
+    // Si pas de token, on ne peut pas synchroniser.
+    // L'UI doit gérer ce cas via handleSession dans App.tsx
+    if (!token) {
+        console.warn("Google Sync ignoré : Pas de token disponible.");
+        return false;
+    }
     
     try {
       const [y, m, d] = rdv.date.split('-').map(Number);
@@ -390,12 +396,27 @@ class ApiService {
           body: action !== 'delete' ? JSON.stringify(event) : null 
       });
 
+      // Gestion spécifique du token expiré (401)
+      if (res.status === 401) {
+          console.warn("Token Google expiré (401). Suppression du token local.");
+          sessionStorage.removeItem('google_access_token');
+          // On lève une erreur spécifique pour que le front l'affiche
+          throw new Error("⚠️ Token Google expiré. Veuillez vous reconnecter dans les paramètres.");
+      }
+
       if (action === 'create' && res.ok) { 
           const data = await res.json(); 
           await supabase.from('rendez_vous').update({ google_event_id: data.id }).eq('id', rdv.id); 
       }
       return res.ok;
-    } catch { return false; }
+    } catch (e: any) { 
+        console.error("Erreur Sync Google:", e);
+        // Si c'est l'erreur 401 qu'on vient de lancer, on la relance pour l'UI
+        if (e.message && e.message.includes("Token Google expiré")) {
+            throw e;
+        }
+        return false; 
+    }
   }
 
   async getSettings(): Promise<GarageSettings | null> {

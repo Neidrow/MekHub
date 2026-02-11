@@ -300,8 +300,8 @@ export const TRANSLATIONS = {
       placeholder_symptoms: "Ex: Bruit de claquement à l'avant gauche...",
       btn_analyze: "Analyser les symptômes",
       label_client: "Client",
-      label_status: "Statut travaux",
-      placeholder_status: "Freins changés, prêt à 17h",
+      label_status: "Objet / Contexte",
+      placeholder_status: "Ex: Véhicule prêt, Devis à valider, Pièce reçue...",
       btn_generate: "Générer le SMS",
       btn_copy: "Copier le message"
     },
@@ -621,8 +621,8 @@ export const TRANSLATIONS = {
       placeholder_symptoms: "Ex: Clicking noise front left...",
       btn_analyze: "Analyze Symptoms",
       label_client: "Customer",
-      label_status: "Work Status",
-      placeholder_status: "Brakes changed, ready at 5 PM",
+      label_status: "Subject / Context",
+      placeholder_status: "Ex: Vehicle ready, Quote pending approval, Part received...",
       btn_generate: "Generate SMS",
       btn_copy: "Copy Message"
     },
