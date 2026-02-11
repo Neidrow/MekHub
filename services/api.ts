@@ -20,7 +20,12 @@ class ApiService {
   private googleToken: string | null = null;
   private tokenClient: any = null;
 
-  async requestGoogleAccess(): Promise<string> {
+  /**
+   * Demande l'accès à Google Calendar.
+   * @param forceConsent Si true, force l'affichage de la fenêtre de choix de compte (utile pour le bouton "Connecter" dans les paramètres).
+   *                     Si false (défaut), tente une connexion silencieuse ou rapide (utile pour le rafraîchissement auto).
+   */
+  async requestGoogleAccess(forceConsent: boolean = false): Promise<string> {
     return new Promise((resolve, reject) => {
       try {
         if (!(window as any).google) {
@@ -41,20 +46,33 @@ class ApiService {
                 if (response.error === 'popup_closed_by_user') {
                     reject(new Error("La connexion a été annulée."));
                 } else {
-                    reject(new Error(`Accès refusé par Google (${response.error}). Vérifiez que l'app est bien publiée.`));
+                    reject(new Error(`Accès refusé par Google (${response.error}).`));
                 }
               } else {
                 this.googleToken = response.access_token;
-                sessionStorage.setItem('google_access_token', response.access_token);
+                
+                // Calcul de l'expiration (Google renvoie expires_in en secondes, généralement 3599)
+                // On enlève 60s par sécurité pour ne pas utiliser un token à la dernière seconde
+                const expiresIn = (response.expires_in || 3599) - 60; 
+                const expiryTime = Date.now() + (expiresIn * 1000);
+
+                // Stockage PERSISTANT (localStorage) au lieu de session
+                localStorage.setItem('google_access_token', response.access_token);
+                localStorage.setItem('google_token_expiry', expiryTime.toString());
+                
                 resolve(response.access_token);
               }
             },
           });
         }
 
-        // Demande du token avec 'consent' pour forcer le choix du compte si besoin
-        // Cela permet de changer d'utilisateur Google si on s'est trompé
-        this.tokenClient.requestAccessToken({ prompt: 'consent' });
+        // Configuration de la demande
+        // Si forceConsent est false, on ne met pas de prompt 'consent', ce qui permet à Google
+        // de redonner un token sans popup si l'utilisateur est déjà loggué dans Chrome.
+        const config = forceConsent ? { prompt: 'consent' } : { prompt: '' };
+        
+        // Demande du token
+        this.tokenClient.requestAccessToken(config);
 
       } catch (err: any) { 
         console.error("Erreur initialisation Google:", err);
@@ -63,10 +81,27 @@ class ApiService {
     });
   }
 
-  getStoredGoogleToken() { return this.googleToken || sessionStorage.getItem('google_access_token'); }
+  getStoredGoogleToken() { 
+    // Vérification de la validité du token stocké
+    const token = this.googleToken || localStorage.getItem('google_access_token');
+    const expiryStr = localStorage.getItem('google_token_expiry');
+    
+    if (!token) return null;
+
+    if (expiryStr) {
+        const expiry = parseInt(expiryStr, 10);
+        // Si le token est expiré, on le considère comme nul pour forcer un refresh
+        if (Date.now() > expiry) {
+            return null; 
+        }
+    }
+
+    return token;
+  }
 
   async logout() { 
-    sessionStorage.removeItem('google_access_token');
+    localStorage.removeItem('google_access_token');
+    localStorage.removeItem('google_token_expiry');
     this.googleToken = null;
     
     // Révocation du token Google si existant pour sécurité
@@ -234,8 +269,8 @@ class ApiService {
     }
     
     if (table === 'rendez_vous') {
-      const settings = await this.getSettings();
-      if (settings?.google_calendar_enabled) await this.syncWithGoogleCalendar(data[0] as RendezVous, 'create');
+      // Pour Google, on lance la synchro en "fire and forget" mais on gère l'erreur silencieusement
+      this.syncWithGoogleCalendar(data[0] as RendezVous, 'create').catch(e => console.warn("Background Google Sync failed", e));
     }
     return data[0] as T;
   }
@@ -248,16 +283,14 @@ class ApiService {
 
     if (table === 'rendez_vous') {
       const { data } = await supabase.from('rendez_vous').select('*').eq('id', id).single();
-      const settings = await this.getSettings();
-      if (data && settings?.google_calendar_enabled) await this.syncWithGoogleCalendar(data, 'update');
+      if (data) this.syncWithGoogleCalendar(data, 'update').catch(e => console.warn("Background Google Sync failed", e));
     }
   }
 
   async deleteData(table: string, id: string) {
     if (table === 'rendez_vous') {
       const { data } = await supabase.from('rendez_vous').select('*').eq('id', id).single();
-      const settings = await this.getSettings();
-      if (data && data.google_event_id && settings?.google_calendar_enabled) await this.syncWithGoogleCalendar(data, 'delete');
+      if (data && data.google_event_id) this.syncWithGoogleCalendar(data, 'delete').catch(e => console.warn("Background Google Sync failed", e));
     }
 
     this.logActivity('delete', table.replace('_', ''), `ID: ${id}`);
@@ -315,8 +348,16 @@ class ApiService {
   }
 
   async syncAllUpcomingToGoogle() {
-    const token = this.getStoredGoogleToken();
-    if (!token) throw new Error("Non connecté à Google");
+    // Note: Pour cette fonction de masse appelée manuellement, on veut forcer la vérif
+    let token = this.getStoredGoogleToken();
+    if (!token) {
+        try {
+            token = await this.requestGoogleAccess(false); // Essai silencieux
+        } catch (e) {
+            throw new Error("Non connecté à Google. Veuillez vous reconnecter dans les paramètres.");
+        }
+    }
+    
     const today = new Date().toISOString().split('T')[0];
     const { data: rdvs } = await supabase.from('rendez_vous').select('*').gte('date', today).is('google_event_id', null).neq('statut', 'annule');
     if (!rdvs) return 0;
@@ -325,14 +366,26 @@ class ApiService {
     return success;
   }
 
-  async syncWithGoogleCalendar(rdv: RendezVous, action: 'create' | 'update' | 'delete'): Promise<boolean> {
-    const token = this.getStoredGoogleToken();
-    
-    // Si pas de token, on ne peut pas synchroniser.
-    // L'UI doit gérer ce cas via handleSession dans App.tsx
-    if (!token) {
-        console.warn("Google Sync ignoré : Pas de token disponible.");
+  async syncWithGoogleCalendar(rdv: RendezVous, action: 'create' | 'update' | 'delete', isRetry: boolean = false): Promise<boolean> {
+    // 1. On récupère les paramètres pour savoir si on DOIT synchroniser
+    const settings = await this.getSettings();
+    if (!settings?.google_calendar_enabled) {
         return false;
+    }
+
+    // 2. On tente de récupérer le token
+    let token = this.getStoredGoogleToken();
+    
+    // 3. AUTO-RECONNEXION : Si le token est absent ou expiré, on tente de le rafraîchir silencieusement
+    if (!token && !isRetry) {
+        console.log("Token Google expiré, tentative de reconnexion silencieuse...");
+        try {
+            token = await this.requestGoogleAccess(false); // false = pas de popup force
+        } catch (e) {
+            console.warn("Échec du rafraîchissement silencieux Google:", e);
+            // On ne throw PAS d'erreur bloquante pour ne pas empêcher l'utilisateur d'enregistrer son RDV dans la DB locale
+            return false;
+        }
     }
     
     try {
@@ -350,7 +403,10 @@ class ApiService {
           try {
               const { data: client } = await supabase.from('clients').select('nom, prenom, telephone, adresse').eq('id', rdv.client_id).single();
               const { data: vehicule } = await supabase.from('vehicules').select('marque, modele, immatriculation').eq('id', rdv.vehicule_id).single();
-              const { data: settings } = await supabase.from('parametres').select('nom, adresse').eq('user_id', rdv.user_id).single();
+              
+              if (settings?.adresse) {
+                  location = settings.adresse;
+              }
 
               if (client) {
                   title = `🔧 ${rdv.type_intervention} - ${client.nom}`;
@@ -361,9 +417,6 @@ class ApiService {
               }
               if (rdv.notes) {
                   description += `\n\n📝 NOTES:\n${rdv.notes}`;
-              }
-              if (settings?.adresse) {
-                  location = settings.adresse;
               }
           } catch (detailsError) {
               console.warn("Impossible de récupérer les détails pour Google Calendar", detailsError);
@@ -396,12 +449,27 @@ class ApiService {
           body: action !== 'delete' ? JSON.stringify(event) : null 
       });
 
-      // Gestion spécifique du token expiré (401)
+      // --- LOGIQUE DE RETRY SI TOKEN EXPIRÉ (401) ---
       if (res.status === 401) {
-          console.warn("Token Google expiré (401). Suppression du token local.");
-          sessionStorage.removeItem('google_access_token');
-          // On lève une erreur spécifique pour que le front l'affiche
-          throw new Error("⚠️ Token Google expiré. Veuillez vous reconnecter dans les paramètres.");
+          if (!isRetry) {
+              console.warn("Token Google expiré (401). Tentative de renouvellement et retry...");
+              // On supprime le token actuel
+              localStorage.removeItem('google_access_token');
+              localStorage.removeItem('google_token_expiry');
+              
+              try {
+                  // On redemande un token (sans popup)
+                  await this.requestGoogleAccess(false);
+                  // On rappelle la fonction récursivement avec isRetry = true
+                  return this.syncWithGoogleCalendar(rdv, action, true);
+              } catch (retryError) {
+                  console.error("Échec du renouvellement Google après 401:", retryError);
+                  return false;
+              }
+          } else {
+              console.error("Échec Google Calendar (401) après retry. Abandon.");
+              return false;
+          }
       }
 
       if (action === 'create' && res.ok) { 
@@ -411,10 +479,6 @@ class ApiService {
       return res.ok;
     } catch (e: any) { 
         console.error("Erreur Sync Google:", e);
-        // Si c'est l'erreur 401 qu'on vient de lancer, on la relance pour l'UI
-        if (e.message && e.message.includes("Token Google expiré")) {
-            throw e;
-        }
         return false; 
     }
   }

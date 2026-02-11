@@ -20,10 +20,13 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
   const [loading, setLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [hasValidToken, setHasValidToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialSettings) setFormData(initialSettings);
+    // Vérifier si un token valide existe localement
+    setHasValidToken(!!api.getStoredGoogleToken());
   }, [initialSettings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,8 +47,12 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
   const handleGoogleToggle = async () => {
     setSyncLoading(true);
     try {
-      if (!formData.google_calendar_enabled) {
-        await api.requestGoogleAccess();
+      // Si l'utilisateur veut se connecter OU se reconnecter (token expiré)
+      if (!formData.google_calendar_enabled || !hasValidToken) {
+        // ICI : On force le consentement car c'est une action utilisateur explicite
+        await api.requestGoogleAccess(true);
+        setHasValidToken(true);
+        
         const updated = { ...formData, google_calendar_enabled: true };
         setFormData(updated);
         await onSave(updated);
@@ -53,6 +60,9 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
         await onRefresh();
         alert("Agenda connecté avec succès !");
       } else {
+        // Déconnexion explicite
+        await api.logout(); // Nettoie le token
+        setHasValidToken(false);
         const updated = { ...formData, google_calendar_enabled: false };
         setFormData(updated);
         await onSave(updated);
@@ -91,6 +101,10 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
     setFormData({ ...formData, tva: value === '' ? undefined : parseFloat(value) });
   };
 
+  // Logique d'affichage du bouton
+  const isConnectedAndValid = formData.google_calendar_enabled && hasValidToken;
+  const isConnectedButExpired = formData.google_calendar_enabled && !hasValidToken;
+
   return (
     <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20">
       <div className="flex items-center justify-between">
@@ -127,12 +141,14 @@ const Settings: React.FC<SettingsProps> = ({ initialSettings, onSave, onRefresh 
                 <button 
                 onClick={handleGoogleToggle}
                 disabled={syncLoading}
-                className={`w-full px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${formData.google_calendar_enabled ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-600' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}
+                className={`w-full px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${isConnectedAndValid ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-600' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}
                 >
                 {syncLoading ? (
                     <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                ) : formData.google_calendar_enabled ? (
+                ) : isConnectedAndValid ? (
                     t('settings.btn_disconnect_google')
+                ) : isConnectedButExpired ? (
+                    "Reconnecter (Expiré)"
                 ) : (
                     t('settings.btn_connect_google')
                 )}

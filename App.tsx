@@ -192,15 +192,6 @@ const GarageProApp: React.FC = () => {
       setFactures(f);
       setNotifications(n);
 
-      // --- DETECTION TOKEN GOOGLE MANQUANT (ZOMBIE STATE) ---
-      // Si la DB dit "activé" mais que le navigateur n'a pas le token (session expiré ou onglet fermé)
-      if (sett?.google_calendar_enabled) {
-          const storedToken = api.getStoredGoogleToken();
-          if (!storedToken) {
-              handleNotify('warning', 'Google Calendar', 'Connexion expirée. Veuillez vous reconnecter dans les paramètres.');
-          }
-      }
-
       if (sess.user.user_metadata?.needs_password_change) {
         setMustChangePassword(true);
       }
