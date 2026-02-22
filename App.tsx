@@ -26,47 +26,38 @@ import TermsOfService from './components/TermsOfService.tsx';
 interface NavItemProps {
   view: ViewState;
   label: string;
-  icon: React.FC;
-  color?: string;
+  icon: string;
   isPremium?: boolean;
   alertCount?: number;
   currentView: ViewState;
   onClick: (view: ViewState) => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ view, label, icon: Icon, color = 'blue', isPremium = false, alertCount, currentView, onClick }) => {
+const NavItem: React.FC<NavItemProps> = ({ view, label, icon, isPremium = false, alertCount, currentView, onClick }) => {
   const isActive = currentView === view;
-  const baseClasses = "flex items-center justify-between px-4 py-3 rounded-2xl transition-all w-full group relative font-medium";
   
-  const getActiveClasses = () => {
-    if (!isActive) return "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200";
-    if (color === 'purple') return "bg-purple-600 text-white shadow-lg shadow-purple-900/20";
-    if (color === 'indigo') return "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20";
-    if (color === 'rose') return "bg-rose-600 text-white shadow-lg shadow-rose-900/20";
-    if (color === 'amber') return "bg-amber-50 text-white shadow-lg shadow-amber-900/20";
-    return "bg-blue-600 text-white shadow-lg shadow-blue-900/20";
-  };
-
   return (
-    <button onClick={() => onClick(view)} className={`${baseClasses} ${getActiveClasses()}`}>
-      <div className="flex items-center gap-3">
-        <div className={`transition-colors ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400'}`}>
-          <Icon />
-        </div>
-        <span className="text-sm tracking-tight">{label}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        {isPremium && (
-          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'}`}>
-            PRO
-          </span>
-        )}
-        {alertCount !== undefined && alertCount > 0 && (
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900 animate-pulse">
-            {alertCount > 9 ? '9+' : alertCount}
-          </span>
-        )}
-      </div>
+    <button 
+      onClick={() => onClick(view)} 
+      className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all w-full group relative ${
+        isActive 
+          ? 'bg-gradient-to-r from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400 border border-blue-500/10 shadow-sm' 
+          : 'text-text-muted-light dark:text-text-muted-dark hover:bg-white/50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+      }`}
+    >
+      <div className={`absolute inset-0 bg-blue-500/10 opacity-0 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'} transition-opacity rounded-2xl`}></div>
+      <span className="material-symbols-outlined relative z-10 transition-colors">{icon}</span>
+      <span className="text-sm relative z-10">{label}</span>
+      {isPremium && (
+        <span className={`ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-purple-500/20 relative z-10`}>
+          BÊTA
+        </span>
+      )}
+      {alertCount !== undefined && alertCount > 0 && (
+        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900 animate-pulse relative z-10">
+          {alertCount > 9 ? '9+' : alertCount}
+        </span>
+      )}
     </button>
   );
 };
@@ -273,74 +264,8 @@ const GarageProApp: React.FC = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isPublicView]);
-
-  useEffect(() => {
-    if (session && !loading && !mustChangePassword && !showWelcome && !isPublicView && !isSuspended) {
-      const isTutorialDismissed = localStorage.getItem('gp_tutorial_global_dismissed') === 'true';
-      
-      if (!isTutorialDismissed) {
-        const tutorialsSeen = JSON.parse(localStorage.getItem('gp_tutorials_seen') || '[]');
-        if (!tutorialsSeen.includes(currentView)) {
-          setShowTutorial(true);
-        } else {
-          setShowTutorial(false);
-        }
-      }
-    }
-  }, [currentView, session, loading, mustChangePassword, showWelcome, isSuspended]);
-
-  useEffect(() => {
-    if (!session || isSuspended || rendezVous.length === 0) return;
-
-    const checkAndAutoUpdateStatus = async () => {
-      const now = new Date();
-      let hasUpdates = false;
-
-      const updates = rendezVous.map(async (rdv) => {
-        if (rdv.statut === 'annule' || rdv.statut === 'termine') return rdv;
-
-        const [year, month, day] = rdv.date.split('-').map(Number);
-        const [hours, minutes] = rdv.heure.split(':').map(Number);
-        const startDateTime = new Date(year, month - 1, day, hours, minutes, 0);
-        
-        let durationMs = 60 * 60 * 1000;
-        if (rdv.duree) {
-          const val = parseInt(rdv.duree);
-          if (rdv.duree.includes('m')) durationMs = val * 60 * 1000;
-          else if (rdv.duree.includes('h')) durationMs = val * 60 * 60 * 1000;
-        }
-
-        const endDateTime = new Date(startDateTime.getTime() + durationMs);
-        let newStatus: RendezVous['statut'] | null = null;
-
-        if (now > endDateTime && rdv.statut === 'en_cours') {
-          newStatus = 'termine';
-        } else if (now > startDateTime && now < endDateTime && rdv.statut === 'en_attente') {
-          newStatus = 'en_cours';
-        }
-
-        if (newStatus) {
-          hasUpdates = true;
-          await api.updateData('rendez_vous', rdv.id, { statut: newStatus });
-          return { ...rdv, statut: newStatus };
-        }
-        return rdv;
-      });
-
-      if (hasUpdates) {
-        const results = await Promise.all(updates);
-        setRendezVous(results);
-      }
-    };
-
-    const interval = setInterval(checkAndAutoUpdateStatus, 60000);
-    return () => clearInterval(interval);
-  }, [session, isSuspended, rendezVous]);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);
@@ -348,52 +273,19 @@ const GarageProApp: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  const handleMarkNotifRead = async (id: string) => {
-    await api.markNotificationAsRead(id);
+  const handleMarkNotifRead = (id: string) => {
     setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
-  const handleDeleteNotif = async (id: string) => {
-    await api.deleteNotification(id);
-    setNotifications(notifications.filter(n => n.id !== id));
-  };
-
-  const handleMarkAllNotifsRead = async () => {
-    await api.markAllNotificationsAsRead();
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
-  };
-
-  const getNotifStyles = (type: string, read: boolean) => {
-    if (read) return 'opacity-60 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800';
-    switch (type) {
-      case 'success': return 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30';
-      case 'error': return 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30';
-      case 'warning': return 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30';
-      default: return 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30';
-    }
-  };
-
-  const getNotifTitleColor = (type: string, read: boolean) => {
-    if (read) return 'text-slate-600 dark:text-slate-400';
-    switch (type) {
-      case 'success': return 'text-emerald-800 dark:text-emerald-300';
-      case 'error': return 'text-rose-800 dark:text-rose-300';
-      case 'warning': return 'text-amber-800 dark:text-amber-300';
-      default: return 'text-blue-900 dark:text-blue-200';
-    }
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const userRole: any = session?.user?.user_metadata?.role || 'user_basic';
-
-  if (isPublicView) {
-    return <PublicQuoteView quoteId={publicQuoteId!} />;
-  }
+  const userRole = session?.user?.user_metadata?.role || 'user';
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background-dark dark:bg-background-light">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">{t('common.loading')}</p>
+        </div>
       </div>
     );
   }
@@ -439,151 +331,142 @@ const GarageProApp: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans transition-colors`}>
-      <aside id="app-sidebar" className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 transition-transform lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex flex-col h-full p-6">
-          <div className="flex items-center gap-3 mb-10 px-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
-               <ICONS.Dashboard />
+    <div className={`mesh-bg text-text-main-light dark:text-text-main-dark h-screen overflow-hidden flex font-body transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
+      {/* Sidebar */}
+      <aside className="w-72 bg-surface-light/80 dark:bg-surface-dark/60 backdrop-blur-xl border-r border-white/20 dark:border-white/5 flex flex-col h-full z-20 shadow-2xl shadow-black/20">
+        {/* Logo Section */}
+        <div className="h-24 flex items-center px-8 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <span className="material-symbols-outlined text-white text-xl">build_circle</span>
             </div>
-            <h1 className="text-xl font-black tracking-tight dark:text-white truncate" title={settings?.nom || "GaragePro"}>
-              {settings?.nom || "GaragePro"}
-            </h1>
+            <div>
+              <h1 className="font-bold text-xl tracking-tight text-gray-900 dark:text-white">MekHub</h1>
+              <p className="text-xs text-text-muted-light dark:text-text-muted-dark font-medium">{t('nav.gestion_garage') || 'Gestion Garage'}</p>
+            </div>
           </div>
-          <nav className="space-y-1.5 flex-1 overflow-y-auto scrollbar-hide">
-            <NavItem view="dashboard" label={t('nav.dashboard')} icon={ICONS.Dashboard} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="appointments" label={t('nav.appointments')} icon={ICONS.Appointments} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="customers" label={t('nav.customers')} icon={ICONS.Customers} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="vehicles" label={t('nav.vehicles')} icon={ICONS.Vehicles} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="mechanics" label={t('nav.mechanics')} icon={ICONS.Mechanics} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="quotes" label={t('nav.quotes')} icon={ICONS.Quotes} currentView={currentView} onClick={handleNavigate} alertCount={quoteAlerts} />
-            <NavItem view="invoices" label={t('nav.invoices')} icon={ICONS.Invoices} currentView={currentView} onClick={handleNavigate} alertCount={invoiceAlerts} />
-            <NavItem view="inventory" label={t('nav.inventory')} icon={ICONS.Inventory} isPremium={true} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="statistics" label={t('nav.statistics')} icon={ICONS.Stats} currentView={currentView} onClick={handleNavigate} />
-            <NavItem view="ai-assistant" label={t('nav.ai_assistant')} icon={ICONS.AI} color="indigo" isPremium={true} currentView={currentView} onClick={handleNavigate} />
-            {userRole === 'super_admin' && (
-              <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-                <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('nav.master_admin')}</p>
-                <NavItem view="super-admin-overview" label={t('nav.admin_overview')} icon={ICONS.Dashboard} color="rose" currentView={currentView} onClick={handleNavigate} />
-                <NavItem view="super-admin-garages" label={t('nav.admin_garages')} icon={ICONS.AdminGarages} color="rose" currentView={currentView} onClick={handleNavigate} />
-                <NavItem view="super-admin-logs" label={t('nav.admin_logs')} icon={ICONS.AdminLogs} color="rose" currentView={currentView} onClick={handleNavigate} />
-                <NavItem view="super-admin-communication" label={t('nav.admin_comm')} icon={ICONS.AdminComm} color="rose" currentView={currentView} onClick={handleNavigate} />
+        </div>
+
+        {/* Navigation */}
+        <nav className="px-4 py-2 space-y-1.5 overflow-y-auto flex-1">
+          <NavItem view="dashboard" label={t('nav.dashboard')} icon="dashboard" currentView={currentView} onClick={handleNavigate} />
+          <NavItem view="appointments" label={t('nav.appointments')} icon="calendar_month" currentView={currentView} onClick={handleNavigate} />
+          <NavItem view="customers" label={t('nav.customers')} icon="people" currentView={currentView} onClick={handleNavigate} />
+          <NavItem view="vehicles" label={t('nav.vehicles')} icon="directions_car" currentView={currentView} onClick={handleNavigate} />
+          <NavItem view="mechanics" label={t('nav.mechanics')} icon="badge" currentView={currentView} onClick={handleNavigate} />
+
+          {/* Finance Section */}
+          <div className="pt-6 pb-2 px-4">
+            <p className="text-[10px] font-bold text-text-muted-light dark:text-gray-500 uppercase tracking-widest">Finance</p>
+          </div>
+          <NavItem view="quotes" label={t('nav.quotes')} icon="request_quote" currentView={currentView} onClick={handleNavigate} alertCount={quoteAlerts} />
+          <NavItem view="invoices" label={t('nav.invoices')} icon="receipt_long" currentView={currentView} onClick={handleNavigate} alertCount={invoiceAlerts} />
+
+          {/* Tools Section */}
+          <div className="pt-6 pb-2 px-4">
+            <p className="text-[10px] font-bold text-text-muted-light dark:text-gray-500 uppercase tracking-widest">Outils</p>
+          </div>
+          <NavItem view="inventory" label={t('nav.inventory')} icon="inventory_2" isPremium={true} currentView={currentView} onClick={handleNavigate} />
+          <NavItem view="ai-assistant" label={t('nav.ai_assistant')} icon="smart_toy" isPremium={true} currentView={currentView} onClick={handleNavigate} />
+          
+          {/* Admin Section */}
+          {userRole === 'super_admin' && (
+            <>
+              <div className="pt-6 pb-2 px-4">
+                <p className="text-[10px] font-bold text-text-muted-light dark:text-gray-500 uppercase tracking-widest">Admin</p>
               </div>
-            )}
-          </nav>
-          <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-            <NavItem view="settings" label={t('nav.settings')} icon={ICONS.Settings} currentView={currentView} onClick={handleNavigate} />
-            <button onClick={() => api.logout()} className="flex items-center gap-3 px-4 py-3 rounded-2xl w-full text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all font-medium">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-              <span className="text-sm">{t('nav.logout')}</span>
+              <NavItem view="super-admin-overview" label={t('nav.admin_overview')} icon="admin_panel_settings" currentView={currentView} onClick={handleNavigate} />
+              <NavItem view="super-admin-garages" label={t('nav.admin_garages')} icon="business" currentView={currentView} onClick={handleNavigate} />
+              <NavItem view="super-admin-logs" label={t('nav.admin_logs')} icon="history" currentView={currentView} onClick={handleNavigate} />
+              <NavItem view="super-admin-communication" label={t('nav.admin_comm')} icon="mail" currentView={currentView} onClick={handleNavigate} />
+            </>
+          )}
+        </nav>
+
+        {/* User Profile Section */}
+        <div className="mt-auto px-4 pb-4">
+          <div className="flex items-center justify-between p-3 mb-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-colors cursor-pointer group">
+            <div className="flex items-center gap-3">
+              <div className="relative w-10 h-10 shrink-0">
+                <img 
+                  alt="Profil Utilisateur" 
+                  className="w-full h-full object-cover rounded-full shadow-md" 
+                  src={session?.user?.user_metadata?.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuBVVVWdL1s4cbCLs-75COsjJGiIVYbi43KHS7oc2406m6MBJVihJLabOmogZhjDRuvxQec5SIZqLBnuVFB70a-6TUqwM7f895iw73kcoHEvJ2jOByZxBSFYWWjFtMiOWYBllC0PrsY_obf8-NH0WxjJAyUeOxLFJCTo1QNz-DZNi3i-wRm7tKHMzsGCWlY8qkYPNUbJ_eIEaBMw42kXcuqlezhKo08UqiaghfJoHaLZQrcEg-UI0tkiAPmWLrF-QMksq6wSQUSGwKHu"} 
+                />
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Utilisateur'}</p>
+                <p className="text-xs text-blue-500 dark:text-blue-400 font-medium truncate">{settings?.nom || 'Garage Auto Pro'}</p>
+              </div>
+            </div>
+            <button onClick={() => handleNavigate('settings')} className="text-text-muted-light dark:text-text-muted-dark hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-xl">settings</span>
             </button>
           </div>
+          <button 
+            onClick={() => api.logout()} 
+            className="flex items-center gap-3 w-full p-3 text-red-500 hover:bg-red-500/10 rounded-2xl transition-colors group"
+          >
+            <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+            <span className="text-sm font-medium">Déconnexion</span>
+          </button>
         </div>
       </aside>
 
-      <main className="lg:ml-72 min-h-screen">
-        <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-6 lg:px-10 h-20 flex items-center justify-between">
-          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-500"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-          <div className="hidden lg:block text-sm font-bold text-slate-400 uppercase tracking-widest">{settings?.nom || "GaragePro"} {t('nav.atelier')}</div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            
-            <button onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-all font-black text-xs uppercase tracking-widest border border-transparent hover:border-blue-100 dark:hover:border-slate-700">
-               {language}
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto relative">
+        <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none z-0"></div>
+        
+        {/* Header */}
+        <header className="h-24 flex items-center justify-between px-8 sticky top-0 z-30">
+          <div className="absolute inset-0 bg-background-light/70 dark:bg-background-dark/70 backdrop-blur-xl border-b border-white/10 shadow-sm"></div>
+          <div className="relative z-10">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight drop-shadow-sm">
+              {currentView === 'dashboard' && t('nav.dashboard')}
+              {currentView === 'appointments' && t('nav.appointments')}
+              {currentView === 'customers' && t('nav.customers')}
+              {currentView === 'vehicles' && t('nav.vehicles')}
+              {currentView === 'mechanics' && t('nav.mechanics')}
+              {currentView === 'quotes' && t('nav.quotes')}
+              {currentView === 'invoices' && t('nav.invoices')}
+              {currentView === 'inventory' && t('nav.inventory')}
+              {currentView === 'statistics' && t('nav.statistics')}
+              {currentView === 'ai-assistant' && t('nav.ai_assistant')}
+              {currentView === 'settings' && t('nav.settings')}
+              {currentView?.startsWith('super-admin') && t('nav.master_admin')}
+            </h2>
+            <p className="text-sm text-text-muted-light dark:text-text-muted-dark font-medium mt-1">
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
+          <div className="flex items-center gap-4 relative z-10">
+            <button className="relative p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark border border-white/5 transition-all">
+              <span className="material-symbols-outlined">notifications</span>
+              <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-background-dark"></span>
             </button>
-
-            <button id="app-theme-toggle" onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-all">
-               {darkMode ? (
-                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="3" r="1.5" /><circle cx="12" cy="21" r="1.5" /><circle cx="3" cy="12" r="1.5" /><circle cx="21" cy="12" r="1.5" /><circle cx="5.64" cy="5.64" r="1.5" /><circle cx="18.36" cy="18.36" r="1.5" /><circle cx="5.64" cy="18.36" r="1.5" /><circle cx="18.36" cy="5.64" r="1.5" /></svg>
-               ) : (
-                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-               )}
+            <button 
+              onClick={() => setDarkMode(!darkMode)} 
+              className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark hover:text-yellow-400 dark:hover:text-yellow-400 border border-white/5 transition-all"
+            >
+              <span className="material-symbols-outlined dark:hidden">dark_mode</span>
+              <span className="material-symbols-outlined hidden dark:inline">light_mode</span>
             </button>
-            <div className="relative" ref={notifRef}>
-              <button id="app-notifications" onClick={() => setIsNotifOpen(!isNotifOpen)} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-all relative">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                {unreadCount > 0 && (<span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-sm ring-2 ring-white dark:ring-slate-900 animate-pulse">{unreadCount}</span>)}
-              </button>
-              {isNotifOpen && (
-                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in slide-in-from-top-4 duration-200 z-[100]">
-                  <div className="p-5 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">{t('dashboard.notifications')}</h4>
-                    <button onClick={handleMarkAllNotifsRead} className="text-[10px] font-black text-blue-600 dark:text-blue-400 hover:underline uppercase tracking-tight">{t('dashboard.mark_read')}</button>
-                  </div>
-                  <div className="max-h-[400px] overflow-y-auto scrollbar-hide">
-                    {notifications.length === 0 ? (<div className="p-10 text-center text-slate-400 italic text-sm">{t('dashboard.all_calm')}</div>) : (notifications.map(n => (
-                        <div key={n.id} className={`p-4 border-b border-slate-50 dark:border-slate-800 last:border-0 transition-all group flex gap-3 ${getNotifStyles(n.type, n.read)}`}>
-                            <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.read ? (n.type === 'error' ? 'bg-rose-500 shadow-sm shadow-rose-500/50' : n.type === 'success' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-blue-500 shadow-sm') : 'bg-transparent'}`}></div>
-                            <div className="flex-1">
-                                <p className={`text-xs font-black ${getNotifTitleColor(n.type, n.read)}`}>{n.title}</p>
-                                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">{n.message}</p>
-                                <div className="flex items-center justify-between mt-2">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase">{n.created_at ? new Date(n.created_at).toLocaleDateString() : t('common.today')}</span>
-                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {!n.read && <button onClick={() => handleMarkNotifRead(n.id)} className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">{t('dashboard.read')}</button>}
-                                        <button onClick={() => handleDeleteNotif(n.id)} className="text-[9px] font-black text-rose-600 dark:text-rose-400 uppercase">{t('dashboard.delete')}</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="h-8 w-px bg-slate-100 dark:bg-slate-800 mx-1 sm:mx-2"></div>
-            <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block"><p className="text-xs font-black dark:text-white uppercase truncate max-w-[120px]">{session.user.email.split('@')[0]}</p><p className="text-[10px] font-bold text-slate-400 uppercase">{userRole === 'super_admin' ? t('nav.master_admin') : t('nav.workshop_manager')}</p></div>
-              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-blue-600">{session.user.email[0].toUpperCase()}</div>
-            </div>
           </div>
         </header>
-        <div className="p-6 lg:p-10">{renderContent()}</div>
+
+        {/* Content Area */}
+        <div className="p-8 space-y-8 max-w-[1600px] mx-auto relative z-10">
+          {renderContent()}
+        </div>
       </main>
-
-      {/* Floating Help Button */}
-      <button
-        onClick={() => setShowHelpModal(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform active:scale-95 group"
-        title="Centre d'aide"
-      >
-        <span className="text-2xl font-black group-hover:rotate-12 transition-transform">?</span>
-      </button>
-
-      {showHelpModal && (
-        <HelpModal 
-          onClose={() => setShowHelpModal(false)} 
-          onRestartTutorial={() => { setShowHelpModal(false); setShowTutorial(true); }}
-          currentViewName={currentView}
-        />
-      )}
-
-      {showTutorial && (
-        <Tutorial 
-          view={currentView} 
-          onClose={() => { 
-            setShowTutorial(false); 
-            // On marque comme vu dans le localStorage pour ne pas réafficher automatiquement
-            const seen = JSON.parse(localStorage.getItem('gp_tutorials_seen') || '[]'); 
-            if (!seen.includes(currentView)) {
-              seen.push(currentView); 
-              localStorage.setItem('gp_tutorials_seen', JSON.stringify(seen)); 
-            }
-          }} 
-        />
-      )}
-
-      {toast && <div className="fixed bottom-24 right-6 z-[100] animate-in slide-in-from-right"><div className={`p-4 rounded-2xl shadow-2xl border flex items-center gap-3 min-w-[300px] ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : toast.type === 'error' ? 'bg-rose-50 border-rose-100 text-rose-800' : toast.type === 'warning' ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-blue-50 border-blue-100 text-blue-800'}`}><h4 className="font-black text-sm">{toast.title}</h4><p className="text-xs opacity-80">{toast.message}</p></div></div>}
     </div>
   );
 };
 
-// Wrapper simple pour fournir le contexte
-const App: React.FC = () => {
+export default function App() {
   return (
     <LanguageProvider>
       <GarageProApp />
     </LanguageProvider>
   );
-};
-
-export default App;
+}

@@ -6,45 +6,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="PqeZ1aRWWZpT1HfjNMY7SVCfqTEQH-KTKqyeGqIm6jc" />
     <title>GaragePro - Professional Cloud SaaS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3b82f6", 
+                        "primary-hover": "#2563eb",
+                        "background-light": "#f0f4f8", 
+                        "background-dark": "#0B1120", 
+                        "surface-dark": "#161e2e", 
+                        "surface-light": "#ffffff",
+                        "border-dark": "#2d3748",
+                        "border-light": "#e2e8f0",
+                        "text-main-dark": "#f8fafc",
+                        "text-muted-dark": "#94a3b8",
+                        "text-main-light": "#1e293b",
+                        "text-muted-light": "#64748b",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.75rem", 
+                        'xl': "1rem",
+                        '2xl': "1.5rem",
+                        '3xl': "2rem",
+                    },
+                    backgroundImage: {
+                        'glass-gradient': 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
+                        'glass-gradient-light': 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%)',
+                        'glow-radial': 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(0, 0, 0, 0) 70%)',
+                    }
+                },
             },
-          }
-        }
-      }
+        };
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <style type="text/tailwindcss">
         body {
             font-family: 'Inter', sans-serif;
-            /* Transition fluide pour le changement de thème */
-            transition: background-color 0.3s ease, color 0.3s ease;
         }
-        ::-webkit-scrollbar {
-            width: 8px;
+        .glass-panel {
+            @apply backdrop-blur-xl border border-white/10 shadow-xl;
+        }
+        .card-glow {
+            box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.1);
+        }.mesh-bg {
+            background-color: #0B1120;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(124, 58, 237, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(236, 72, 153, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+        .light .mesh-bg {
+             background-color: #f8fafc;
+             background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(124, 58, 237, 0.05) 0px, transparent 50%);
+        }::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        .dark ::-webkit-scrollbar-track {
-            background: #1e293b;
+            background: transparent; 
         }
         ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-        .dark ::-webkit-scrollbar-thumb {
-            background: #475569;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+            @apply bg-slate-700/50 rounded-full hover:bg-slate-600/80 transition-colors;
         }
     </style>
 <script type="importmap">

@@ -34,13 +34,6 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     statut: 'en_attente' as RendezVous['statut']
   });
 
-  const currentDate = new Date().toLocaleDateString(locale, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-
   const todayStr = new Date().toISOString().split('T')[0];
   const todayAppointments = useMemo(() => appointments.filter(app => app.date === todayStr), [appointments, todayStr]);
 
@@ -85,12 +78,20 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     return { current: currentRevenue, last: lastRevenue, percent: percentChange };
   }, [invoices]);
 
-  const stats = [
-    { label: t('dashboard.monthly_revenue'), value: `${revenueStats.current.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${language === 'en' ? '$' : '€'}`, target: 'invoices' as ViewState, trend: revenueStats.percent, isCurrency: true },
-    { label: t('dashboard.customers_count'), value: customers.length, target: 'customers' as ViewState },
-    { label: t('dashboard.vehicles_count'), value: vehicles.length, target: 'vehicles' as ViewState },
-    { label: t('dashboard.today_rdv'), value: todayAppointments.length, target: 'appointments' as ViewState },
-  ];
+  // Calcul des véhicules en service
+  const vehiclesInService = useMemo(() => {
+    const inServiceCount = appointments.filter(a => 
+      a.date === todayStr && (a.statut === 'en_attente' || a.statut === 'en_cours')
+    ).length;
+    return inServiceCount;
+  }, [appointments, todayStr]);
+
+  // Calcul des factures en attente
+  const pendingInvoices = useMemo(() => {
+    const pending = invoices.filter(f => f.statut === 'non_payee');
+    const totalAmount = pending.reduce((sum, f) => sum + (Number(f.montant_ttc) || 0), 0);
+    return { count: pending.length, amount: totalAmount };
+  }, [invoices]);
 
   const checkMechanicAvailability = (mechId: string, date: string, time: string, duration: string): boolean => {
     let durationMin = 60;
@@ -140,136 +141,237 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     finally { setLoading(false); }
   };
 
-  const statusLabels: Record<string, string> = {
-    'en_attente': t('appointments.status_pending'),
-    'en_cours': t('appointments.status_progress'),
-    'termine': t('appointments.status_done'),
-    'annule': t('appointments.status_cancelled')
-  };
-
-  // Helper pour le style de la liste (similaire à Appointments.tsx mais plus compact pour le dashboard)
-  const getCompactStatusStyle = (status: RendezVous['statut']) => {
-    switch(status) {
-      case 'en_attente': return 'border-l-4 border-blue-500 bg-white dark:bg-slate-800';
-      case 'en_cours': return 'border-l-4 border-amber-500 bg-amber-50/50 dark:bg-amber-900/10';
-      case 'termine': return 'border-l-4 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10';
-      case 'annule': return 'border-l-4 border-rose-500 bg-rose-50/50 dark:bg-rose-900/10 opacity-75';
-      default: return 'bg-white dark:bg-slate-800';
-    }
-  };
-
   const getStatusBadge = (status: RendezVous['statut']) => {
     switch(status) {
-        case 'en_attente': return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
-        case 'en_cours': return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20';
-        case 'termine': return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20';
-        case 'annule': return 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20';
-        default: return 'text-slate-500 bg-slate-100';
+        case 'en_attente': return { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Prévu' };
+        case 'en_cours': return { bg: 'bg-orange-500/10', text: 'text-orange-400', label: 'En Cours' };
+        case 'termine': return { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Terminé' };
+        case 'annule': return { bg: 'bg-rose-500/10', text: 'text-rose-400', label: 'Annulé' };
+        default: return { bg: 'bg-gray-500/10', text: 'text-gray-400', label: 'Non Assigné' };
     }
   };
 
   return (
-    <div className="space-y-6 lg:space-y-10 animate-in fade-in duration-500">
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-[2.5rem] w-full max-w-2xl shadow-2xl relative animate-in zoom-in duration-300 flex flex-col max-h-[95vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 sm:p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
-              <div><h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">{t('dashboard.quick_add')}</h2></div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
+    <div className="space-y-8">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* CA Mensuel */}
+        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+          <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-500"></div>
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="w-14 h-14 flex items-center justify-center bg-blue-500/10 rounded-2xl border border-blue-500/20 shadow-inner">
+              <span className="material-symbols-outlined text-blue-500 text-2xl">attach_money</span>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5 overflow-y-auto scrollbar-hide">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.customers')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.client_id} onChange={e => setNewRDV({...newRDV, client_id: e.target.value, vehicule_id: ''})}><option value="">{t('common.select')}</option>{customers.map(c => <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>)}</select></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.vehicles')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.vehicule_id} onChange={e => setNewRDV({...newRDV, vehicule_id: e.target.value})}><option value="">{t('common.select')}</option>{vehicles.filter(v => v.client_id === newRDV.client_id).map(v => (<option key={v.id} value={v.id}>{v.immatriculation} - {v.marque} {v.modele}</option>))}</select></div>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('appointments.type')}</label><input required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.type_intervention} onChange={e => setNewRDV({...newRDV, type_intervention: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('nav.mechanics')}</label><select required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.mecanicien_id} onChange={e => setNewRDV({...newRDV, mecanicien_id: e.target.value})}><option value="">{t('common.select')}</option>{mecaniciens.map(m => <option key={m.id} value={m.id}>{m.prenom} {m.nom}</option>)}</select></div>
-              </div>
+            <span className={`text-xs font-bold flex items-center px-3 py-1.5 rounded-full ${revenueStats.percent >= 0 ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-red-500 bg-red-500/10 border border-red-500/20'}`}>
+              {revenueStats.percent >= 0 ? '+' : ''}{revenueStats.percent.toFixed(1)}% 
+              <span className="material-symbols-outlined text-xs ml-1">{revenueStats.percent >= 0 ? 'trending_up' : 'trending_down'}</span>
+            </span>
+          </div>
+          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">CA Mensuel</h3>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">
+            {revenueStats.current.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €
+          </p>
+        </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('common.date')}</label><input type="date" required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.date} onChange={e => setNewRDV({...newRDV, date: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('appointments.time')}</label><input type="time" required className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.heure} onChange={e => setNewRDV({...newRDV, heure: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('appointments.duration')}</label><select className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold text-slate-900 dark:text-white" value={newRDV.duree} onChange={e => setNewRDV({...newRDV, duree: e.target.value})}><option value="30m">30 min</option><option value="1h">1 heure</option><option value="2h">2 heures</option><option value="3h">3 heures</option><option value="4h">4 heures</option><option value="8h">8 heures</option></select></div>
-              </div>
+        {/* Véhicules en Service */}
+        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+          <div className="absolute -right-10 -top-10 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl group-hover:bg-orange-500/30 transition-all duration-500"></div>
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="w-14 h-14 flex items-center justify-center bg-orange-500/10 rounded-2xl border border-orange-500/20 shadow-inner">
+              <span className="material-symbols-outlined text-orange-500 text-2xl">car_repair</span>
+            </div>
+            <span className="text-xs font-bold text-text-muted-light dark:text-text-muted-dark flex items-center bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
+              {vehiclesInService} en attente
+            </span>
+          </div>
+          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">Véhicules en Service</h3>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">{vehicles.length} Véhicules</p>
+        </div>
 
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('common.description')}</label><textarea className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-bold h-24 text-slate-900 dark:text-white" value={newRDV.description} onChange={e => setNewRDV({...newRDV, description: e.target.value})} /></div>
-              
-              {error && <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl text-[10px] font-black uppercase text-center">{error}</div>}
-              
-              <button type="submit" disabled={loading} className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl hover:bg-blue-700 transition-all active:scale-95">{loading ? t('common.loading') : t('common.confirm')}</button>
-            </form>
+        {/* RDV Aujourd'hui */}
+        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+          <div className="absolute -right-10 -top-10 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl group-hover:bg-purple-500/30 transition-all duration-500"></div>
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="w-14 h-14 flex items-center justify-center bg-purple-500/10 rounded-2xl border border-purple-500/20 shadow-inner">
+              <span className="material-symbols-outlined text-purple-500 text-2xl">calendar_today</span>
+            </div>
+            <div className="h-8"></div>
+          </div>
+          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">RDV Aujourd'hui</h3>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">{todayAppointments.length} Rendez-vous</p>
+        </div>
+
+        {/* Factures en Attente */}
+        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+          <div className="absolute -right-10 -top-10 w-32 h-32 bg-pink-500/20 rounded-full blur-3xl group-hover:bg-pink-500/30 transition-all duration-500"></div>
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <div className="w-14 h-14 flex items-center justify-center bg-pink-500/10 rounded-2xl border border-pink-500/20 shadow-inner">
+              <span className="material-symbols-outlined text-pink-500 text-2xl">pending_actions</span>
+            </div>
+            <span className="text-xs font-bold text-red-500 flex items-center bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-full">
+              {pendingInvoices.count} En retard
+            </span>
+          </div>
+          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">Factures en Attente</h3>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">
+            {pendingInvoices.amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Planning de la Journée */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="glass-panel bg-glass-gradient-light dark:bg-glass-gradient rounded-3xl overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none"></div>
+            
+            {/* Header */}
+            <div className="p-6 border-b border-border-light dark:border-white/5 flex justify-between items-center bg-white/30 dark:bg-white/[0.02] backdrop-blur-md relative z-10">
+              <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary">schedule</span>
+                Planning de la Journée
+              </h3>
+              <button 
+                onClick={() => onNavigate('appointments')}
+                className="text-sm text-primary hover:text-white font-bold bg-primary/10 hover:bg-primary px-5 py-2.5 rounded-xl transition-all border border-primary/20"
+              >
+                Voir l'Agenda
+              </button>
+            </div>
+
+            {/* Appointments List */}
+            <div className="divide-y divide-border-light dark:divide-white/5 relative z-10 max-h-96 overflow-y-auto">
+              {todayAppointments.length === 0 ? (
+                <div className="p-6 text-center text-text-muted-light dark:text-text-muted-dark">
+                  <p className="text-sm font-medium">Aucun rendez-vous prévu aujourd'hui</p>
+                </div>
+              ) : (
+                todayAppointments.slice(0, 3).map((app) => {
+                  const client = customers.find(c => c.id === app.client_id);
+                  const vehicle = vehicles.find(v => v.id === app.vehicule_id);
+                  const mechanic = mecaniciens.find(m => m.id === app.mecanicien_id);
+                  const statusStyle = getStatusBadge(app.statut);
+
+                  return (
+                    <div key={app.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer group relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="flex items-center gap-6">
+                        <div className="flex flex-col items-center justify-center w-16 h-16 bg-surface-light dark:bg-surface-dark rounded-2xl text-center border border-white/20 shadow-lg">
+                          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{app.heure}</span>
+                        </div>
+                        <div>
+                          <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">{app.type_intervention}</h4>
+                          <p className="text-sm text-text-muted-light dark:text-text-muted-dark font-medium flex items-center gap-2 mt-1">
+                            <span className="material-symbols-outlined text-base">directions_car</span>
+                            {vehicle ? `${vehicle.marque} ${vehicle.modele}` : 'Véhicule inconnu'}
+                            <span className="w-1 h-1 bg-gray-500 rounded-full"></span>
+                            {client ? `${client.prenom} ${client.nom}` : 'Client inconnu'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {mechanic && (
+                          <div className="hidden sm:flex -space-x-3">
+                            <img 
+                              alt="Mecanicien" 
+                              className="w-10 h-10 rounded-full border-2 border-surface-light dark:border-surface-dark shadow-sm object-cover" 
+                              src={mechanic.photo_url || "https://via.placeholder.com/40"} 
+                            />
+                          </div>
+                        )}
+                        <span className={`px-3 py-1.5 text-xs font-bold ${statusStyle.bg} ${statusStyle.text} rounded-xl border border-current/20`}>
+                          {statusStyle.label}
+                        </span>
+                        <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark transition-colors">
+                          <span className="material-symbols-outlined">more_vert</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border-light dark:border-white/5 bg-white/50 dark:bg-white/[0.02] text-center backdrop-blur-sm relative z-10">
+              <button 
+                onClick={() => onNavigate('appointments')}
+                className="text-sm font-bold text-text-muted-light dark:text-text-muted-dark hover:text-primary dark:hover:text-primary transition-colors flex items-center justify-center gap-2 w-full"
+              >
+                Voir tous les rendez-vous <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            </div>
           </div>
         </div>
-      )}
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div><h1 className="text-2xl lg:text-4xl font-extrabold text-[#1e293b] dark:text-white">{t('dashboard.title')}</h1><p className="text-slate-500 dark:text-slate-400 mt-1 capitalize">{currentDate}</p></div>
-        <button id="dash-quick-add" onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95">{t('dashboard.quick_add')}</button>
-      </div>
-
-      <div id="dash-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
-          <div key={i} onClick={() => onNavigate(stat.target)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
-            {stat.isCurrency && (<div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10"><svg className="w-20 h-20 text-blue-900 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>)}
-            <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{stat.label}</p>
-            <h3 className={`text-3xl font-black ${stat.isCurrency ? 'text-blue-600 dark:text-blue-400' : 'text-[#1e293b] dark:text-white'}`}>{stat.value}</h3>
-            {stat.trend !== undefined && (<div className={`mt-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${stat.trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{stat.trend >= 0 ? (<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>) : (<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>)}<span>{Math.abs(stat.trend).toFixed(1)}% vs M-1</span></div>)}
+        {/* Quick Actions */}
+        <div className="space-y-6">
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 shadow-xl shadow-blue-500/20 text-white relative overflow-hidden ring-1 ring-white/10">
+            <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-40 h-40 bg-black/10 rounded-full blur-3xl"></div>
+            
+            <h3 className="font-bold text-lg mb-6 relative z-10 flex items-center gap-2">
+              <span className="material-symbols-outlined">flash_on</span>
+              Actions Rapides
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-4 relative z-10">
+              <button 
+                onClick={() => onNavigate('customers')}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all border border-white/10 hover:border-white/30 group shadow-lg"
+              >
+                <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">person_add</span>
+                <span className="text-xs font-bold">Ajout Client</span>
+              </button>
+              
+              <button 
+                onClick={() => onNavigate('vehicles')}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all border border-white/10 hover:border-white/30 group shadow-lg"
+              >
+                <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">directions_car</span>
+                <span className="text-xs font-bold">Ajout Véhicule</span>
+              </button>
+              
+              <button 
+                onClick={() => onNavigate('invoices')}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all border border-white/10 hover:border-white/30 group shadow-lg"
+              >
+                <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">post_add</span>
+                <span className="text-xs font-bold">Créer Facture</span>
+              </button>
+              
+              <button 
+                onClick={() => onNavigate('ai-assistant')}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all border border-white/10 hover:border-white/30 group shadow-lg"
+              >
+                <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">smart_toy</span>
+                <span className="text-xs font-bold">Assistant IA</span>
+              </button>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div id="dash-today-list" className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8">
-          <h2 className="text-xl font-black text-[#1e293b] dark:text-white mb-6">{t('dashboard.today_list_title')}</h2>
-          <div className="space-y-4">
-            {todayAppointments.length === 0 ? (
-              <div className="py-16 text-center text-slate-300 dark:text-slate-600 italic font-bold">{t('dashboard.no_rdv_today')}</div>
-            ) : (
-              todayAppointments.map(app => {
+          {/* Recent Activity */}
+          <div className="glass-panel bg-glass-gradient-light dark:bg-glass-gradient rounded-3xl p-6 overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none"></div>
+            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4 relative z-10 flex items-center gap-2">
+              <span className="material-symbols-outlined text-purple-500">history</span>
+              Activité Récente
+            </h3>
+            <div className="space-y-3 relative z-10 max-h-48 overflow-y-auto">
+              {appointments.slice(0, 5).map((app) => {
                 const client = customers.find(c => c.id === app.client_id);
                 return (
-                  <div key={app.id} className={`p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all hover:shadow-md ${getCompactStatusStyle(app.statut)}`}>
-                    <div>
-                      <p className="font-black text-slate-800 dark:text-white uppercase tracking-tight">{client?.nom} {client?.prenom}</p>
-                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mt-0.5">{app.type_intervention}</p>
-                    </div>
-                    <div className="text-left sm:text-right w-full sm:w-auto flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-end">
-                      <p className="font-black text-slate-900 dark:text-white">{app.heure}</p>
-                      <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded ${getStatusBadge(app.statut)}`}>{statusLabels[app.statut]}</span>
-                    </div>
+                  <div key={app.id} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors cursor-pointer border border-white/5">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{app.type_intervention}</p>
+                    <p className="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">
+                      {client?.prenom} {client?.nom} • {app.date}
+                    </p>
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
           </div>
-        </div>
-
-        <div className="xl:col-span-1 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8 flex flex-col max-h-[500px]">
-           <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-black text-[#1e293b] dark:text-white">{t('dashboard.notifications')}</h2>
-              <span className="bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">{notifications.filter(n => !n.read).length} {t('dashboard.new_notifs')}</span>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3">
-              {notifications.length === 0 ? (
-                 <div className="py-10 text-center text-slate-300 dark:text-slate-600 italic font-bold text-sm">{t('dashboard.all_calm')}</div>
-              ) : (
-                 notifications.map(n => (
-                    <div key={n.id} className={`p-4 rounded-2xl border transition-all ${!n.read ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 opacity-70'}`}>
-                       <div className="flex items-start justify-between gap-2">
-                          <h4 className={`text-xs font-black ${!n.read ? 'text-blue-900 dark:text-blue-200' : 'text-slate-600 dark:text-slate-400'}`}>{n.title}</h4>
-                          {!n.read && onMarkAsRead && (
-                             <button onClick={() => onMarkAsRead(n.id)} className="text-[9px] font-bold text-blue-500 hover:underline">{t('dashboard.read')}</button>
-                          )}
-                       </div>
-                       <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{n.message}</p>
-                       <p className="text-[8px] font-bold text-slate-300 dark:text-slate-500 uppercase mt-2 text-right">{new Date(n.created_at || '').toLocaleDateString(locale)}</p>
-                    </div>
-                 ))
-              )}
-           </div>
         </div>
       </div>
     </div>
