@@ -95,7 +95,7 @@ const Tutorial: React.FC<TutorialProps> = ({ currentView, view, onClose }) => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleResize);
     };
-  }, [currentStep, activeView]);}
+  }, [currentStep, activeView]);
 
   useEffect(() => {
     if (!coords || !tooltipRef.current) return;
