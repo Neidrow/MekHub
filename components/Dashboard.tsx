@@ -13,9 +13,10 @@ interface DashboardProps {
   onMarkAsRead?: (id: string) => void;
   onAddAppointment: (app: Omit<RendezVous, 'id' | 'user_id'>) => void;
   onNavigate: (view: ViewState) => void;
+  settings?: any;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens, appointments, invoices, notifications = [], onMarkAsRead, onAddAppointment, onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens, appointments, invoices, notifications = [], onMarkAsRead, onAddAppointment, onNavigate, settings }) => {
   const { t, locale, language } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -156,7 +157,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* CA Mensuel */}
-        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+        <button onClick={() => onNavigate('invoices')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-blue-500/10 rounded-2xl border border-blue-500/20 shadow-inner">
@@ -171,10 +172,10 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
           <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">
             {revenueStats.current.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €
           </p>
-        </div>
+        </button>
 
         {/* Véhicules en Service */}
-        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+        <button onClick={() => onNavigate('vehicles')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl group-hover:bg-orange-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-orange-500/10 rounded-2xl border border-orange-500/20 shadow-inner">
@@ -186,10 +187,10 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
           </div>
           <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">Véhicules en Service</h3>
           <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">{vehicles.length} Véhicules</p>
-        </div>
+        </button>
 
         {/* RDV Aujourd'hui */}
-        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+        <button onClick={() => onNavigate('appointments')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl group-hover:bg-purple-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-purple-500/10 rounded-2xl border border-purple-500/20 shadow-inner">
@@ -199,10 +200,10 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
           </div>
           <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">RDV Aujourd'hui</h3>
           <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">{todayAppointments.length} Rendez-vous</p>
-        </div>
+        </button>
 
         {/* Factures en Attente */}
-        <div className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow">
+        <button onClick={() => onNavigate('invoices')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-pink-500/20 rounded-full blur-3xl group-hover:bg-pink-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-pink-500/10 rounded-2xl border border-pink-500/20 shadow-inner">
@@ -216,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
           <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">
             {pendingInvoices.amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </p>
-        </div>
+        </button>
       </div>
 
       {/* Main Content Grid */}

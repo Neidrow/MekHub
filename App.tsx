@@ -31,6 +31,7 @@ interface NavItemProps {
   alertCount?: number;
   currentView: ViewState;
   onClick: (view: ViewState) => void;
+  isBeta?: boolean;
 }
 
 const NavItem: React.FC<NavItemProps> = ({ view, label, icon, isPremium = false, alertCount, currentView, onClick }) => {
@@ -277,7 +278,23 @@ const GarageProApp: React.FC = () => {
     setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
+  const onMarkNotifRead = (id: string) => {
+    handleMarkNotifRead(id);
+  };
+
   const userRole = session?.user?.user_metadata?.role || 'user';
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    if (isNotifOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isNotifOpen]);
 
   if (loading) {
     return (
@@ -314,7 +331,7 @@ const GarageProApp: React.FC = () => {
 
   const renderContent = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} appointments={rendezVous} invoices={factures} notifications={notifications} onMarkAsRead={handleMarkNotifRead} onAddAppointment={async (app) => { try { const r = await api.postData<RendezVous>('rendez_vous', app); setRendezVous([r, ...rendezVous]); } catch (e: any) { if(e.message && e.message.includes('Token Google')) { handleNotify('error', 'Erreur Google', e.message); } else { throw e; } } }} onNavigate={handleNavigate} />;
+      case 'dashboard': return <Dashboard customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} appointments={rendezVous} invoices={factures} notifications={notifications} onMarkAsRead={handleMarkNotifRead} onAddAppointment={async (app) => { try { const r = await api.postData<RendezVous>('rendez_vous', app); setRendezVous([r, ...rendezVous]); } catch (e: any) { if(e.message && e.message.includes('Token Google')) { handleNotify('error', 'Erreur Google', e.message); } else { throw e; } } }} onNavigate={handleNavigate} settings={settings} />;
       case 'appointments': return <Appointments appointments={rendezVous} customers={clients} vehicles={vehicules} mecaniciens={mecaniciens} onAddAppointment={async (app) => { try { const r = await api.postData<RendezVous>('rendez_vous', app); setRendezVous([r, ...rendezVous]); } catch (e: any) { if(e.message && e.message.includes('Token Google')) { handleNotify('error', 'Erreur Google', e.message); } else { throw e; } } }} onUpdateStatus={async (id, s) => { await api.updateData('rendez_vous', id, { statut: s }); setRendezVous(rendezVous.map(r => r.id === id ? { ...r, statut: s } : r)); }} onUpdateAppointment={async (id, up) => { await api.updateData('rendez_vous', id, up); setRendezVous(rendezVous.map(r => r.id === id ? { ...r, ...up } : r)); }} onDelete={async (id) => { await api.deleteData('rendez_vous', id); setRendezVous(rendezVous.filter(r => r.id !== id)); }} onNavigate={handleNavigate} />;
       case 'customers': return <Customers customers={clients} onAddCustomer={async (c) => { const r = await api.postData<Client>('clients', c); setClients([r, ...clients]); }} onUpdateCustomer={async (id, up) => { await api.updateData('clients', id, up); setClients(clients.map(c => c.id === id ? { ...c, ...up } : c)); }} onDeleteCustomer={async (id) => { await api.deleteData('clients', id); setClients(clients.filter(c => c.id !== id)); }} />;
       case 'vehicles': return <Vehicles vehicles={vehicules} customers={clients} appointments={rendezVous} invoices={factures} onAdd={async (v) => { const r = await api.postData<Vehicule>('vehicules', v); setVehicules([r, ...vehicules]); }} onUpdate={async (id, up) => { await api.updateData('vehicules', id, up); setVehicules(vehicules.map(v => v.id === id ? { ...v, ...up } : v)); }} onDelete={async (id) => { await api.deleteData('vehicules', id); setVehicules(vehicules.filter(v => v.id !== id)); }} />;
@@ -331,7 +348,7 @@ const GarageProApp: React.FC = () => {
   };
 
   return (
-    <div className={`mesh-bg text-text-main-light dark:text-text-main-dark h-screen overflow-hidden flex font-body transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
+    <div className={`${darkMode ? 'dark' : ''} mesh-bg text-text-main-light dark:text-text-main-dark h-screen overflow-hidden flex font-body transition-colors duration-300`}>
       {/* Sidebar */}
       <aside className="w-72 bg-surface-light/80 dark:bg-surface-dark/60 backdrop-blur-xl border-r border-white/20 dark:border-white/5 flex flex-col h-full z-20 shadow-2xl shadow-black/20">
         {/* Logo Section */}
@@ -341,8 +358,8 @@ const GarageProApp: React.FC = () => {
               <span className="material-symbols-outlined text-white text-xl">build_circle</span>
             </div>
             <div>
-              <h1 className="font-bold text-xl tracking-tight text-gray-900 dark:text-white">MekHub</h1>
-              <p className="text-xs text-text-muted-light dark:text-text-muted-dark font-medium">{t('nav.gestion_garage') || 'Gestion Garage'}</p>
+              <h1 className="font-bold text-xl tracking-tight text-gray-900 dark:text-white">{settings?.nom || 'MekHub'}</h1>
+              <p className="text-xs text-text-muted-light dark:text-text-muted-dark font-medium">Gestion Garage</p>
             </div>
           </div>
         </div>
@@ -440,16 +457,16 @@ const GarageProApp: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-4 relative z-10">
-            <button className="relative p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark border border-white/5 transition-all">
+            <button id="app-notifications" onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark border border-white/5 transition-all">
               <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-background-dark"></span>
+              {notifications.length > 0 && <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-background-dark"></span>}
             </button>
-            <button 
-              onClick={() => setDarkMode(!darkMode)} 
-              className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark hover:text-yellow-400 dark:hover:text-yellow-400 border border-white/5 transition-all"
-            >
+            <button id="app-theme-toggle" onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark hover:text-yellow-400 dark:hover:text-yellow-400 border border-white/5 transition-all">
               <span className="material-symbols-outlined dark:hidden">dark_mode</span>
               <span className="material-symbols-outlined hidden dark:inline">light_mode</span>
+            </button>
+            <button id="app-help" onClick={() => setShowHelpModal(true)} className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark border border-white/5 transition-all">
+              <span className="material-symbols-outlined">help</span>
             </button>
           </div>
         </header>
@@ -458,8 +475,33 @@ const GarageProApp: React.FC = () => {
         <div className="p-8 space-y-8 max-w-[1600px] mx-auto relative z-10">
           {renderContent()}
         </div>
+
+        {/* Notifications Dropdown */}
+        <div ref={notifRef} className="absolute top-24 right-8 z-50">
+          {isNotifOpen && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-96 max-h-96 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-6 text-center text-slate-500 dark:text-slate-400">
+                  <p className="text-sm">{t('common.no_notifications')}</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {notifications.map(notif => (
+                    <div key={notif.id} onClick={() => onMarkNotifRead(notif.id)} className={`p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${!notif.read ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}>
+                      <p className="font-medium text-slate-900 dark:text-white">{notif.title}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{notif.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </main>
     </div>
+
+    {showHelpModal && <HelpModal onClose={() => setShowHelpModal(false)} />}
+    {showTutorial && <Tutorial onClose={() => setShowTutorial(false)} />}
   );
 };
 
