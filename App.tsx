@@ -191,6 +191,11 @@ const GarageProApp: React.FC = () => {
       if (!sett?.google_prompt_dismissed && !sett?.google_calendar_enabled) {
         setShowGooglePrompt(true);
       }
+      
+      // Afficher le tutoriel à la première connexion
+      if (!sett?.tutorial_completed) {
+        setShowTutorial(true);
+      }
 
     } catch (err) {
       console.error("Error initializing session data:", err);

@@ -259,7 +259,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       <div className="flex items-center gap-6">
                         <div className="flex flex-col items-center justify-center w-16 h-16 bg-surface-light dark:bg-surface-dark rounded-2xl text-center border border-white/20 shadow-lg">
-                          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{app.heure}</span>
+                          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{app.heure.substring(0, 5)}</span>
                         </div>
                         <div>
                           <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">{app.type_intervention}</h4>
@@ -272,21 +272,9 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        {mechanic && (
-                          <div className="hidden sm:flex -space-x-3">
-                            <img 
-                              alt="Mecanicien" 
-                              className="w-10 h-10 rounded-full border-2 border-surface-light dark:border-surface-dark shadow-sm object-cover" 
-                              src={mechanic.photo_url || "https://via.placeholder.com/40"} 
-                            />
-                          </div>
-                        )}
                         <span className={`px-3 py-1.5 text-xs font-bold ${statusStyle.bg} ${statusStyle.text} rounded-xl border border-current/20`}>
                           {statusStyle.label}
                         </span>
-                        <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark transition-colors">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
                       </div>
                     </div>
                   );
