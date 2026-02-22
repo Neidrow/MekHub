@@ -503,7 +503,7 @@ const GarageProApp: React.FC = () => {
           )}
         </div>
         {/* Help and Tutorial Modals */}
-        {showHelpModal && <HelpModal onClose={() => setShowHelpModal(false)} />}
+        {showHelpModal && <HelpModal onClose={() => setShowHelpModal(false)} onRestartTutorial={() => { setShowHelpModal(false); setShowTutorial(true); }} currentViewName={currentView} />}
         {showTutorial && <Tutorial onClose={() => setShowTutorial(false)} />}
       </main>
     </div>
