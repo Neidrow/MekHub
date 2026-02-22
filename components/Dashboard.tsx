@@ -155,7 +155,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
   return (
     <div className="space-y-8">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div id="dash-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* CA Mensuel */}
         <button onClick={() => onNavigate('invoices')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-500"></div>
@@ -223,7 +223,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Planning de la Journée */}
-        <div className="lg:col-span-2 space-y-6">
+        <div id="dash-today-list" className="lg:col-span-2 space-y-6">
           <div className="glass-panel bg-glass-gradient-light dark:bg-glass-gradient rounded-3xl overflow-hidden relative">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none"></div>
             
@@ -295,7 +295,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
         </div>
 
         {/* Quick Actions */}
-        <div className="space-y-6">
+        <div id="dash-quick-add" className="space-y-6">
           <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 shadow-xl shadow-blue-500/20 text-white relative overflow-hidden ring-1 ring-white/10">
             <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-40 h-40 bg-black/10 rounded-full blur-3xl"></div>

@@ -77,8 +77,13 @@ const Tutorial: React.FC<TutorialProps> = ({ currentView, view, onClose }) => {
       const el = document.getElementById(steps[currentStep].targetId);
       if (el) {
         const rect = el.getBoundingClientRect();
-        setCoords({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
-        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        if (rect.width > 0 && rect.height > 0) {
+          setCoords({ x: rect.left, y: rect.top, w: rect.width, h: rect.height });
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        } else {
+          console.warn(`Tutorial target has zero dimensions: ${steps[currentStep].targetId}`);
+          setCoords(null);
+        }
       } else {
         console.warn(`Tutorial target not found: ${steps[currentStep].targetId}`);
         setCoords(null);
@@ -159,9 +164,9 @@ const Tutorial: React.FC<TutorialProps> = ({ currentView, view, onClose }) => {
   const step = steps[currentStep];
 
   return (
-    <div className="fixed inset-0 z-[1000] pointer-events-none overflow-hidden font-sans">
+    <div className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden font-sans">
       {/* SVG Mask Overlay */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-auto">
+      <svg className="absolute inset-0 w-full h-full pointer-events-auto z-[9999]">
         <defs>
           <mask id="spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -206,7 +211,7 @@ const Tutorial: React.FC<TutorialProps> = ({ currentView, view, onClose }) => {
       {/* Floating Tooltip */}
       <div 
         ref={tooltipRef}
-        className="absolute w-[90vw] max-w-sm bg-[#0b1120] border border-slate-700 p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out pointer-events-auto"
+        className="absolute w-[90vw] max-w-sm bg-[#0b1120] border border-slate-700 p-6 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out pointer-events-auto z-[10000]"
         style={{
           top: tooltipPos.top,
           left: tooltipPos.left,
@@ -216,7 +221,7 @@ const Tutorial: React.FC<TutorialProps> = ({ currentView, view, onClose }) => {
       >
         <button 
           onClick={onClose}
-          className="absolute -top-12 right-0 bg-slate-800/80 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all border border-slate-700/50 shadow-lg"
+          className="absolute -top-12 right-0 bg-slate-800/80 backdrop-blur-md text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all border border-slate-700/50 shadow-lg pointer-events-auto"
         >
           Passer
         </button>

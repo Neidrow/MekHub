@@ -355,7 +355,7 @@ const GarageProApp: React.FC = () => {
   return (
     <div className={`${darkMode ? 'dark' : ''} mesh-bg text-text-main-light dark:text-text-main-dark h-screen overflow-hidden flex font-body transition-colors duration-300`}>
       {/* Sidebar */}
-      <aside className="w-72 bg-surface-light/80 dark:bg-surface-dark/60 backdrop-blur-xl border-r border-white/20 dark:border-white/5 flex flex-col h-full z-20 shadow-2xl shadow-black/20">
+      <aside id="app-sidebar" className="w-72 bg-surface-light/80 dark:bg-surface-dark/60 backdrop-blur-xl border-r border-white/20 dark:border-white/5 flex flex-col h-full z-20 shadow-2xl shadow-black/20">
         {/* Logo Section */}
         <div className="h-24 flex items-center px-8 shrink-0">
           <div className="flex items-center gap-3">
@@ -370,7 +370,7 @@ const GarageProApp: React.FC = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="px-4 py-2 space-y-1.5 overflow-y-auto flex-1">
+        <nav id="app-nav" className="px-4 py-2 space-y-1.5 overflow-y-auto flex-1">
           <NavItem view="dashboard" label={t('nav.dashboard')} icon="dashboard" currentView={currentView} onClick={handleNavigate} />
           <NavItem view="appointments" label={t('nav.appointments')} icon="calendar_month" currentView={currentView} onClick={handleNavigate} />
           <NavItem view="customers" label={t('nav.customers')} icon="people" currentView={currentView} onClick={handleNavigate} />
@@ -436,11 +436,11 @@ const GarageProApp: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto relative">
+      <main id="app-main" className="flex-1 overflow-y-auto relative">
         <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none z-0"></div>
         
         {/* Header */}
-        <header className="h-24 flex items-center justify-between px-8 sticky top-0 z-30">
+        <header id="app-header" className="h-24 flex items-center justify-between px-8 sticky top-0 z-30">
           <div className="absolute inset-0 bg-background-light/70 dark:bg-background-dark/70 backdrop-blur-xl border-b border-white/10 shadow-sm"></div>
           <div className="relative z-10">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight drop-shadow-sm">
@@ -477,7 +477,7 @@ const GarageProApp: React.FC = () => {
         </header>
 
         {/* Content Area */}
-        <div className="p-8 space-y-8 max-w-[1600px] mx-auto relative z-10">
+        <div id="app-content" className="p-8 space-y-8 max-w-[1600px] mx-auto relative z-10">
           {renderContent()}
         </div>
 
