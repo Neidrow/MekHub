@@ -355,7 +355,7 @@ const GarageProApp: React.FC = () => {
   return (
     <div className={`${darkMode ? 'dark' : ''} mesh-bg text-text-main-light dark:text-text-main-dark h-screen overflow-hidden flex font-body transition-colors duration-300`}>
       {/* Sidebar */}
-      <aside id="app-sidebar" className="w-72 bg-surface-light/80 dark:bg-surface-dark/60 backdrop-blur-xl border-r border-white/20 dark:border-white/5 flex flex-col h-full z-20 shadow-2xl shadow-black/20">
+      <aside id="app-sidebar" className="w-72 bg-white/70 dark:bg-surface-dark/60 backdrop-blur-xl border-r border-slate-200 dark:border-white/5 flex flex-col h-full z-20 shadow-xl shadow-slate-200/20 dark:shadow-black/20">
         {/* Logo Section */}
         <div className="h-24 flex items-center px-8 shrink-0">
           <div className="flex items-center gap-3">
@@ -441,7 +441,7 @@ const GarageProApp: React.FC = () => {
         
         {/* Header */}
         <header id="app-header" className="h-24 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="absolute inset-0 bg-background-light/70 dark:bg-background-dark/70 backdrop-blur-xl border-b border-white/10 shadow-sm"></div>
+          <div className="absolute inset-0 bg-white/60 dark:bg-background-dark/70 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 shadow-sm"></div>
           <div className="relative z-10">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight drop-shadow-sm">
               {currentView === 'dashboard' && t('nav.dashboard')}
@@ -487,7 +487,7 @@ const GarageProApp: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-96 max-h-96 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="p-6 text-center text-slate-500 dark:text-slate-400">
-                  <p className="text-sm">{t('common.no_notifications')}</p>
+                  <p className="text-sm">Tout est calme</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-200 dark:divide-slate-800">

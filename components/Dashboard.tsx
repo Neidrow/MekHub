@@ -87,11 +87,21 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     return inServiceCount;
   }, [appointments, todayStr]);
 
-  // Calcul des factures en attente
+  // Calcul des factures en attente (en retard depuis 7 jours)
   const pendingInvoices = useMemo(() => {
-    const pending = invoices.filter(f => f.statut === 'non_payee');
-    const totalAmount = pending.reduce((sum, f) => sum + (Number(f.montant_ttc) || 0), 0);
-    return { count: pending.length, amount: totalAmount };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const overdueInvoices = invoices.filter(f => {
+      if (f.statut !== 'non_payee') return false;
+      const invoiceDate = new Date(f.date_facture);
+      invoiceDate.setHours(0, 0, 0, 0);
+      const daysOverdue = Math.floor((today.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24));
+      return daysOverdue >= 7;
+    });
+    
+    const totalAmount = overdueInvoices.reduce((sum, f) => sum + (Number(f.montant_ttc) || 0), 0);
+    return { count: overdueInvoices.length, amount: totalAmount };
   }, [invoices]);
 
   const checkMechanicAvailability = (mechId: string, date: string, time: string, duration: string): boolean => {
@@ -144,11 +154,11 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
 
   const getStatusBadge = (status: RendezVous['statut']) => {
     switch(status) {
-        case 'en_attente': return { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Prévu' };
-        case 'en_cours': return { bg: 'bg-orange-500/10', text: 'text-orange-400', label: 'En Cours' };
+        case 'en_attente': return { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'En attente' };
+        case 'en_cours': return { bg: 'bg-orange-500/10', text: 'text-orange-400', label: 'En cours' };
         case 'termine': return { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Terminé' };
         case 'annule': return { bg: 'bg-rose-500/10', text: 'text-rose-400', label: 'Annulé' };
-        default: return { bg: 'bg-gray-500/10', text: 'text-gray-400', label: 'Non Assigné' };
+        default: return { bg: 'bg-gray-500/10', text: 'text-gray-400', label: 'Non assigné' };
     }
   };
 
@@ -157,7 +167,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
       {/* Stats Cards */}
       <div id="dash-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* CA Mensuel */}
-        <button onClick={() => onNavigate('invoices')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
+        <button onClick={() => onNavigate('invoices')} className="group glass-panel bg-white/70 dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full border border-slate-200 dark:border-white/10">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-blue-500/10 rounded-2xl border border-blue-500/20 shadow-inner">
@@ -224,11 +234,11 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Planning de la Journée */}
         <div id="dash-today-list" className="lg:col-span-2 space-y-6">
-          <div className="glass-panel bg-glass-gradient-light dark:bg-glass-gradient rounded-3xl overflow-hidden relative">
+          <div className="glass-panel bg-white/70 dark:bg-glass-gradient rounded-3xl overflow-hidden relative border border-slate-200 dark:border-white/10">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none"></div>
             
             {/* Header */}
-            <div className="p-6 border-b border-border-light dark:border-white/5 flex justify-between items-center bg-white/30 dark:bg-white/[0.02] backdrop-blur-md relative z-10">
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex justify-between items-center bg-white/50 dark:bg-white/[0.02] backdrop-blur-md relative z-10">
               <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary">schedule</span>
                 Planning de la Journée
@@ -242,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             </div>
 
             {/* Appointments List */}
-            <div className="divide-y divide-border-light dark:divide-white/5 relative z-10 max-h-96 overflow-y-auto">
+            <div className="divide-y divide-slate-200 dark:divide-white/5 relative z-10 max-h-96 overflow-y-auto">
               {todayAppointments.length === 0 ? (
                 <div className="p-6 text-center text-text-muted-light dark:text-text-muted-dark">
                   <p className="text-sm font-medium">Aucun rendez-vous prévu aujourd'hui</p>
@@ -255,10 +265,10 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
                   const statusStyle = getStatusBadge(app.statut);
 
                   return (
-                    <div key={app.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer group relative">
+                    <div key={app.id} className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer group relative">
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       <div className="flex items-center gap-6">
-                        <div className="flex flex-col items-center justify-center w-16 h-16 bg-surface-light dark:bg-surface-dark rounded-2xl text-center border border-white/20 shadow-lg">
+                        <div className="flex flex-col items-center justify-center w-16 h-16 bg-white dark:bg-surface-dark rounded-2xl text-center border border-slate-200 dark:border-white/20 shadow-lg">
                           <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{app.heure.substring(0, 5)}</span>
                         </div>
                         <div>
