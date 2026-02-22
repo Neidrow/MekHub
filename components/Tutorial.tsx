@@ -58,16 +58,18 @@ const TOUR_DATA: Record<string, Step[]> = {
 };
 
 interface TutorialProps {
-  view: ViewState;
+  currentView?: ViewState;
+  view?: ViewState;
   onClose: () => void;
 }
 
-const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
+const Tutorial: React.FC<TutorialProps> = ({ currentView, view, onClose }) => {
+  const activeView = currentView || view || 'dashboard';
   const [currentStep, setCurrentStep] = useState(0);
   const [coords, setCoords] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0, opacity: 0 });
   
-  const steps = TOUR_DATA[view] || [];
+  const steps = TOUR_DATA[activeView] || [];
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   const updateCoords = () => {
@@ -93,7 +95,7 @@ const Tutorial: React.FC<TutorialProps> = ({ view, onClose }) => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleResize);
     };
-  }, [currentStep, view]);
+  }, [currentStep, activeView]);}
 
   useEffect(() => {
     if (!coords || !tooltipRef.current) return;
