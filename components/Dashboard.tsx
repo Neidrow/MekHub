@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Client, Vehicule, RendezVous, Mecanicien, ViewState, Facture, Notification } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -117,14 +116,13 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
         if (a.statut === 'annule') return false;
         if (a.mecanicien_id !== mechId) return false;
         if (a.date !== date) return false;
-
-        let aDurationMin = 60;
-        if (a.duree.includes('m')) aDurationMin = parseInt(a.duree);
-        else if (a.duree.includes('h')) aDurationMin = parseInt(a.duree) * 60;
-
+        
         const [ah, am] = a.heure.split(':').map(Number);
         const aStart = ah * 60 + am;
-        const aEnd = aStart + aDurationMin;
+        let aDur = 60;
+        if (a.duree.includes('m')) aDur = parseInt(a.duree);
+        else if (a.duree.includes('h')) aDur = parseInt(a.duree) * 60;
+        const aEnd = aStart + aDur;
 
         return (startMin < aEnd && endMin > aStart);
     });
@@ -132,10 +130,12 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
     return conflicts.length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleAddRDV = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    if (!newRDV.mecanicien_id) { setError(t('appointments.error_mechanic')); return; }
+    if (!newRDV.client_id || !newRDV.vehicule_id || !newRDV.type_intervention || !newRDV.date || !newRDV.heure) {
+        setError(t('appointments.error_fields'));
+        return;
+    }
 
     const isAvailable = checkMechanicAvailability(newRDV.mecanicien_id, newRDV.date, newRDV.heure, newRDV.duree);
     if (!isAvailable) {
@@ -154,11 +154,11 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
 
   const getStatusBadge = (status: RendezVous['statut']) => {
     switch(status) {
-        case 'en_attente': return { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'En attente' };
-        case 'en_cours': return { bg: 'bg-orange-500/10', text: 'text-orange-400', label: 'En cours' };
-        case 'termine': return { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Terminé' };
-        case 'annule': return { bg: 'bg-rose-500/10', text: 'text-rose-400', label: 'Annulé' };
-        default: return { bg: 'bg-gray-500/10', text: 'text-gray-400', label: 'Non assigné' };
+        case 'en_attente': return { bg: 'bg-blue-500/10', text: 'text-blue-500 dark:text-blue-400', label: 'En attente' };
+        case 'en_cours': return { bg: 'bg-orange-500/10', text: 'text-orange-600 dark:text-orange-400', label: 'En cours' };
+        case 'termine': return { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', label: 'Terminé' };
+        case 'annule': return { bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', label: 'Annulé' };
+        default: return { bg: 'bg-gray-500/10', text: 'text-gray-500 dark:text-gray-400', label: 'Non assigné' };
     }
   };
 
@@ -173,34 +173,34 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             <div className="w-14 h-14 flex items-center justify-center bg-blue-500/10 rounded-2xl border border-blue-500/20 shadow-inner">
               <span className="material-symbols-outlined text-blue-500 text-2xl">attach_money</span>
             </div>
-            <span className={`text-xs font-bold flex items-center px-3 py-1.5 rounded-full ${revenueStats.percent >= 0 ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-red-500 bg-red-500/10 border border-red-500/20'}`}>
+            <span className={`text-xs font-bold flex items-center px-3 py-1.5 rounded-full ${revenueStats.percent >= 0 ? 'text-emerald-600 bg-emerald-500/10 border border-emerald-500/20' : 'text-red-600 bg-red-500/10 border border-red-500/20'}`}>
               {revenueStats.percent >= 0 ? '+' : ''}{revenueStats.percent.toFixed(1)}% 
               <span className="material-symbols-outlined text-xs ml-1">{revenueStats.percent >= 0 ? 'trending_up' : 'trending_down'}</span>
             </span>
           </div>
-          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">CA Mensuel</h3>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">
+          <h3 className="text-slate-500 dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">CA Mensuel</h3>
+          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10">
             {revenueStats.current.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €
           </p>
         </button>
 
         {/* Véhicules en Service */}
-        <button onClick={() => onNavigate('vehicles')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
+        <button onClick={() => onNavigate('vehicles')} className="group glass-panel bg-white/70 dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full border border-slate-200 dark:border-white/10">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl group-hover:bg-orange-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-orange-500/10 rounded-2xl border border-orange-500/20 shadow-inner">
               <span className="material-symbols-outlined text-orange-500 text-2xl">car_repair</span>
             </div>
-            <span className="text-xs font-bold text-text-muted-light dark:text-text-muted-dark flex items-center bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
+            <span className="text-xs font-bold text-slate-500 dark:text-text-muted-dark flex items-center bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-full">
               {vehiclesInService} en attente
             </span>
           </div>
-          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">Véhicules en Service</h3>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">{vehicles.length} Véhicules</p>
+          <h3 className="text-slate-500 dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">Véhicules en Service</h3>
+          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10">{vehicles.length} Véhicules</p>
         </button>
 
         {/* RDV Aujourd'hui */}
-        <button onClick={() => onNavigate('appointments')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
+        <button onClick={() => onNavigate('appointments')} className="group glass-panel bg-white/70 dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full border border-slate-200 dark:border-white/10">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl group-hover:bg-purple-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-purple-500/10 rounded-2xl border border-purple-500/20 shadow-inner">
@@ -208,23 +208,23 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             </div>
             <div className="h-8"></div>
           </div>
-          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">RDV Aujourd'hui</h3>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">{todayAppointments.length} Rendez-vous</p>
+          <h3 className="text-slate-500 dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">RDV Aujourd'hui</h3>
+          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10">{todayAppointments.length} Rendez-vous</p>
         </button>
 
         {/* Factures en Attente */}
-        <button onClick={() => onNavigate('invoices')} className="group glass-panel bg-glass-gradient-light dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full">
+        <button onClick={() => onNavigate('invoices')} className="group glass-panel bg-white/70 dark:bg-glass-gradient p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden card-glow text-left w-full border border-slate-200 dark:border-white/10">
           <div className="absolute -right-10 -top-10 w-32 h-32 bg-pink-500/20 rounded-full blur-3xl group-hover:bg-pink-500/30 transition-all duration-500"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-14 h-14 flex items-center justify-center bg-pink-500/10 rounded-2xl border border-pink-500/20 shadow-inner">
               <span className="material-symbols-outlined text-pink-500 text-2xl">pending_actions</span>
             </div>
-            <span className="text-xs font-bold text-red-500 flex items-center bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-full">
+            <span className="text-xs font-bold text-red-600 dark:text-red-500 flex items-center bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-full">
               {pendingInvoices.count} En retard
             </span>
           </div>
-          <h3 className="text-text-muted-light dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">Factures en Attente</h3>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white relative z-10">
+          <h3 className="text-slate-500 dark:text-text-muted-dark text-sm font-medium mb-1 relative z-10">Factures en Attente</h3>
+          <p className="text-3xl font-bold text-slate-900 dark:text-white relative z-10">
             {pendingInvoices.amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
           </p>
         </button>
@@ -239,7 +239,7 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             
             {/* Header */}
             <div className="p-6 border-b border-slate-200 dark:border-white/5 flex justify-between items-center bg-white/50 dark:bg-white/[0.02] backdrop-blur-md relative z-10">
-              <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-3">
+              <h3 className="font-bold text-xl text-slate-900 dark:text-white flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary">schedule</span>
                 Planning de la Journée
               </h3>
@@ -254,14 +254,13 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             {/* Appointments List */}
             <div className="divide-y divide-slate-200 dark:divide-white/5 relative z-10 max-h-96 overflow-y-auto">
               {todayAppointments.length === 0 ? (
-                <div className="p-6 text-center text-text-muted-light dark:text-text-muted-dark">
+                <div className="p-6 text-center text-slate-500 dark:text-text-muted-dark">
                   <p className="text-sm font-medium">Aucun rendez-vous prévu aujourd'hui</p>
                 </div>
               ) : (
                 todayAppointments.slice(0, 3).map((app) => {
                   const client = customers.find(c => c.id === app.client_id);
                   const vehicle = vehicles.find(v => v.id === app.vehicule_id);
-                  const mechanic = mecaniciens.find(m => m.id === app.mecanicien_id);
                   const statusStyle = getStatusBadge(app.statut);
 
                   return (
@@ -272,11 +271,11 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
                           <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{app.heure.substring(0, 5)}</span>
                         </div>
                         <div>
-                          <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary transition-colors">{app.type_intervention}</h4>
-                          <p className="text-sm text-text-muted-light dark:text-text-muted-dark font-medium flex items-center gap-2 mt-1">
+                          <h4 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{app.type_intervention}</h4>
+                          <p className="text-sm text-slate-500 dark:text-text-muted-dark font-medium flex items-center gap-2 mt-1">
                             <span className="material-symbols-outlined text-base">directions_car</span>
                             {vehicle ? `${vehicle.marque} ${vehicle.modele}` : 'Véhicule inconnu'}
-                            <span className="w-1 h-1 bg-gray-500 rounded-full"></span>
+                            <span className="w-1 h-1 bg-slate-400 rounded-full"></span>
                             {client ? `${client.prenom} ${client.nom}` : 'Client inconnu'}
                           </p>
                         </div>
@@ -293,10 +292,10 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-border-light dark:border-white/5 bg-white/50 dark:bg-white/[0.02] text-center backdrop-blur-sm relative z-10">
+            <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-white/50 dark:bg-white/[0.02] text-center backdrop-blur-sm relative z-10">
               <button 
                 onClick={() => onNavigate('appointments')}
-                className="text-sm font-bold text-text-muted-light dark:text-text-muted-dark hover:text-primary dark:hover:text-primary transition-colors flex items-center justify-center gap-2 w-full"
+                className="text-sm font-bold text-slate-500 dark:text-text-muted-dark hover:text-primary dark:hover:text-primary transition-colors flex items-center justify-center gap-2 w-full"
               >
                 Voir tous les rendez-vous <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
@@ -347,28 +346,6 @@ const Dashboard: React.FC<DashboardProps> = ({ customers, vehicles, mecaniciens,
                 <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">smart_toy</span>
                 <span className="text-xs font-bold">Assistant IA</span>
               </button>
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="glass-panel bg-glass-gradient-light dark:bg-glass-gradient rounded-3xl p-6 overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none"></div>
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-4 relative z-10 flex items-center gap-2">
-              <span className="material-symbols-outlined text-purple-500">history</span>
-              Activité Récente
-            </h3>
-            <div className="space-y-3 relative z-10 max-h-48 overflow-y-auto">
-              {appointments.slice(0, 5).map((app) => {
-                const client = customers.find(c => c.id === app.client_id);
-                return (
-                  <div key={app.id} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-colors cursor-pointer border border-white/5">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{app.type_intervention}</p>
-                    <p className="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">
-                      {client?.prenom} {client?.nom} • {app.date}
-                    </p>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>

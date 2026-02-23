@@ -42,8 +42,8 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon, isPremium = false,
       onClick={() => onClick(view)} 
       className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all w-full group relative ${
         isActive 
-          ? 'bg-gradient-to-r from-blue-500/20 to-blue-500/5 text-blue-600 dark:text-blue-400 border border-blue-500/10 shadow-sm' 
-          : 'text-text-muted-light dark:text-text-muted-dark hover:bg-white/50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+          ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20 shadow-sm' 
+          : 'text-slate-500 dark:text-text-muted-dark hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
       }`}
     >
       <div className={`absolute inset-0 bg-blue-500/10 opacity-0 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'} transition-opacity rounded-2xl`}></div>
@@ -407,21 +407,21 @@ const GarageProApp: React.FC = () => {
 
         {/* User Profile Section */}
         <div className="mt-auto px-4 pb-4">
-          <div className="flex items-center justify-between p-3 mb-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-colors cursor-pointer group">
+          <div className="flex items-center justify-between p-3 mb-2 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/5 transition-all cursor-pointer group">
             <div className="flex items-center gap-3">
               <div className="relative w-10 h-10 shrink-0">
                 <img 
                   alt="Profil Utilisateur" 
-                  className="w-full h-full object-cover rounded-full shadow-md" 
+                  className="w-full h-full object-cover rounded-full shadow-md border border-white dark:border-slate-800" 
                   src={session?.user?.user_metadata?.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuBVVVWdL1s4cbCLs-75COsjJGiIVYbi43KHS7oc2406m6MBJVihJLabOmogZhjDRuvxQec5SIZqLBnuVFB70a-6TUqwM7f895iw73kcoHEvJ2jOByZxBSFYWWjFtMiOWYBllC0PrsY_obf8-NH0WxjJAyUeOxLFJCTo1QNz-DZNi3i-wRm7tKHMzsGCWlY8qkYPNUbJ_eIEaBMw42kXcuqlezhKo08UqiaghfJoHaLZQrcEg-UI0tkiAPmWLrF-QMksq6wSQUSGwKHu"} 
                 />
               </div>
               <div className="overflow-hidden">
-                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Utilisateur'}</p>
-                <p className="text-xs text-blue-500 dark:text-blue-400 font-medium truncate">{settings?.nom || 'Garage Auto Pro'}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Utilisateur'}</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate">{settings?.nom || 'Garage Auto Pro'}</p>
               </div>
             </div>
-            <button onClick={() => handleNavigate('settings')} className="text-text-muted-light dark:text-text-muted-dark hover:text-white transition-colors">
+            <button onClick={() => handleNavigate('settings')} className="text-slate-400 dark:text-text-muted-dark hover:text-blue-600 dark:hover:text-white transition-colors">
               <span className="material-symbols-outlined text-xl">settings</span>
             </button>
           </div>
@@ -462,15 +462,15 @@ const GarageProApp: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-4 relative z-10">
-            <button id="app-notifications" onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark border border-white/5 transition-all">
+            <button id="app-notifications" onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative p-2.5 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-text-muted-dark border border-slate-200 dark:border-white/5 transition-all">
               <span className="material-symbols-outlined">notifications</span>
-              {notifications.length > 0 && <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-background-dark"></span>}
+              {notifications.length > 0 && <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-background-dark"></span>}
             </button>
-            <button id="app-theme-toggle" onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark hover:text-yellow-400 dark:hover:text-yellow-400 border border-white/5 transition-all">
+            <button id="app-theme-toggle" onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-text-muted-dark hover:text-yellow-500 dark:hover:text-yellow-400 border border-slate-200 dark:border-white/5 transition-all">
               <span className="material-symbols-outlined dark:hidden">dark_mode</span>
               <span className="material-symbols-outlined hidden dark:inline">light_mode</span>
             </button>
-            <button id="app-help" onClick={() => setShowHelpModal(true)} className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-text-muted-light dark:text-text-muted-dark border border-white/5 transition-all">
+            <button id="app-help" onClick={() => setShowHelpModal(true)} className="p-2.5 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-text-muted-dark border border-slate-200 dark:border-white/5 transition-all">
               <span className="material-symbols-outlined">help</span>
             </button>
           </div>
